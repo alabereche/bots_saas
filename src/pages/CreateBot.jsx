@@ -26,12 +26,12 @@ const LANGUAGES = [
   { value: 'auto', label: 'تلقائي', desc: 'يرد بلغة المستخدم' },
 ];
 
-// Valid free tier models (updated)
+// OpenRouter free models
 const AI_MODELS = [
-  { value: 'google/gemma-3n-e2b-it:free', label: 'Gemma 3 2B', desc: 'سريع ومتوازن' },
-  { value: 'qwen/qwen3-coder:free', label: 'Qwen 3 Coder', desc: 'دقيق وموثوق' },
-  { value: 'z-ai/glm-4.5-air:free', label: 'GLM 4.5 Air', desc: 'ذكي جدا' },
-  { value: 'openai/gpt-oss-120b:free', label: 'GPT OSS 120B', desc: 'نموذج مجاني قوي من OpenRouter' },
+  { value: 'openrouter/free', label: 'تلقائي (مجاني)', desc: 'يختار أفضل نموذج مجاني متاح تلقائياً' },
+  { value: 'google/gemma-3-27b-it:free', label: 'Gemma 3 27B', desc: 'نموذج Google المجاني القوي' },
+  { value: 'mistralai/mistral-small-3.1-24b-instruct:free', label: 'Mistral Small 3.1', desc: 'سريع ومتعدد اللغات' },
+  { value: 'qwen/qwen3-32b:free', label: 'Qwen 3 32B', desc: 'ذكي ودقيق' },
 ];
 
 export default function CreateBot() {

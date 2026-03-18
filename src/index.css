@@ -1146,7 +1146,13 @@ h1, h2, h3, h4, h5, h6 {
   top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   z-index: 998;
+  pointer-events: none;
+}
+.sidebar-overlay--open {
+  display: block;
+  pointer-events: auto;
 }
 
 .sidebar {
@@ -1364,7 +1370,7 @@ h1, h2, h3, h4, h5, h6 {
     transform: translateX(0);
   }
 
-  .sidebar-overlay {
+  .sidebar-overlay--open {
     display: block;
   }
 

@@ -48,9 +48,7 @@ export default function Sidebar({ isOpen, onClose }) {
 
   return (
     <>
-      {/* Mobile overlay */}
-      {isOpen && <div className="sidebar-overlay" onClick={onClose} />}
-
+      {/* Mobile overlay — only visible when sidebar is open */}
       <div className={`sidebar-overlay ${isOpen ? 'sidebar-overlay--open' : ''}`} onClick={onClose} />
       <aside className={`sidebar ${isOpen ? 'sidebar--open' : ''}`}>
         <div className="sidebar-brand">

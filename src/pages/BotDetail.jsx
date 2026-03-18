@@ -332,8 +332,8 @@ function InfoRow({ label, value, mono }) {
   );
 }
 
-const WA_ENGINE = 'http://localhost:3001';
-const WA_KEY = 'nx_live_36fcabe932251a2c9ee9cde7a67c81029b29f75889357c5c';
+const WA_ENGINE = import.meta.env.VITE_WA_ENGINE_URL || 'http://localhost:3001';
+const WA_KEY = import.meta.env.VITE_API_KEY;
 
 function WhatsAppConnect({ botId, botName, status: initialStatus }) {
   const [waStatus, setWaStatus] = useState(initialStatus || 'not_initialized');

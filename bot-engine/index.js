@@ -68,40 +68,17 @@ async function incrementMessageCount(botId) {
 const conversationHistory = new Map();
 const MAX_HISTORY = 20; // Keep last 20 messages per user
 
-async function askAI(config, userId, userMessage) {
-  const historyKey = `${config.id}_${userId}`;
-
-  // Get or initialize conversation history
-  if (!conversationHistory.has(historyKey)) {
-    conversationHistory.set(historyKey, []);
-  }
-  const history = conversationHistory.get(historyKey);
-
-  // Add user message to history
-  history.push({ role: 'user', content: userMessage });
-
-  // Trim history if too long
-  if (history.length > MAX_HISTORY) {
-    history.splice(0, history.length - MAX_HISTORY);
-  }
-
-  const systemPrompt = buildSystemPrompt(config);
-
-  const messages = [
-    { role: 'system', content: systemPrompt },
-    ...history,
-  ];
-
+async function callOpenRouter(apiKey, model, messages) {
   const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
-      'Authorization': 'Bearer ' + config.openrouterKey,
+      'Authorization': 'Bearer ' + apiKey,
       'Content-Type': 'application/json',
       'HTTP-Referer': 'https://botforge.app',
       'X-Title': 'BotForge',
     },
     body: JSON.stringify({
-      model: config.aiModel || 'meta-llama/llama-3.1-8b-instruct',
+      model,
       messages,
       max_tokens: 1024,
       temperature: 0.7,
@@ -110,17 +87,58 @@ async function askAI(config, userId, userMessage) {
 
   if (!res.ok) {
     const err = await res.text();
-    throw new Error('OpenRouter error: ' + err);
+    console.error(`[OpenRouter] Model "${model}" error ${res.status}:`, err);
+    throw new Error(`OpenRouter ${res.status}: ${err}`);
   }
 
   const data = await res.json();
-  const reply = data.choices?.[0]?.message?.content || 'عذراً، لم أتمكن من المعالجة.';
+  return data.choices?.[0]?.message?.content || null;
+}
 
-  // Add assistant reply to history
+async function askAI(config, userId, userMessage) {
+  const historyKey = `${config.id}_${userId}`;
+
+  if (!conversationHistory.has(historyKey)) {
+    conversationHistory.set(historyKey, []);
+  }
+  const history = conversationHistory.get(historyKey);
+  history.push({ role: 'user', content: userMessage });
+  if (history.length > MAX_HISTORY) {
+    history.splice(0, history.length - MAX_HISTORY);
+  }
+
+  const systemPrompt = buildSystemPrompt(config);
+  const messages = [{ role: 'system', content: systemPrompt }, ...history];
+
+  // Primary model from bot config, fallback to OpenRouter's free auto-router
+  const primaryModel = config.aiModel || 'openrouter/free';
+  const fallbackModel = 'openrouter/free';
+
+  let reply = null;
+
+  try {
+    reply = await callOpenRouter(config.openrouterKey, primaryModel, messages);
+  } catch (err) {
+    console.warn(`[Engine] Primary model failed, trying fallback. Error: ${err.message}`);
+    // Only try fallback if it's different from primary
+    if (primaryModel !== fallbackModel) {
+      try {
+        reply = await callOpenRouter(config.openrouterKey, fallbackModel, messages);
+      } catch (fallbackErr) {
+        console.error(`[Engine] Fallback model also failed: ${fallbackErr.message}`);
+        throw fallbackErr;
+      }
+    } else {
+      throw err;
+    }
+  }
+
+  if (!reply) reply = 'عذراً، لم أتمكن من المعالجة.';
+
   history.push({ role: 'assistant', content: reply });
-
   return reply;
 }
+
 
 // ─── Start a Single Bot ───────────────────────────────────────
 async function startBot(config) {

@@ -26,68 +26,7 @@ const LANGUAGES = [
   { value: 'auto', label: 'تلقائي', desc: 'يرد بلغة المستخدم' },
 ];
 
-// AI Providers configuration
-const AI_PROVIDERS = [
-  {
-    value: 'openrouter',
-    label: 'OpenRouter',
-    desc: 'بوابة موحدة لعشرات النماذج المجانية والمدفوعة',
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
-      </svg>
-    ),
-    keyPlaceholder: 'sk-or-...',
-    keyHelper: 'احصل عليه من openrouter.ai — يوجد نماذج مجانية',
-    keyField: 'openrouterKey',
-  },
-  {
-    value: 'gemini',
-    label: 'Google Gemini',
-    desc: 'نماذج Google القوية مباشرة من AI Studio',
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>
-      </svg>
-    ),
-    keyPlaceholder: 'AIzaSy...',
-    keyHelper: 'احصل عليه من aistudio.google.com — مجاني بحدود يومية',
-    keyField: 'geminiKey',
-  },
-  {
-    value: 'openai',
-    label: 'OpenAI (ChatGPT)',
-    desc: 'GPT-4o وGPT-4o-mini — يتطلب اشتراك مدفوع',
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2a10 10 0 0 1 10 10 10 10 0 0 1-10 10A10 10 0 0 1 2 12 10 10 0 0 1 12 2z"/>
-        <path d="M8 12h8M12 8v8"/>
-      </svg>
-    ),
-    keyPlaceholder: 'sk-proj-...',
-    keyHelper: 'احصل عليه من platform.openai.com',
-    keyField: 'openaiKey',
-  },
-];
 
-// Models per provider
-const MODELS_BY_PROVIDER = {
-  openrouter: [
-    { value: 'openrouter/free', label: 'تلقائي (مجاني)', desc: 'يختار أفضل نموذج مجاني متاح تلقائياً' },
-    { value: 'google/gemma-3-27b-it:free', label: 'Gemma 3 27B', desc: 'نموذج Google المجاني القوي' },
-    { value: 'mistralai/mistral-small-3.1-24b-instruct:free', label: 'Mistral Small 3.1', desc: 'سريع ومتعدد اللغات' },
-    { value: 'qwen/qwen3-32b:free', label: 'Qwen 3 32B', desc: 'ذكي ودقيق' },
-  ],
-  gemini: [
-    { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', desc: 'سريع وذكي — الأفضل والافتراضي (مجاني)' },
-    { value: 'gemini-3.0-flash', label: 'Gemini 3.0 Flash', desc: 'أحدث الجيل الثالث — الأسرع (مجاني)' },
-    { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', desc: 'للكمبيوترات القديمة (قد لا يعمل للحسابات الجديدة)' },
-  ],
-  openai: [
-    { value: 'gpt-4o-mini', label: 'GPT-4o Mini', desc: 'سريع واقتصادي — الأفضل للبدء' },
-    { value: 'gpt-4o', label: 'GPT-4o', desc: 'الأقوى — أعلى جودة ردود' },
-  ],
-};
 
 export default function CreateBot() {
   const navigate = useNavigate();
@@ -115,27 +54,6 @@ export default function CreateBot() {
 
   // Step 3
   const [telegramToken, setTelegramToken] = useState('');
-  const [aiProvider, setAiProvider] = useState('openrouter');
-  const [openrouterKey, setOpenrouterKey] = useState('');
-  const [openaiKey, setOpenaiKey] = useState('');
-  const [geminiKey, setGeminiKey] = useState('');
-  const [aiModel, setAiModel] = useState(MODELS_BY_PROVIDER.openrouter[0].value);
-
-  // When provider changes, reset model to its default
-  const handleProviderChange = (newProvider) => {
-    setAiProvider(newProvider);
-    setAiModel(MODELS_BY_PROVIDER[newProvider][0].value);
-  };
-
-  const getActiveKey = () => {
-    if (aiProvider === 'openrouter') return openrouterKey;
-    if (aiProvider === 'gemini') return geminiKey;
-    if (aiProvider === 'openai') return openaiKey;
-    return '';
-  };
-
-  const currentProviderConfig = AI_PROVIDERS.find(p => p.value === aiProvider);
-  const currentModels = MODELS_BY_PROVIDER[aiProvider] || [];
 
   const validateStep1 = () => {
     if (!businessName || !botName || !businessType) {
@@ -148,11 +66,6 @@ export default function CreateBot() {
   const validateStep3 = () => {
     if (platform === 'telegram' && !telegramToken) {
       toast.error('يرجى ادخال توكن بوت تيليغرام');
-      return false;
-    }
-    if (!getActiveKey()) {
-      const providerLabel = currentProviderConfig?.label || 'AI';
-      toast.error(`يرجى ادخال مفتاح ${providerLabel} API`);
       return false;
     }
     return true;
@@ -183,13 +96,8 @@ export default function CreateBot() {
         responseStyle,
         language,
         customInstructions,
-        aiProvider,
-        aiModel,
-        // Store the key for the chosen provider
-        openrouterKey: aiProvider === 'openrouter' ? openrouterKey : '',
-        geminiKey: aiProvider === 'gemini' ? geminiKey : '',
-        openaiKey: aiProvider === 'openai' ? openaiKey : '',
-        anthropicKey: '',
+        aiProvider: 'gemini',
+        aiModel: 'gemini-2.5-flash',
         isActive: false,
         messagesCount: 0,
         createdAt: new Date().toISOString(),
@@ -405,56 +313,15 @@ export default function CreateBot() {
               </div>
             )}
 
-            {/* AI Provider Selection */}
-            <div className="form-group">
-              <label className="form-label">مزود الذكاء الاصطناعي <span className="required">*</span></label>
-              <div className="radio-group">
-                {AI_PROVIDERS.map(p => (
-                  <label key={p.value} className={`radio-card ${aiProvider === p.value ? 'selected' : ''}`}>
-                    <input type="radio" name="aiProvider" value={p.value} checked={aiProvider === p.value} onChange={() => handleProviderChange(p.value)} />
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                      <span style={{ display: 'flex', opacity: 0.8 }}>{p.icon}</span>
-                      <span className="radio-card-label">{p.label}</span>
-                    </span>
-                    <span className="radio-card-desc">{p.desc}</span>
-                  </label>
-                ))}
+            {/* AI Info Notice */}
+            <div style={{ background: 'rgba(139, 92, 246, 0.08)', border: '1px solid rgba(139, 92, 246, 0.2)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-4)', marginBottom: 'var(--space-2)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-color)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                <span style={{ fontWeight: 600, color: 'var(--accent-color)', fontSize: 'var(--text-sm)' }}>الذكاء الاصطناعي</span>
               </div>
-            </div>
-
-            {/* Provider-specific API Key */}
-            <div className="form-group">
-              <label className="form-label">
-                مفتاح {currentProviderConfig?.label} API <span className="required">*</span>
-              </label>
-              <input
-                type="password"
-                className="form-input"
-                placeholder={currentProviderConfig?.keyPlaceholder}
-                value={getActiveKey()}
-                onChange={e => {
-                  if (aiProvider === 'openrouter') setOpenrouterKey(e.target.value);
-                  else if (aiProvider === 'gemini') setGeminiKey(e.target.value);
-                  else if (aiProvider === 'openai') setOpenaiKey(e.target.value);
-                }}
-                dir="ltr"
-                style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)' }}
-              />
-              <p className="form-helper">{currentProviderConfig?.keyHelper}</p>
-            </div>
-
-            {/* Model Selection for current provider */}
-            <div className="form-group">
-              <label className="form-label">نموذج الذكاء الاصطناعي</label>
-              <div className="radio-group">
-                {currentModels.map(m => (
-                  <label key={m.value} className={`radio-card ${aiModel === m.value ? 'selected' : ''}`}>
-                    <input type="radio" name="aiModel" value={m.value} checked={aiModel === m.value} onChange={e => setAiModel(e.target.value)} />
-                    <span className="radio-card-label">{m.label}</span>
-                    <span className="radio-card-desc">{m.desc}</span>
-                  </label>
-                ))}
-              </div>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', lineHeight: 'var(--leading-relaxed)' }}>
+                يعمل البوت بتقنية <strong>الذكاء الاصطناعي المتقدمة</strong> بشكل تلقائي. لا تحتاج إلى إدخال أي مفتاح API أو إعدادات معقدة. نتكفل نحن بالإعداد بالكامل.
+              </p>
             </div>
           </div>
         )}

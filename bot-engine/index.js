@@ -126,25 +126,6 @@ async function detectOrder(botId, telegramUserId, userName, botReply, userMessag
 const conversationHistory = new Map();
 const MAX_HISTORY = 20;
 
-async function callOpenRouter(apiKey, model, messages) {
-  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Bearer ' + apiKey,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://botforge.app',
-      'X-Title': 'BotForge',
-    },
-    body: JSON.stringify({ model, messages, max_tokens: 1024, temperature: 0.7 }),
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`OpenRouter ${res.status}: ${err}`);
-  }
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content || null;
-}
-
 async function callGemini(apiKey, model, messages) {
   const geminiModel = model || 'gemini-2.5-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`;
@@ -172,22 +153,8 @@ async function callGemini(apiKey, model, messages) {
   return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
 }
 
-async function callOpenAI(apiKey, model, messages) {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Bearer ' + apiKey,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ model: model || 'gpt-4o-mini', messages, max_tokens: 1024, temperature: 0.7 }),
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`OpenAI ${res.status}: ${err}`);
-  }
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content || null;
-}
+// Hardcoded Gemini API key — used for all bots
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyADxOE9XhXNIJiIrEJ-1ZAWga_iy671KC4';
 
 async function askAI(config, userId, userMessage) {
   const historyKey = `${config.id}_${userId}`;
@@ -202,27 +169,13 @@ async function askAI(config, userId, userMessage) {
 
   const systemPrompt = buildSystemPrompt(config);
   const messages = [{ role: 'system', content: systemPrompt }, ...history];
-  const provider = config.aiProvider || 'openrouter';
-  const model = config.aiModel;
+  const model = config.aiModel || 'gemini-2.5-flash';
   let reply = null;
 
   try {
-    if (provider === 'gemini') {
-      reply = await callGemini(config.geminiKey, model, messages);
-    } else if (provider === 'openai') {
-      reply = await callOpenAI(config.openaiKey, model, messages);
-    } else {
-      const primaryModel = model || 'openrouter/free';
-      try {
-        reply = await callOpenRouter(config.openrouterKey, primaryModel, messages);
-      } catch (err) {
-        if (primaryModel !== 'openrouter/free') {
-          reply = await callOpenRouter(config.openrouterKey, 'openrouter/free', messages);
-        } else { throw err; }
-      }
-    }
+    reply = await callGemini(GEMINI_API_KEY, model, messages);
   } catch (err) {
-    console.error(`[Engine] AI call failed (${provider}): ${err.message}`);
+    console.error(`[Engine] Gemini call failed: ${err.message}`);
     throw err;
   }
 

@@ -1,14 +1,16 @@
 {
   "name": "botforge-telegram-engine",
-  "version": "1.0.0",
-  "description": "BotForge Telegram Bot Engine — polls NexCloud and runs Telegram bots via grammy",
+  "version": "2.0.0",
+  "description": "BotForge Telegram Bot Engine — runs Telegram bots with AI, live chat, and order detection",
   "main": "index.js",
   "type": "module",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
+    "cors": "^2.8.5",
     "dotenv": "^17.3.1",
+    "express": "^5.1.0",
     "grammy": "^1.41.1"
   }
 }

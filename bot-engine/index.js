@@ -1,18 +1,24 @@
 // ═══════════════════════════════════════════════════════════════
-// BotForge — Bot Engine
-// Reads bot configs from NexCloud, starts Telegram bots,
-// routes messages through OpenRouter AI
+// BotForge — Bot Engine v2
+// Threaded conversations, owner reply, order detection,
+// human takeover, multi-provider AI
 // ═══════════════════════════════════════════════════════════════
 
 import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
 import { Bot } from 'grammy';
 import { buildSystemPrompt } from './prompt-builder.js';
 
 const API = process.env.NEXCLOUD_URL || 'https://nexcloud-production.up.railway.app/api/v1';
 const KEY = process.env.NEXCLOUD_KEY;
+const PORT = process.env.PORT || 3002;
 
 // Store active bot instances: botDocId -> { bot, config }
 const activeBots = new Map();
+
+// Track human takeover per user: "botId_userId" -> true
+const humanTakeoverMap = new Map();
 
 // ─── NexCloud Helpers ─────────────────────────────────────────
 async function nex(method, path, body) {
@@ -37,14 +43,15 @@ async function updateBotStatus(botId, isActive) {
   });
 }
 
-async function saveConversation(botId, userId, userName, userMessage, botReply) {
+// ─── Message Storage (Threaded) ──────────────────────────────
+async function saveMessage(botId, telegramUserId, userName, content, role) {
   await nex('POST', '/database/ext/conversations/documents', {
     data: {
       botId,
-      telegramUserId: String(userId),
-      userName: userName || 'مجهول',
-      lastMessage: userMessage.slice(0, 200),
-      botReply: botReply.slice(0, 500),
+      telegramUserId: String(telegramUserId),
+      userName: userName || 'زبون',
+      content,
+      role, // 'user' | 'bot' | 'owner'
       createdAt: new Date().toISOString(),
     },
   });
@@ -63,10 +70,61 @@ async function incrementMessageCount(botId) {
   }
 }
 
-// ─── OpenRouter AI ────────────────────────────────────────────
-// Conversation history per user (in-memory, resets on restart)
+// ─── Order Detection ─────────────────────────────────────────
+// Detects when bot reply confirms an order with address/phone
+async function detectOrder(botId, telegramUserId, userName, botReply, userMessage) {
+  // Check if the bot reply contains order confirmation patterns
+  const orderIndicators = [
+    'تأكيد الطلب', 'تم تأكيد', 'طلبيتك', 'طلبك',
+    'سنقوم بالتوصيل', 'سيتم التوصيل', 'عنوان التوصيل',
+    'تأكيد الطلبية', 'هاهو تأكيد',
+  ];
+  const hasOrderKeyword = orderIndicators.some(k => botReply.includes(k));
+
+  // Check if user message or bot reply contains phone/address patterns
+  const phoneRegex = /(?:0[567]\d{8}|\+213\d{9})/;
+  const combinedText = userMessage + ' ' + botReply;
+  const hasPhone = phoneRegex.test(combinedText);
+
+  if (hasOrderKeyword && hasPhone) {
+    // Extract phone
+    const phoneMatch = combinedText.match(phoneRegex);
+    const phone = phoneMatch ? phoneMatch[0] : '';
+
+    // Extract address (look for text after address keywords)
+    let address = '';
+    const addressPatterns = [
+      /(?:العنوان|عنوان التوصيل|العنوان هو|عنواني|عنوان)[:\s]*([^\n.،]+)/,
+      /(?:شارع|حي|بلدية|ولاية)[^\n.،]*/,
+    ];
+    for (const p of addressPatterns) {
+      const m = combinedText.match(p);
+      if (m) { address = m[1] || m[0]; break; }
+    }
+
+    try {
+      await nex('POST', '/database/ext/orders/documents', {
+        data: {
+          botId,
+          telegramUserId: String(telegramUserId),
+          customerName: userName || 'زبون',
+          phone,
+          address: address.trim(),
+          orderSummary: botReply.slice(0, 500),
+          status: 'new',
+          createdAt: new Date().toISOString(),
+        },
+      });
+      console.log(`[Engine] Order detected for user ${userName} (${phone})`);
+    } catch (e) {
+      console.error('[Engine] Failed to save order:', e.message);
+    }
+  }
+}
+
+// ─── Multi-Provider AI ────────────────────────────────────────
 const conversationHistory = new Map();
-const MAX_HISTORY = 20; // Keep last 20 messages per user
+const MAX_HISTORY = 20;
 
 async function callOpenRouter(apiKey, model, messages) {
   const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -77,27 +135,62 @@ async function callOpenRouter(apiKey, model, messages) {
       'HTTP-Referer': 'https://botforge.app',
       'X-Title': 'BotForge',
     },
-    body: JSON.stringify({
-      model,
-      messages,
-      max_tokens: 1024,
-      temperature: 0.7,
-    }),
+    body: JSON.stringify({ model, messages, max_tokens: 1024, temperature: 0.7 }),
   });
-
   if (!res.ok) {
     const err = await res.text();
-    console.error(`[OpenRouter] Model "${model}" error ${res.status}:`, err);
     throw new Error(`OpenRouter ${res.status}: ${err}`);
   }
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content || null;
+}
 
+async function callGemini(apiKey, model, messages) {
+  const geminiModel = model || 'gemini-2.5-flash';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`;
+  const systemInstruction = messages.find(m => m.role === 'system')?.content || '';
+  const contents = messages
+    .filter(m => m.role !== 'system')
+    .map(m => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    }));
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
+      contents,
+      generationConfig: { maxOutputTokens: 1024, temperature: 0.7 },
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Gemini ${res.status}: ${err}`);
+  }
+  const data = await res.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
+}
+
+async function callOpenAI(apiKey, model, messages) {
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + apiKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ model: model || 'gpt-4o-mini', messages, max_tokens: 1024, temperature: 0.7 }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`OpenAI ${res.status}: ${err}`);
+  }
   const data = await res.json();
   return data.choices?.[0]?.message?.content || null;
 }
 
 async function askAI(config, userId, userMessage) {
   const historyKey = `${config.id}_${userId}`;
-
   if (!conversationHistory.has(historyKey)) {
     conversationHistory.set(historyKey, []);
   }
@@ -109,82 +202,86 @@ async function askAI(config, userId, userMessage) {
 
   const systemPrompt = buildSystemPrompt(config);
   const messages = [{ role: 'system', content: systemPrompt }, ...history];
-
-  // Primary model from bot config, fallback to OpenRouter's free auto-router
-  const primaryModel = config.aiModel || 'openrouter/free';
-  const fallbackModel = 'openrouter/free';
-
+  const provider = config.aiProvider || 'openrouter';
+  const model = config.aiModel;
   let reply = null;
 
   try {
-    reply = await callOpenRouter(config.openrouterKey, primaryModel, messages);
-  } catch (err) {
-    console.warn(`[Engine] Primary model failed, trying fallback. Error: ${err.message}`);
-    // Only try fallback if it's different from primary
-    if (primaryModel !== fallbackModel) {
-      try {
-        reply = await callOpenRouter(config.openrouterKey, fallbackModel, messages);
-      } catch (fallbackErr) {
-        console.error(`[Engine] Fallback model also failed: ${fallbackErr.message}`);
-        throw fallbackErr;
-      }
+    if (provider === 'gemini') {
+      reply = await callGemini(config.geminiKey, model, messages);
+    } else if (provider === 'openai') {
+      reply = await callOpenAI(config.openaiKey, model, messages);
     } else {
-      throw err;
+      const primaryModel = model || 'openrouter/free';
+      try {
+        reply = await callOpenRouter(config.openrouterKey, primaryModel, messages);
+      } catch (err) {
+        if (primaryModel !== 'openrouter/free') {
+          reply = await callOpenRouter(config.openrouterKey, 'openrouter/free', messages);
+        } else { throw err; }
+      }
     }
+  } catch (err) {
+    console.error(`[Engine] AI call failed (${provider}): ${err.message}`);
+    throw err;
   }
 
   if (!reply) reply = 'عذراً، لم أتمكن من المعالجة.';
-
   history.push({ role: 'assistant', content: reply });
   return reply;
 }
 
-
 // ─── Start a Single Bot ───────────────────────────────────────
 async function startBot(config) {
-  if (activeBots.has(config.id)) {
-    console.log(`[Engine] Bot "${config.botName}" already running, skipping.`);
-    return;
-  }
-
-  if (!config.telegramToken) {
-    console.warn(`[Engine] Bot "${config.botName}" has no Telegram token, skipping.`);
-    return;
-  }
+  if (activeBots.has(config.id)) return;
+  if (!config.telegramToken) return;
 
   try {
     const bot = new Bot(config.telegramToken);
 
-    // Handle /start command
     bot.command('start', async (ctx) => {
       const greeting = config.responseStyle === 'formal'
         ? `مرحباً بك. أنا ${config.botName}، مساعدك الآلي من ${config.businessName}. كيف يمكنني مساعدتك؟`
-        : `أهلاً وسهلاً! أنا ${config.botName} 🤖 مساعدك من ${config.businessName}. كيف اقدر اساعدك؟`;
+        : `أهلاً وسهلاً! أنا ${config.botName} مساعدك من ${config.businessName}. كيف اقدر اساعدك؟`;
       await ctx.reply(greeting);
     });
 
-    // Handle all text messages
     bot.on('message:text', async (ctx) => {
       const userMessage = ctx.message.text;
       const userId = ctx.from.id;
       const userName = ctx.from.first_name || ctx.from.username || '';
+      const takeoverKey = `${config.id}_${userId}`;
+
+      // Save user message
+      saveMessage(config.id, userId, userName, userMessage, 'user').catch(() => {});
+
+      // Check human takeover — if owner is handling, don't auto-reply
+      if (humanTakeoverMap.get(takeoverKey)) {
+        console.log(`[Engine] Skipping AI reply for user ${userId} — human takeover active`);
+        return;
+      }
 
       try {
-        // Show "typing..." indicator
         await ctx.replyWithChatAction('typing');
-
-        // Get AI response
         const reply = await askAI(config, userId, userMessage);
-
-        // Send reply
         await ctx.reply(reply, { parse_mode: 'Markdown' }).catch(async () => {
-          // If Markdown fails, send as plain text
           await ctx.reply(reply);
         });
 
-        // Save conversation & increment count (don't await to keep fast)
-        saveConversation(config.id, userId, userName, userMessage, reply).catch(() => {});
+        // Save bot reply
+        saveMessage(config.id, userId, userName, reply, 'bot').catch(() => {});
         incrementMessageCount(config.id).catch(() => {});
+
+        // Detect orders in background
+        detectOrder(config.id, userId, userName, reply, userMessage).catch(() => {});
+
+        // Auto-detect transfer to owner request
+        const transferPhrases = ['سأحولك', 'سأحيلك', 'سأوصلك', 'يرجى الانتظار', 'صاحب المحل'];
+        const isTransfer = transferPhrases.some(p => reply.includes(p));
+        if (isTransfer) {
+          humanTakeoverMap.set(takeoverKey, true);
+          console.log(`[Engine] Auto-takeover ON for user ${userId} — transfer detected in AI reply`);
+        }
 
       } catch (err) {
         console.error(`[Engine] Error in bot "${config.botName}":`, err.message);
@@ -192,24 +289,18 @@ async function startBot(config) {
       }
     });
 
-    // Handle non-text messages
     bot.on('message', async (ctx) => {
-      if (ctx.message.text) return; // already handled above
+      if (ctx.message.text) return;
       await ctx.reply('عذراً، حالياً أستطيع الرد على الرسائل النصية فقط.');
     });
 
-    // Error handler
     bot.catch((err) => {
       console.error(`[Engine] Bot "${config.botName}" error:`, err.message);
     });
 
-    // Start the bot
     bot.start();
     activeBots.set(config.id, { bot, config });
-
-    // Update status in DB
     await updateBotStatus(config.id, true);
-
     console.log(`[Engine] Bot "${config.botName}" started successfully.`);
   } catch (err) {
     console.error(`[Engine] Failed to start bot "${config.botName}":`, err.message);
@@ -220,7 +311,6 @@ async function startBot(config) {
 async function stopBot(botId) {
   const entry = activeBots.get(botId);
   if (!entry) return;
-
   try {
     await entry.bot.stop();
     activeBots.delete(botId);
@@ -236,20 +326,14 @@ async function stopBot(botId) {
 async function syncBots() {
   try {
     const bots = await getAllBots();
-
     for (const botConfig of bots) {
       const isRunning = activeBots.has(botConfig.id);
-
       if (botConfig.isActive && !isRunning) {
-        // Should be running but isn't — start it
         await startBot(botConfig);
       } else if (!botConfig.isActive && isRunning) {
-        // Should be stopped but is running — stop it
         await stopBot(botConfig.id);
       }
     }
-
-    // Stop bots that were deleted from DB
     for (const [id] of activeBots) {
       if (!bots.find(b => b.id === id)) {
         await stopBot(id);
@@ -260,24 +344,107 @@ async function syncBots() {
   }
 }
 
+// ─── Express API (for dashboard interactions) ─────────────────
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', bots: activeBots.size });
+});
+
+// Owner sends a reply to a customer
+app.post('/api/reply', async (req, res) => {
+  const { botId, telegramUserId, message } = req.body;
+  if (!botId || !telegramUserId || !message) {
+    return res.status(400).json({ error: 'Missing botId, telegramUserId, or message' });
+  }
+
+  const entry = activeBots.get(botId);
+  if (!entry) {
+    return res.status(404).json({ error: 'Bot not running' });
+  }
+
+  try {
+    // Auto-enable takeover when owner starts replying
+    const takeoverKey = `${botId}_${telegramUserId}`;
+    if (!humanTakeoverMap.get(takeoverKey)) {
+      humanTakeoverMap.set(takeoverKey, true);
+      console.log(`[Engine] Auto-takeover ON for user ${telegramUserId} — owner started replying`);
+    }
+
+    // Send message via Telegram
+    await entry.bot.api.sendMessage(telegramUserId, message);
+
+    // Save owner reply to DB
+    await saveMessage(botId, telegramUserId, 'المالك', message, 'owner');
+
+    res.json({ success: true, takeover: true });
+  } catch (err) {
+    console.error('[API] Reply failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Toggle human takeover for a customer
+app.post('/api/takeover', async (req, res) => {
+  const { botId, telegramUserId, enabled } = req.body;
+  if (!botId || !telegramUserId) {
+    return res.status(400).json({ error: 'Missing botId or telegramUserId' });
+  }
+
+  const key = `${botId}_${telegramUserId}`;
+  humanTakeoverMap.set(key, !!enabled);
+
+  console.log(`[Engine] Human takeover ${enabled ? 'ON' : 'OFF'} for user ${telegramUserId} in bot ${botId}`);
+  res.json({ success: true, takeover: !!enabled });
+});
+
+// Get takeover status for a customer
+app.get('/api/takeover/:botId/:telegramUserId', (req, res) => {
+  const key = `${req.params.botId}_${req.params.telegramUserId}`;
+  res.json({ takeover: !!humanTakeoverMap.get(key) });
+});
+
+// Update order status
+app.post('/api/orders/status', async (req, res) => {
+  const { orderId, status } = req.body;
+  if (!orderId || !status) {
+    return res.status(400).json({ error: 'Missing orderId or status' });
+  }
+  try {
+    await nex('PATCH', '/database/ext/orders/documents/' + orderId, {
+      data: { status },
+      merge: true,
+    });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── Main ─────────────────────────────────────────────────────
 async function main() {
   console.log('');
   console.log('══════════════════════════════════════════');
-  console.log('  BotForge Engine — Starting...');
+  console.log('  BotForge Engine v2 — Starting...');
   console.log('══════════════════════════════════════════');
   console.log('');
 
-  // Initial load — start all active bots
+  // Start Express API server
+  app.listen(PORT, () => {
+    console.log(`[Engine] HTTP API listening on port ${PORT}`);
+  });
+
+  // Initial load
   try {
     const bots = await getAllBots();
     console.log(`[Engine] Found ${bots.length} bot(s) in database.`);
-
-    const activeBotConfigs = bots.filter(b => b.telegramToken && b.openrouterKey);
-    console.log(`[Engine] ${activeBotConfigs.length} bot(s) have valid credentials.`);
-
-    for (const config of activeBotConfigs) {
-      await startBot(config);
+    for (const config of bots) {
+      if (config.telegramToken) {
+        await startBot(config);
+      }
     }
   } catch (err) {
     console.error('[Engine] Failed to load bots:', err.message);
@@ -285,11 +452,7 @@ async function main() {
 
   // Poll for changes every 30 seconds
   setInterval(syncBots, 30000);
-
-  console.log('');
   console.log('[Engine] Running. Polling DB every 30s for changes.');
-  console.log('[Engine] Press Ctrl+C to stop.');
-  console.log('');
 }
 
 main();

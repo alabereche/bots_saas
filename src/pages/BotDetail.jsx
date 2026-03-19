@@ -183,6 +183,10 @@ export default function BotDetail() {
       for (const msg of toDelete) {
         await deleteDoc('conversations', msg.id);
       }
+      // Reset the message count on the bot document
+      await updateDoc('bots', id, { messagesCount: 0 });
+      setBot(prev => ({ ...prev, messagesCount: 0 }));
+      
       setAllMessages([]);
       setSelectedUserId(null);
       setShowClearMessagesModal(false);
@@ -200,6 +204,9 @@ export default function BotDetail() {
       for (const order of orders) {
         await deleteDoc('orders', order.id);
       }
+      // Reset orders count if tracked (optional, but good practice)
+      await updateDoc('bots', id, { ordersCount: 0 });
+      
       setOrders([]);
       setShowClearOrdersModal(false);
       toast.success(`تم مسح ${orders.length} طلبية`);

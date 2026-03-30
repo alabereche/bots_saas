@@ -70,55 +70,49 @@ async function incrementMessageCount(botId) {
   }
 }
 
-// ─── Order Detection ─────────────────────────────────────────
-// Detects when bot reply confirms an order with address/phone
-async function detectOrder(botId, telegramUserId, userName, botReply, userMessage) {
-  // Check if the bot reply contains order confirmation patterns
-  const orderIndicators = [
-    'تأكيد الطلب', 'تم تأكيد', 'طلبيتك', 'طلبك',
-    'سنقوم بالتوصيل', 'سيتم التوصيل', 'عنوان التوصيل',
-    'تأكيد الطلبية', 'هاهو تأكيد',
-  ];
-  const hasOrderKeyword = orderIndicators.some(k => botReply.includes(k));
+// ─── Smart Order Extraction ──────────────────────────────────
+// Parses [ORDER_CONFIRMED]{json} from AI reply, saves order, returns cleaned reply
+const ORDER_TAG = '[ORDER_CONFIRMED]';
 
-  // Check if user message or bot reply contains phone/address patterns
-  const phoneRegex = /(?:0[567]\d{8}|\+213\d{9})/;
-  const combinedText = userMessage + ' ' + botReply;
-  const hasPhone = phoneRegex.test(combinedText);
+function extractAndSaveOrder(botId, platform, customerId, customerName, rawReply) {
+  const tagIndex = rawReply.indexOf(ORDER_TAG);
+  if (tagIndex === -1) return { reply: rawReply, orderFound: false };
 
-  if (hasOrderKeyword && hasPhone) {
-    // Extract phone
-    const phoneMatch = combinedText.match(phoneRegex);
-    const phone = phoneMatch ? phoneMatch[0] : '';
+  // Extract the JSON part after the tag
+  const jsonStart = tagIndex + ORDER_TAG.length;
+  const jsonStr = rawReply.slice(jsonStart).trim();
+  
+  // Clean the reply — remove the hidden tag line from what the customer sees
+  const cleanReply = rawReply.slice(0, tagIndex).trim();
 
-    // Extract address (look for text after address keywords)
-    let address = '';
-    const addressPatterns = [
-      /(?:العنوان|عنوان التوصيل|العنوان هو|عنواني|عنوان)[:\s]*([^\n.،]+)/,
-      /(?:شارع|حي|بلدية|ولاية)[^\n.،]*/,
-    ];
-    for (const p of addressPatterns) {
-      const m = combinedText.match(p);
-      if (m) { address = m[1] || m[0]; break; }
-    }
-
-    try {
-      await nex('POST', '/database/ext/orders/documents', {
-        data: {
-          botId,
-          telegramUserId: String(telegramUserId),
-          customerName: userName || 'زبون',
-          phone,
-          address: address.trim(),
-          orderSummary: botReply.slice(0, 500),
-          status: 'new',
-          createdAt: new Date().toISOString(),
-        },
-      });
-      console.log(`[Engine] Order detected for user ${userName} (${phone})`);
-    } catch (e) {
+  try {
+    const orderData = JSON.parse(jsonStr);
+    
+    // Save order to database (non-blocking)
+    nex('POST', '/database/ext/orders/documents', {
+      data: {
+        botId,
+        platform,
+        customerId: String(customerId),
+        customerName: customerName || 'زبون',
+        phone: orderData.phone || '',
+        address: orderData.address || '',
+        product: orderData.product || '',
+        price: orderData.price || '',
+        orderSummary: cleanReply.slice(-500),
+        status: 'new',
+        createdAt: new Date().toISOString(),
+      },
+    }).then(() => {
+      console.log(`[Engine] ✅ Order saved: ${customerName} — ${orderData.product} (${platform})`);
+    }).catch(e => {
       console.error('[Engine] Failed to save order:', e.message);
-    }
+    });
+
+    return { reply: cleanReply, orderFound: true };
+  } catch (e) {
+    console.error('[Engine] Failed to parse order JSON:', e.message);
+    return { reply: cleanReply, orderFound: false };
   }
 }
 
@@ -154,7 +148,7 @@ async function callGemini(apiKey, model, messages) {
 }
 
 // Hardcoded Gemini API key — used for all bots
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyADxOE9XhXNIJiIrEJ-1ZAWga_iy671KC4';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyAnTqZ5upTb05CEapy8sGTMyiWDbTlb7JQ';
 
 async function askAI(config, userId, userMessage) {
   const historyKey = `${config.id}_${userId}`;
@@ -216,17 +210,30 @@ async function startBot(config) {
 
       try {
         await ctx.replyWithChatAction('typing');
-        const reply = await askAI(config, userId, userMessage);
+        
+        // Build config with auto-orders flag
+        const aiConfig = {
+          ...config,
+          autoOrdersEnabled: config.autoOrdersTelegram !== false, // enabled by default
+        };
+        const rawReply = await askAI(aiConfig, userId, userMessage);
+
+        // Extract order if present and clean the reply
+        const { reply, orderFound } = extractAndSaveOrder(
+          config.id, 'telegram', userId, userName, rawReply
+        );
+
         await ctx.reply(reply, { parse_mode: 'Markdown' }).catch(async () => {
           await ctx.reply(reply);
         });
 
-        // Save bot reply
+        // Save bot reply (cleaned version)
         saveMessage(config.id, userId, userName, reply, 'bot').catch(() => {});
         incrementMessageCount(config.id).catch(() => {});
 
-        // Detect orders in background
-        detectOrder(config.id, userId, userName, reply, userMessage).catch(() => {});
+        if (orderFound) {
+          console.log(`[Engine] 📦 Order confirmed by ${userName} in Telegram`);
+        }
 
         // Auto-detect transfer to owner request
         const transferPhrases = ['سأحولك', 'سأحيلك', 'سأوصلك', 'يرجى الانتظار', 'صاحب المحل'];
@@ -299,8 +306,50 @@ async function syncBots() {
 
 // ─── Express API (for dashboard interactions) ─────────────────
 const app = express();
-app.use(cors());
-app.use(express.json());
+
+// Security: Restrict CORS to known origins
+const allowedOrigins = [
+  'https://saas-ruddy-alpha.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:4173',
+];
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin || allowedOrigins.includes(origin)) cb(null, true);
+    else cb(new Error('Not allowed by CORS'));
+  },
+  methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+  credentials: true,
+}));
+app.use(express.json({ limit: '1mb' }));
+
+// Security: API key auth for all /api routes
+app.use('/api', (req, res, next) => {
+  const apiKey = req.headers['x-api-key'];
+  if (apiKey !== KEY) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  next();
+});
+
+// Security: Basic rate limiter (per IP, 60 req/min)
+const rateLimitMap = new Map();
+app.use('/api', (req, res, next) => {
+  const ip = req.ip || req.connection.remoteAddress;
+  const now = Date.now();
+  const windowMs = 60000;
+  const maxReqs = 60;
+  if (!rateLimitMap.has(ip)) rateLimitMap.set(ip, []);
+  const hits = rateLimitMap.get(ip).filter(t => now - t < windowMs);
+  if (hits.length >= maxReqs) {
+    return res.status(429).json({ error: 'Too many requests' });
+  }
+  hits.push(now);
+  rateLimitMap.set(ip, hits);
+  next();
+});
+// Clean rate limit map every 5 minutes
+setInterval(() => rateLimitMap.clear(), 300000);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -312,6 +361,13 @@ app.post('/api/reply', async (req, res) => {
   const { botId, telegramUserId, message } = req.body;
   if (!botId || !telegramUserId || !message) {
     return res.status(400).json({ error: 'Missing botId, telegramUserId, or message' });
+  }
+  // Security: Input validation
+  if (typeof message !== 'string' || message.length > 5000) {
+    return res.status(400).json({ error: 'Message too long or invalid' });
+  }
+  if (typeof botId !== 'string' || botId.length > 100 || typeof telegramUserId !== 'string') {
+    return res.status(400).json({ error: 'Invalid parameters' });
   }
 
   const entry = activeBots.get(botId);
@@ -375,6 +431,12 @@ app.post('/api/orders/status', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// ─── Global Error Handler (prevents stack trace leaks) ───────
+app.use((err, req, res, next) => {
+  console.error('[Engine] Unhandled error:', err.message);
+  res.status(500).json({ error: 'حدث خطأ داخلي' });
 });
 
 // ─── Main ─────────────────────────────────────────────────────

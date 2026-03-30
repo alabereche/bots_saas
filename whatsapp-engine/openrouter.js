@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════════
-// BotForge WhatsApp Engine — Multi-Provider AI Integration
-// Supports OpenRouter, Google Gemini, and OpenAI
+// BotForge WhatsApp Engine — Gemini AI Integration
+// Uses Google Gemini 2.5 Flash directly
 // ═══════════════════════════════════════════════════════════════
 
 const { buildSystemPrompt } = require('./promptGenerator');
@@ -8,26 +8,8 @@ const { buildSystemPrompt } = require('./promptGenerator');
 const conversationHistory = new Map();
 const MAX_HISTORY = 20;
 
-// --- OpenRouter ---
-async function callOpenRouter(apiKey, model, messages) {
-  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Bearer ' + apiKey,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': process.env.SITE_URL || 'https://botforge.app',
-      'X-Title': 'BotForge WhatsApp',
-    },
-    body: JSON.stringify({ model, messages, max_tokens: 1024, temperature: 0.7 }),
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    console.error(`[OpenRouter] Model "${model}" error ${res.status}:`, err);
-    throw new Error(`OpenRouter ${res.status}: ${err}`);
-  }
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content || null;
-}
+// Hardcoded Gemini API key — used for all bots
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyAnTqZ5upTb05CEapy8sGTMyiWDbTlb7JQ';
 
 // --- Google Gemini ---
 async function callGemini(apiKey, model, messages) {
@@ -60,26 +42,7 @@ async function callGemini(apiKey, model, messages) {
   return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
 }
 
-// --- OpenAI ---
-async function callOpenAI(apiKey, model, messages) {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Bearer ' + apiKey,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ model: model || 'gpt-4o-mini', messages, max_tokens: 1024, temperature: 0.7 }),
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    console.error(`[OpenAI] Model "${model}" error ${res.status}:`, err);
-    throw new Error(`OpenAI ${res.status}: ${err}`);
-  }
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content || null;
-}
-
-// --- Unified AI Router ---
+// --- Unified AI (Gemini only) ---
 async function askOpenRouter(config, userId, userMessage) {
   const historyKey = `${config.id}_${userId}`;
   if (!conversationHistory.has(historyKey)) {
@@ -93,32 +56,13 @@ async function askOpenRouter(config, userId, userMessage) {
 
   const systemPrompt = buildSystemPrompt(config);
   const messages = [{ role: 'system', content: systemPrompt }, ...history];
-  const provider = config.aiProvider || 'openrouter';
-  const model = config.aiModel;
 
   let reply = null;
 
   try {
-    if (provider === 'gemini') {
-      reply = await callGemini(config.geminiKey, model, messages);
-    } else if (provider === 'openai') {
-      reply = await callOpenAI(config.openaiKey, model, messages);
-    } else {
-      // OpenRouter (default) with fallback
-      const primaryModel = model || 'openrouter/free';
-      try {
-        reply = await callOpenRouter(config.openrouterKey, primaryModel, messages);
-      } catch (err) {
-        if (primaryModel !== 'openrouter/free') {
-          console.warn(`[WA Engine] Primary model failed, trying openrouter/free. Error: ${err.message}`);
-          reply = await callOpenRouter(config.openrouterKey, 'openrouter/free', messages);
-        } else {
-          throw err;
-        }
-      }
-    }
+    reply = await callGemini(GEMINI_API_KEY, 'gemini-2.5-flash', messages);
   } catch (err) {
-    console.error(`[WA Engine] AI call failed (${provider}): ${err.message}`);
+    console.error(`[WA Engine] Gemini call failed: ${err.message}`);
     throw err;
   }
 

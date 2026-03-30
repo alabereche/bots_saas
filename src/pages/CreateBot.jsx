@@ -100,6 +100,8 @@ export default function CreateBot() {
         aiModel: 'gemini-2.5-flash',
         isActive: false,
         messagesCount: 0,
+        autoOrdersTelegram: true,
+        autoOrdersWhatsapp: true,
         createdAt: new Date().toISOString(),
       };
       if (platform === 'telegram') {

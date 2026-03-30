@@ -9,7 +9,7 @@ export default function Login() {
   const { setAuthUser } = useAuth();
   const toast = useToast();
 
-  const [step, setStep] = useState('credentials'); // credentials | otp
+  const [step, setStep] = useState('credentials'); // credentials | otp | unverified
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,7 +30,12 @@ export default function Login() {
       setStep('otp');
       toast.success('تم ارسال رمز التحقق الى تيليغرام');
     } catch (err) {
-      toast.error(err.message || 'خطأ في تسجيل الدخول');
+      const msg = err.message || '';
+      if (msg.includes('not verified') || msg.includes('Account not verified')) {
+        setStep('unverified');
+      } else {
+        toast.error(msg || 'خطأ في تسجيل الدخول');
+      }
     } finally {
       setLoading(false);
     }
@@ -194,6 +199,39 @@ export default function Login() {
                 style={{ width: '100%', marginTop: 'var(--space-3)' }}
                 onClick={() => { setStep('credentials'); setOtp(['','','','','','']); }}
                 disabled={loading}
+              >
+                العودة
+              </button>
+            </div>
+          )}
+
+          {step === 'unverified' && (
+            <div className="animate-enter" style={{ textAlign: 'center' }}>
+              <div style={{
+                width: '64px', height: '64px', borderRadius: '50%',
+                background: 'var(--color-warning-bg)', color: 'var(--color-warning)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                margin: '0 auto var(--space-4)',
+                boxShadow: '0 0 24px hsla(38, 92%, 50%, 0.2)'
+              }}>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+              </div>
+              <h2 style={{ fontSize: '1.25rem', marginBottom: 'var(--space-2)' }}>الحساب غير مفعّل</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: 'var(--space-6)', lineHeight: '1.7' }}>
+                لم يتم إكمال التحقق عبر تيليغرام أثناء التسجيل.<br/>
+                يرجى إعادة التسجيل وإكمال خطوة التحقق لتفعيل حسابك.
+              </p>
+              <Link to="/register" className="btn btn-primary" style={{ width: '100%', padding: '1rem', textDecoration: 'none' }}>
+                إعادة التسجيل وتفعيل الحساب
+              </Link>
+              <button 
+                className="btn btn-secondary" 
+                style={{ width: '100%', marginTop: 'var(--space-3)' }}
+                onClick={() => setStep('credentials')}
               >
                 العودة
               </button>

@@ -3,7 +3,7 @@
 // Database + Storage + Notifications via NexCloud API
 // ═══════════════════════════════════════════════════════════════
 
-const API = process.env.NEXCLOUD_URL;
+const API = process.env.NEXCLOUD_URL || 'https://nexcloud-production.up.railway.app/api/v1';
 const KEY = process.env.NEXCLOUD_KEY;
 
 async function nex(method, path, body) {
@@ -36,15 +36,29 @@ async function updateBotStatus(botId, status, extra = {}) {
 
 // ─── Conversations ────────────────────────────────────────────
 async function logMessage({ botId, from, userName, message, response }) {
+  const ts = new Date().toISOString();
+  // Save user message
   await nex('POST', '/database/ext/conversations/documents', {
     data: {
       botId,
       platform: 'whatsapp',
-      telegramUserId: from,
+      telegramUserId: String(from),
       userName: userName || 'زبون واتساب',
-      lastMessage: message.slice(0, 200),
-      botReply: response.slice(0, 500),
-      createdAt: new Date().toISOString(),
+      content: message.slice(0, 500),
+      role: 'user',
+      createdAt: ts,
+    },
+  });
+  // Save bot reply
+  await nex('POST', '/database/ext/conversations/documents', {
+    data: {
+      botId,
+      platform: 'whatsapp',
+      telegramUserId: String(from),
+      userName: userName || 'زبون واتساب',
+      content: response.slice(0, 500),
+      role: 'bot',
+      createdAt: new Date(Date.now() + 1).toISOString(), // +1ms to ensure correct order
     },
   });
 }
@@ -71,6 +85,13 @@ async function getTodayMessageCount(botId) {
   }
 }
 
+// ─── Orders ────────────────────────────────────────────────────
+async function saveOrder(orderData) {
+  await nex('POST', '/database/ext/orders/documents', {
+    data: orderData,
+  });
+}
+
 module.exports = {
   getActiveBots,
   getBot,
@@ -78,4 +99,5 @@ module.exports = {
   logMessage,
   incrementMessageCount,
   getTodayMessageCount,
+  saveOrder,
 };

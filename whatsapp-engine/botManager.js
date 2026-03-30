@@ -12,7 +12,7 @@ const { handleMessage } = require('./messageHandler');
 const activeBots = new Map();
 
 // ─── Create a WhatsApp Bot ────────────────────────────────────
-async function createWhatsAppBot(botId, config) {
+async function createWhatsAppBot(botId, config, phoneNumber = null) {
   if (activeBots.has(botId)) {
     const existing = activeBots.get(botId);
     if (existing.status === 'connected') {
@@ -24,13 +24,14 @@ async function createWhatsAppBot(botId, config) {
     activeBots.delete(botId);
   }
 
-  console.log(`[BotManager] Initializing bot "${config.botName}"...`);
+  console.log(`[BotManager] Initializing bot "${config.botName}"${phoneNumber ? ' (phone pairing mode)' : ''}...`);
 
   const botState = {
     client: null,
     config,
     qrCode: null,
     qrDataUrl: null,
+    pairingCode: null,
     status: 'initializing',
   };
   activeBots.set(botId, botState);
@@ -41,11 +42,13 @@ async function createWhatsAppBot(botId, config) {
       dataPath: './sessions',
     }),
     puppeteer: {
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
       headless: true,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
+        '--single-process',
         '--disable-gpu',
         '--disable-features=IsolateOrigins,site-per-process',
         '--disable-site-isolation-trials',
@@ -73,14 +76,25 @@ async function createWhatsAppBot(botId, config) {
     botState.qrCode = qr;
     botState.status = 'waiting_scan';
 
-    try {
-      botState.qrDataUrl = await QRCode.toDataURL(qr, {
-        width: 300,
-        margin: 2,
-        color: { dark: '#000000', light: '#ffffff' },
-      });
-    } catch (e) {
-      console.error('[BotManager] QR generation error:', e.message);
+    // If phone pairing mode, request pairing code instead of showing QR
+    if (phoneNumber) {
+      try {
+        const code = await client.requestPairingCode(phoneNumber);
+        botState.pairingCode = code;
+        console.log(`[BotManager] Pairing code for ${phoneNumber}: ${code}`);
+      } catch (e) {
+        console.error('[BotManager] Pairing code request failed:', e.message);
+      }
+    } else {
+      try {
+        botState.qrDataUrl = await QRCode.toDataURL(qr, {
+          width: 300,
+          margin: 2,
+          color: { dark: '#000000', light: '#ffffff' },
+        });
+      } catch (e) {
+        console.error('[BotManager] QR generation error:', e.message);
+      }
     }
 
     await nexcloud.updateBotStatus(botId, 'waiting_scan').catch(() => {});
@@ -155,11 +169,13 @@ async function createWhatsAppBot(botId, config) {
           dataPath: './sessions',
         }),
         puppeteer: {
+          executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
           headless: true,
           args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
+            '--single-process',
             '--disable-gpu',
             '--disable-features=IsolateOrigins,site-per-process',
             '--disable-site-isolation-trials',
@@ -261,7 +277,7 @@ async function restoreBotsOnStartup() {
   try {
     const bots = await nexcloud.getActiveBots();
     const whatsappBots = bots.filter(b =>
-      b.whatsappEnabled && b.openrouterKey && b.whatsappStatus === 'connected'
+      b.whatsappEnabled && b.whatsappStatus === 'connected'
     );
     console.log(`[BotManager] Found ${whatsappBots.length} WhatsApp bot(s) to restore.`);
 

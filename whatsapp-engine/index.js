@@ -21,13 +21,23 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // ─── Middleware ───────────────────────────────────────────────
+// Security: Restrict CORS to known origins
+const allowedOrigins = [
+  'https://saas-ruddy-alpha.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:4173',
+];
 app.use(cors({
-  origin: process.env.SITE_URL || 'http://localhost:5173',
+  origin: (origin, cb) => {
+    if (!origin || allowedOrigins.includes(origin)) cb(null, true);
+    else cb(new Error('Not allowed by CORS'));
+  },
+  methods: ['GET', 'POST', 'PATCH', 'DELETE'],
   credentials: true,
 }));
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
-// Simple API key check for security
+// Security: API key check
 app.use('/api', (req, res, next) => {
   const apiKey = req.headers['x-api-key'];
   if (apiKey !== process.env.NEXCLOUD_KEY) {
@@ -35,6 +45,24 @@ app.use('/api', (req, res, next) => {
   }
   next();
 });
+
+// Security: Basic rate limiter (per IP, 60 req/min)
+const rateLimitMap = new Map();
+app.use('/api', (req, res, next) => {
+  const ip = req.ip || req.connection.remoteAddress;
+  const now = Date.now();
+  const windowMs = 60000;
+  const maxReqs = 60;
+  if (!rateLimitMap.has(ip)) rateLimitMap.set(ip, []);
+  const hits = rateLimitMap.get(ip).filter(t => now - t < windowMs);
+  if (hits.length >= maxReqs) {
+    return res.status(429).json({ error: 'Too many requests' });
+  }
+  hits.push(now);
+  rateLimitMap.set(ip, hits);
+  next();
+});
+setInterval(() => rateLimitMap.clear(), 300000);
 
 // ─── Routes ──────────────────────────────────────────────────
 
@@ -52,9 +80,7 @@ app.post('/api/whatsapp/create', async (req, res) => {
       return res.status(404).json({ error: 'البوت غير موجود' });
     }
 
-    if (!config.openrouterKey) {
-      return res.status(400).json({ error: 'مفتاح OpenRouter غير متوفر' });
-    }
+
 
     // Create the WhatsApp client
     const state = await createWhatsAppBot(botId, config);
@@ -133,6 +159,8 @@ app.post('/api/whatsapp/:id/restart', async (req, res) => {
   }
 });
 
+
+
 // GET /api/whatsapp/all — Get all active bot statuses
 app.get('/api/whatsapp/all', (req, res) => {
   res.json({ bots: getAllBotStatuses() });
@@ -141,6 +169,11 @@ app.get('/api/whatsapp/all', (req, res) => {
 // ─── Health Check ────────────────────────────────────────────
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', uptime: process.uptime() });
+});
+// ─── Global Error Handler (prevents stack trace leaks) ───────
+app.use((err, req, res, next) => {
+  console.error('[Server] Unhandled error:', err.message);
+  res.status(500).json({ error: 'حدث خطأ داخلي' });
 });
 
 // ─── Start Server ────────────────────────────────────────────

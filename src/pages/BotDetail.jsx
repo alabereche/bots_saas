@@ -4,6 +4,7 @@ import { getDoc, updateDoc, deleteDoc, getDocs } from '../services/nexcloud';
 import { useToast } from '../context/ToastContext';
 
 const ENGINE_URL = import.meta.env.VITE_ENGINE_URL || 'http://localhost:3002';
+const ENGINE_KEY = import.meta.env.VITE_API_KEY;
 
 export default function BotDetail() {
   const { id } = useParams();
@@ -24,6 +25,9 @@ export default function BotDetail() {
   const [replyText, setReplyText] = useState('');
   const [sending, setSending] = useState(false);
   const [takeoverMap, setTakeoverMap] = useState({});
+  const [editing, setEditing] = useState(false);
+  const [editData, setEditData] = useState({});
+  const [saving, setSaving] = useState(false);
   const chatEndRef = useRef(null);
 
   const businessTypeLabels = {
@@ -112,7 +116,7 @@ export default function BotDetail() {
     try {
       const res = await fetch(`${ENGINE_URL}/api/reply`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-api-key': ENGINE_KEY },
         body: JSON.stringify({
           botId: id,
           telegramUserId: selectedUserId,
@@ -150,7 +154,7 @@ export default function BotDetail() {
     try {
       await fetch(`${ENGINE_URL}/api/takeover`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-api-key': ENGINE_KEY },
         body: JSON.stringify({ botId: id, telegramUserId: userId, enabled: newState }),
       });
       setTakeoverMap(prev => ({ ...prev, [userId]: newState }));
@@ -165,7 +169,7 @@ export default function BotDetail() {
     try {
       await fetch(`${ENGINE_URL}/api/orders/status`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-api-key': ENGINE_KEY },
         body: JSON.stringify({ orderId, status }),
       });
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
@@ -214,6 +218,38 @@ export default function BotDetail() {
       toast.error('فشل مسح الطلبيات');
     }
     setClearing(false);
+  };
+
+  // Start editing
+  const startEditing = () => {
+    setEditData({
+      botName: bot.botName || '',
+      businessName: bot.businessName || '',
+      businessType: bot.businessType || 'other',
+      description: bot.description || '',
+      services: bot.services || '',
+      workingHours: bot.workingHours || '',
+      location: bot.location || '',
+      contact: bot.contact || '',
+      responseStyle: bot.responseStyle || 'friendly',
+      language: bot.language || 'auto',
+      customInstructions: bot.customInstructions || '',
+      telegramToken: bot.telegramToken || '',
+    });
+    setEditing(true);
+  };
+
+  const saveEdits = async () => {
+    setSaving(true);
+    try {
+      await updateDoc('bots', id, editData);
+      setBot(prev => ({ ...prev, ...editData }));
+      setEditing(false);
+      toast.success('تم حفظ التعديلات بنجاح');
+    } catch (err) {
+      toast.error('فشل حفظ التعديلات: ' + err.message);
+    }
+    setSaving(false);
   };
 
   const toggleActive = async () => {
@@ -272,6 +308,10 @@ export default function BotDetail() {
           </div>
         </div>
         <div className="detail-actions">
+          <button className="btn btn-secondary" onClick={startEditing} style={{ gap: '6px' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            تعديل
+          </button>
           <button className={`btn ${bot.isActive ? 'btn-secondary' : 'btn-primary'}`} onClick={toggleActive}>
             {bot.isActive ? (
               <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>ايقاف</>
@@ -552,6 +592,97 @@ export default function BotDetail() {
         </div>
       )}
 
+      {/* Edit Modal */}
+      {editing && (
+        <div className="modal-overlay" onClick={() => !saving && setEditing(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '680px', maxHeight: '90vh', overflow: 'auto' }}>
+            <div className="modal-body" style={{ paddingBottom: 0 }}>
+              <h3 className="modal-title" style={{ marginBottom: 'var(--space-5)' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', marginLeft: '8px' }}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                تعديل بيانات البوت
+              </h3>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
+                <div className="form-group">
+                  <label className="form-label">اسم البوت</label>
+                  <input className="form-input" value={editData.botName} onChange={e => setEditData(p => ({ ...p, botName: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">اسم المشروع</label>
+                  <input className="form-input" value={editData.businessName} onChange={e => setEditData(p => ({ ...p, businessName: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">نوع النشاط</label>
+                  <select className="form-input" value={editData.businessType} onChange={e => setEditData(p => ({ ...p, businessType: e.target.value }))}>
+                    <option value="restaurant">مطعم</option>
+                    <option value="shop">متجر</option>
+                    <option value="clinic">عيادة</option>
+                    <option value="salon">صالون</option>
+                    <option value="delivery">توصيل</option>
+                    <option value="education">تعليم</option>
+                    <option value="other">اخرى</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">أسلوب الرد</label>
+                  <select className="form-input" value={editData.responseStyle} onChange={e => setEditData(p => ({ ...p, responseStyle: e.target.value }))}>
+                    <option value="formal">رسمي</option>
+                    <option value="friendly">ودود</option>
+                    <option value="concise">مختصر</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">اللغة</label>
+                  <select className="form-input" value={editData.language} onChange={e => setEditData(p => ({ ...p, language: e.target.value }))}>
+                    <option value="arabic_formal">عربي فصيح</option>
+                    <option value="arabic_algerian">دارجة جزائرية</option>
+                    <option value="auto">تلقائي</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">ساعات العمل</label>
+                  <input className="form-input" value={editData.workingHours} onChange={e => setEditData(p => ({ ...p, workingHours: e.target.value }))} placeholder="مثال: 8 صباحاً - 10 مساءً" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">الموقع</label>
+                  <input className="form-input" value={editData.location} onChange={e => setEditData(p => ({ ...p, location: e.target.value }))} placeholder="مثال: وهران، حي الصباح" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">التواصل</label>
+                  <input className="form-input" value={editData.contact} onChange={e => setEditData(p => ({ ...p, contact: e.target.value }))} placeholder="رقم هاتف أو بريد" />
+                </div>
+              </div>
+
+              {bot.telegramToken && (
+                <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
+                  <label className="form-label">توكن تيليغرام</label>
+                  <input className="form-input" value={editData.telegramToken} onChange={e => setEditData(p => ({ ...p, telegramToken: e.target.value }))} style={{ fontFamily: 'monospace', fontSize: '0.8rem' }} />
+                </div>
+              )}
+
+              <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
+                <label className="form-label">الوصف</label>
+                <textarea className="form-input" rows="3" value={editData.description} onChange={e => setEditData(p => ({ ...p, description: e.target.value }))} placeholder="وصف مختصر للمشروع" />
+              </div>
+              <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
+                <label className="form-label">الخدمات والأسعار</label>
+                <textarea className="form-input" rows="4" value={editData.services} onChange={e => setEditData(p => ({ ...p, services: e.target.value }))} placeholder="اكتب الخدمات وأسعارها" />
+              </div>
+              <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
+                <label className="form-label">تعليمات خاصة</label>
+                <textarea className="form-input" rows="3" value={editData.customInstructions} onChange={e => setEditData(p => ({ ...p, customInstructions: e.target.value }))} placeholder="تعليمات إضافية للذكاء الاصطناعي" />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setEditing(false)} disabled={saving}>إلغاء</button>
+              <button className="btn btn-primary" onClick={saveEdits} disabled={saving}>
+                {saving ? <span className="spinner" /> : 'حفظ التعديلات'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Info Tab - Premium V3 Layout */}
       {activeTab === 'info' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
@@ -632,6 +763,79 @@ export default function BotDetail() {
                 </div>
               </div>
 
+              {/* Auto-Orders Settings Card */}
+              <div className="premium-card" style={{ background: 'linear-gradient(135deg, rgba(251, 146, 60, 0.05), rgba(251, 146, 60, 0.01))', borderColor: 'rgba(251, 146, 60, 0.2)' }}>
+                <div className="premium-card-header">
+                  <div className="premium-icon" style={{ background: 'rgba(251, 146, 60, 0.15)', color: '#fb923c' }}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8l-2 2-3.5-3.5L17 5a2.12 2.12 0 013 3z"/><path d="M15.5 6.5L7.56 14.44a2 2 0 00-.49.86l-.81 2.95a.5.5 0 00.61.61l2.95-.81a2 2 0 00.86-.49L18.5 9.5"/><line x1="2" y1="22" x2="22" y2="22"/></svg>
+                  </div>
+                  <div>
+                    <h4 className="premium-title">الحجز التلقائي</h4>
+                    <p className="premium-subtitle">تسجيل طلبات الزبائن تلقائياً</p>
+                  </div>
+                </div>
+                <div className="premium-card-content" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {/* Telegram Toggle */}
+                  {bot.telegramToken && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 'var(--radius-lg)', background: 'var(--surface-secondary)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="#2AABEE"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+                        <div>
+                          <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>حجز تلقائي — تيليغرام</span>
+                          <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', margin: 0 }}>البوت يجمع الطلبات ويسأل الزبون للتأكيد</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          const newVal = !(bot.autoOrdersTelegram !== false);
+                          await updateDoc('bots', id, { autoOrdersTelegram: newVal });
+                          setBot(prev => ({ ...prev, autoOrdersTelegram: newVal }));
+                          toast.success(newVal ? 'تم تفعيل الحجز التلقائي للتيليغرام' : 'تم تعطيل الحجز التلقائي للتيليغرام');
+                        }}
+                        style={{
+                          width: '48px', height: '26px', borderRadius: '13px', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.3s',
+                          background: (bot.autoOrdersTelegram !== false) ? '#25D366' : 'var(--surface-tertiary)',
+                        }}
+                      >
+                        <span style={{
+                          position: 'absolute', top: '3px', width: '20px', height: '20px', borderRadius: '50%', background: '#fff', transition: 'left 0.3s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                          left: (bot.autoOrdersTelegram !== false) ? '25px' : '3px',
+                        }} />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* WhatsApp Toggle */}
+                  {bot.whatsappEnabled && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 'var(--radius-lg)', background: 'var(--surface-secondary)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                        <div>
+                          <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>حجز تلقائي — واتساب</span>
+                          <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', margin: 0 }}>البوت يجمع الطلبات ويسأل الزبون للتأكيد</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          const newVal = !(bot.autoOrdersWhatsapp !== false);
+                          await updateDoc('bots', id, { autoOrdersWhatsapp: newVal });
+                          setBot(prev => ({ ...prev, autoOrdersWhatsapp: newVal }));
+                          toast.success(newVal ? 'تم تفعيل الحجز التلقائي للواتساب' : 'تم تعطيل الحجز التلقائي للواتساب');
+                        }}
+                        style={{
+                          width: '48px', height: '26px', borderRadius: '13px', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.3s',
+                          background: (bot.autoOrdersWhatsapp !== false) ? '#25D366' : 'var(--surface-tertiary)',
+                        }}
+                      >
+                        <span style={{
+                          position: 'absolute', top: '3px', width: '20px', height: '20px', borderRadius: '50%', background: '#fff', transition: 'left 0.3s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                          left: (bot.autoOrdersWhatsapp !== false) ? '25px' : '3px',
+                        }} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
               {/* Telegram integration block */}
               {bot.telegramToken && (
                 <div className="premium-card" style={{ background: 'linear-gradient(135deg, rgba(42, 171, 238, 0.05), rgba(42, 171, 238, 0.01))', borderColor: 'rgba(42, 171, 238, 0.2)' }}>
@@ -854,7 +1058,7 @@ function WhatsAppConnect({ botId, botName, status: initialStatus }) {
       {waStatus === 'initializing' && <div className="spinner spinner-lg" style={{ color: '#25D366', margin: '0 auto' }} />}
       {waStatus === 'connected' && (
         <div>
-          <p style={{ color: '#25D366', fontWeight: 600, marginBottom: 'var(--space-3)' }}>واتساب متصل بنجاح</p>
+          <p style={{ color: '#25D366', fontWeight: 600, marginBottom: 'var(--space-3)' }}>واتساب متصل بنجاح ✅</p>
           <button className="btn btn-secondary btn-sm" onClick={handleDisconnect}>فصل الاتصال</button>
         </div>
       )}

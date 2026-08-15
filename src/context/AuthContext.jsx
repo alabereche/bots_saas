@@ -1,57 +1,75 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { 
-  isAuthenticated, getSavedUser, saveUser, 
-  getProfile, logout as nexLogout, refreshSession
-} from '../services/nexcloud';
+import {
+  auth,
+  loginWithGoogle,
+  loginWithEmail,
+  registerWithEmail,
+  logoutUser,
+  getUserProfile,
+  updateUserProfile,
+} from '../services/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(getSavedUser());
+  const [user, setUser] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Try to restore session on mount
+  // Sync auth state with Firebase
   useEffect(() => {
-    async function init() {
-      if (isAuthenticated()) {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        setUser(firebaseUser);
         try {
-          const res = await getProfile();
-          setUser(res.user);
-          saveUser(res.user);
-        } catch {
-          // Token might be expired, try refresh
-          try {
-            await refreshSession();
-            const res = await getProfile();
-            setUser(res.user);
-            saveUser(res.user);
-          } catch {
-            // Refresh failed, clear session
-            await nexLogout();
-            setUser(null);
-          }
+          const profile = await getUserProfile(firebaseUser.uid);
+          setUserProfile(profile);
+        } catch (err) {
+          console.error('Error fetching user profile:', err);
         }
+      } else {
+        setUser(null);
+        setUserProfile(null);
       }
       setLoading(false);
-    }
-    init();
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  const setAuthUser = useCallback((userData) => {
-    setUser(userData);
-    saveUser(userData);
+  const refreshProfile = useCallback(async () => {
+    if (auth.currentUser) {
+      const profile = await getUserProfile(auth.currentUser.uid);
+      setUserProfile(profile);
+      return profile;
+    }
+    return null;
   }, []);
+
+  const updateProfileData = useCallback(async (data) => {
+    if (auth.currentUser) {
+      await updateUserProfile(auth.currentUser.uid, data);
+      await refreshProfile();
+    }
+  }, [refreshProfile]);
 
   const handleLogout = useCallback(async () => {
-    await nexLogout();
+    await logoutUser();
     setUser(null);
+    setUserProfile(null);
   }, []);
 
   const value = {
     user,
+    userProfile,
     loading,
-    isAuthenticated: !!user && isAuthenticated(),
-    setAuthUser,
+    isAuthenticated: !!user,
+    loginWithGoogle,
+    loginWithEmail,
+    registerWithEmail,
+    updateProfileData,
+    refreshProfile,
     logout: handleLogout,
   };
 

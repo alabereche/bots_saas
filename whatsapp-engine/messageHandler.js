@@ -1,13 +1,13 @@
 // ═══════════════════════════════════════════════════════════════
 // BotForge WhatsApp Engine — Message Handler
 // Processes incoming WhatsApp messages via Gemini AI
-// with smart order extraction and customer confirmation
+// with universal order/booking extraction and customer confirmation
 // ═══════════════════════════════════════════════════════════════
 
 const { askOpenRouter } = require('./openrouter');
-const nexcloud = require('./nexcloud');
+const firestore = require('./firestore');
 
-// ─── Smart Order Extraction ──────────────────────────────────
+// ─── Smart Order & Booking Extraction ─────────────────────────
 const ORDER_TAG = '[ORDER_CONFIRMED]';
 
 function extractOrder(rawReply) {
@@ -47,7 +47,7 @@ async function handleMessage(msg, config) {
 
   const userMessage = msg.body.trim();
   const contact = await msg.getContact();
-  const userName = contact.pushname || contact.name || 'زبون';
+  const userName = contact.pushname || contact.name || 'زبون واتساب';
   const userId = msg.from;
 
   try {
@@ -57,7 +57,7 @@ async function handleMessage(msg, config) {
     // Build config with auto-orders flag
     const aiConfig = {
       ...config,
-      autoOrdersEnabled: config.autoOrdersWhatsapp !== false, // enabled by default
+      autoOrdersEnabled: config.autoOrdersWhatsapp !== false,
     };
 
     // Get AI response
@@ -69,9 +69,9 @@ async function handleMessage(msg, config) {
     // Send cleaned reply to customer
     await msg.reply(reply);
 
-    // Save order if confirmed
+    // Save order / booking if confirmed
     if (orderData) {
-      nexcloud.saveOrder({
+      firestore.saveOrder({
         botId: config.id,
         platform: 'whatsapp',
         customerId: String(userId),
@@ -81,15 +81,11 @@ async function handleMessage(msg, config) {
         product: orderData.product || '',
         price: orderData.price || '',
         orderSummary: reply.slice(-500),
-        status: 'new',
-        createdAt: new Date().toISOString(),
-      }).then(() => {
-        console.log(`[Handler] ✅ Order saved: ${userName} — ${orderData.product} (whatsapp)`);
       }).catch(e => console.error('[Handler] Save order error:', e.message));
     }
 
-    // Log to NexCloud (non-blocking)
-    nexcloud.logMessage({
+    // Log to Firestore (non-blocking)
+    firestore.logMessage({
       botId: config.id,
       from: userId,
       userName,
@@ -97,7 +93,7 @@ async function handleMessage(msg, config) {
       response: reply,
     }).catch(e => console.error('[Handler] Log error:', e.message));
 
-    nexcloud.incrementMessageCount(config.id)
+    firestore.incrementMessageCount(config.id)
       .catch(e => console.error('[Handler] Count error:', e.message));
 
   } catch (err) {

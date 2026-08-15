@@ -1,10 +1,41 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getDoc, updateDoc, deleteDoc, getDocs } from '../services/nexcloud';
+import {
+  subscribeBot,
+  updateBot,
+  deleteBot,
+  subscribeConversations,
+  clearBotMessages,
+  subscribeOrders,
+  updateOrderStatus as fbUpdateOrderStatus,
+  clearBotOrders,
+} from '../services/firebase';
 import { useToast } from '../context/ToastContext';
+import { COUNTRIES } from '../data/countries';
+import { BUSINESS_TYPES } from './CreateBot';
 
 const ENGINE_URL = import.meta.env.VITE_ENGINE_URL || 'http://localhost:3002';
 const ENGINE_KEY = import.meta.env.VITE_API_KEY;
+
+const businessTypeLabels = {
+  shop: '🏪 متجر إلكتروني / تجارة',
+  support: '🎧 خدمة عملاء ودعم فني',
+  agency: '🏢 شركة / وكالة خدمات',
+  booking: '📅 حجز مواعيد واستشارات',
+  clinic: '🩺 عيادة / مركز صحي',
+  education: '🎓 تعليم / دورات وتدريب',
+  realestate: '🏠 عقارات ومقاولات',
+  restaurant: '🍽️ مطعم / كافيه',
+  services: '🛠️ خدمات مهنية وحرفية',
+  assistant: '🤖 مساعد ذكي شخصي',
+  custom: '✍️ نشاط مخصص',
+  delivery: '🚗 خدمة توصيل',
+  salon: '💅 صالون تجميل',
+  other: '📌 نشاط عام',
+};
+
+const responseStyleLabels = { formal: 'رسمي', friendly: 'ودود', concise: 'مختصر' };
+const languageLabels = { arabic_formal: 'عربي فصيح', arabic_algerian: 'دارجة جزائرية', auto: 'تلقائي' };
 
 export default function BotDetail() {
   const { id } = useParams();
@@ -19,7 +50,6 @@ export default function BotDetail() {
   const [showClearMessagesModal, setShowClearMessagesModal] = useState(false);
   const [showClearOrdersModal, setShowClearOrdersModal] = useState(false);
   const [clearing, setClearing] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('chat'); // chat | orders | info
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [replyText, setReplyText] = useState('');
@@ -30,72 +60,52 @@ export default function BotDetail() {
   const [saving, setSaving] = useState(false);
   const chatEndRef = useRef(null);
 
-  const businessTypeLabels = {
-    restaurant: 'مطعم', shop: 'متجر', clinic: 'عيادة',
-    salon: 'صالون', delivery: 'توصيل', education: 'تعليم', other: 'اخرى',
-  };
-  const responseStyleLabels = { formal: 'رسمي', friendly: 'ودود', concise: 'مختصر' };
-  const languageLabels = { arabic_formal: 'عربي فصيح', arabic_algerian: 'دارجة جزائرية', auto: 'تلقائي' };
-
-  // Load all messages for this bot
-  const loadMessages = useCallback(async (silent = false) => {
-    if (!silent) setRefreshing(true);
-    try {
-      const res = await getDocs('conversations', { botId: id }, 1, 500);
-      const msgs = (res.documents?.map(d => ({ id: d.id, ...d.data })) || [])
-        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-      setAllMessages(msgs);
-    } catch { /* ignore */ }
-    setRefreshing(false);
-  }, [id]);
-
-  // Load orders
-  const loadOrders = useCallback(async () => {
-    try {
-      const res = await getDocs('orders', { botId: id }, 1, 100);
-      const sorted = (res.documents?.map(d => ({ id: d.id, ...d.data })) || [])
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      setOrders(sorted);
-    } catch { /* ignore */ }
-  }, [id]);
-
+  // Realtime Subscriptions (Bot, Messages, Orders)
   useEffect(() => {
-    async function loadBot() {
-      try {
-        const res = await getDoc('bots', id);
-        setBot({ id: res.document.id, ...res.document.data });
-      } catch {
-        toast.error('تعذر تحميل بيانات البوت');
+    if (!id) return;
+    setLoading(true);
+
+    const unsubBot = subscribeBot(id, (botData) => {
+      if (!botData) {
+        toast.error('تعذر العثور على البوت أو تم حذفه');
         navigate('/dashboard');
-      } finally {
-        setLoading(false);
+        return;
       }
-    }
-    loadBot();
-    loadMessages(true);
-    loadOrders();
-  }, [id, loadMessages, loadOrders]);
+      setBot(botData);
+      setLoading(false);
+    });
 
-  // Auto-refresh every 8 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      loadMessages(true);
-      loadOrders();
-    }, 8000);
-    return () => clearInterval(interval);
-  }, [loadMessages, loadOrders]);
+    const unsubMsgs = subscribeConversations(id, (msgs) => {
+      setAllMessages(msgs);
+    });
 
-  // Scroll to bottom when messages change
+    const unsubOrders = subscribeOrders(id, (ords) => {
+      setOrders(ords);
+    });
+
+    return () => {
+      unsubBot();
+      unsubMsgs();
+      unsubOrders();
+    };
+  }, [id, navigate, toast]);
+
+  // Scroll to bottom on new messages
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [allMessages, selectedUserId]);
 
-  // Group messages by telegramUserId
+  // Group messages by customer (telegramUserId / whatsapp contact)
   const customerThreads = {};
   allMessages.forEach(m => {
-    const uid = m.telegramUserId;
+    const uid = m.telegramUserId || m.customerId || 'default';
     if (!customerThreads[uid]) {
-      customerThreads[uid] = { userId: uid, userName: m.userName, messages: [], lastTime: m.createdAt };
+      customerThreads[uid] = { 
+        userId: uid, 
+        userName: m.userName, 
+        messages: [], 
+        lastTime: m.createdAt 
+      };
     }
     customerThreads[uid].messages.push(m);
     if (new Date(m.createdAt) > new Date(customerThreads[uid].lastTime)) {
@@ -109,7 +119,7 @@ export default function BotDetail() {
 
   const selectedThread = selectedUserId ? customerThreads[selectedUserId] : null;
 
-  // Send owner reply
+  // Send owner reply to customer
   const handleReply = async () => {
     if (!replyText.trim() || !selectedUserId || sending) return;
     setSending(true);
@@ -127,22 +137,11 @@ export default function BotDetail() {
       if (data.success) {
         setReplyText('');
         toast.success('تم ارسال الرد بنجاح');
-        // Auto-enable takeover (backend does this too)
         setTakeoverMap(prev => ({ ...prev, [selectedUserId]: true }));
-        // Optimistic update
-        setAllMessages(prev => [...prev, {
-          id: Date.now().toString(),
-          botId: id,
-          telegramUserId: selectedUserId,
-          userName: 'المالك',
-          content: replyText.trim(),
-          role: 'owner',
-          createdAt: new Date().toISOString(),
-        }]);
       } else {
         toast.error(data.error || 'فشل الارسال');
       }
-    } catch (err) {
+    } catch {
       toast.error('خطأ في الاتصال بمحرك البوت');
     }
     setSending(false);
@@ -164,57 +163,38 @@ export default function BotDetail() {
     }
   };
 
-  // Update order status
+  // Update order status in Firestore
   const updateOrderStatus = async (orderId, status) => {
     try {
-      await fetch(`${ENGINE_URL}/api/orders/status`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': ENGINE_KEY },
-        body: JSON.stringify({ orderId, status }),
-      });
-      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
+      await fbUpdateOrderStatus(orderId, status);
       toast.success('تم تحديث حالة الطلبية');
     } catch {
       toast.error('فشل التحديث');
     }
   };
 
-  // Clear all messages for this bot
+  // Clear all messages
   const clearMessages = async () => {
     setClearing(true);
     try {
-      const toDelete = allMessages.filter(m => m.botId === id);
-      for (const msg of toDelete) {
-        await deleteDoc('conversations', msg.id);
-      }
-      // Reset the message count on the bot document
-      await updateDoc('bots', id, { messagesCount: 0 });
-      setBot(prev => ({ ...prev, messagesCount: 0 }));
-      
-      setAllMessages([]);
+      await clearBotMessages(id);
       setSelectedUserId(null);
       setShowClearMessagesModal(false);
-      toast.success(`تم مسح ${toDelete.length} رسالة`);
-    } catch (err) {
+      toast.success('تم مسح جميع الرسائل بنجاح');
+    } catch {
       toast.error('فشل مسح الرسائل');
     }
     setClearing(false);
   };
 
-  // Clear all orders for this bot
+  // Clear all orders
   const clearOrders = async () => {
     setClearing(true);
     try {
-      for (const order of orders) {
-        await deleteDoc('orders', order.id);
-      }
-      // Reset orders count if tracked (optional, but good practice)
-      await updateDoc('bots', id, { ordersCount: 0 });
-      
-      setOrders([]);
+      await clearBotOrders(id);
       setShowClearOrdersModal(false);
-      toast.success(`تم مسح ${orders.length} طلبية`);
-    } catch (err) {
+      toast.success('تم مسح جميع الطلبيات بنجاح');
+    } catch {
       toast.error('فشل مسح الطلبيات');
     }
     setClearing(false);
@@ -225,14 +205,17 @@ export default function BotDetail() {
     setEditData({
       botName: bot.botName || '',
       businessName: bot.businessName || '',
-      businessType: bot.businessType || 'other',
+      businessType: bot.businessType || 'shop',
+      customType: bot.customType || '',
+      country: bot.country || 'DZ',
+      currency: bot.currency || 'دج',
       description: bot.description || '',
       services: bot.services || '',
       workingHours: bot.workingHours || '',
       location: bot.location || '',
       contact: bot.contact || '',
       responseStyle: bot.responseStyle || 'friendly',
-      language: bot.language || 'auto',
+      language: bot.language || 'arabic_algerian',
       customInstructions: bot.customInstructions || '',
       telegramToken: bot.telegramToken || '',
     });
@@ -242,8 +225,13 @@ export default function BotDetail() {
   const saveEdits = async () => {
     setSaving(true);
     try {
-      await updateDoc('bots', id, editData);
-      setBot(prev => ({ ...prev, ...editData }));
+      const selectedCountryObj = COUNTRIES.find(c => c.code === editData.country) || COUNTRIES[0];
+      await updateBot(id, {
+        ...editData,
+        countryName: selectedCountryObj.name,
+        currency: selectedCountryObj.currency,
+        phoneCode: selectedCountryObj.dialCode,
+      });
       setEditing(false);
       toast.success('تم حفظ التعديلات بنجاح');
     } catch (err) {
@@ -254,9 +242,8 @@ export default function BotDetail() {
 
   const toggleActive = async () => {
     try {
-      await updateDoc('bots', id, { isActive: !bot.isActive });
-      setBot(prev => ({ ...prev, isActive: !prev.isActive }));
-      toast.success(bot.isActive ? 'تم ايقاف البوت' : 'تم تشغيل البوت');
+      await updateBot(id, { isActive: !bot.isActive });
+      toast.success(bot.isActive ? 'تم إيقاف البوت' : 'تم تشغيل البوت');
     } catch (err) {
       toast.error(err.message);
     }
@@ -264,7 +251,7 @@ export default function BotDetail() {
 
   const handleDelete = async () => {
     try {
-      await deleteDoc('bots', id);
+      await deleteBot(id);
       toast.success('تم حذف البوت');
       navigate('/dashboard');
     } catch (err) {
@@ -274,20 +261,21 @@ export default function BotDetail() {
 
   if (loading) {
     return (
-      <div className="page-loader">
-        <div className="spinner spinner-lg" style={{ color: 'var(--accent-primary)' }} />
+      <div className="page-loader" style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="spinner" style={{ width: '2.5rem', height: '2.5rem', color: 'var(--accent-color)', borderWidth: '3px' }} />
       </div>
     );
   }
   if (!bot) return null;
 
   const newOrdersCount = orders.filter(o => o.status === 'new').length;
+  const currentActivityName = bot.customType || businessTypeLabels[bot.businessType] || bot.businessType || 'مشروع عام';
 
   return (
     <div className="page-container animate-enter">
       <button className="btn btn-secondary" onClick={() => navigate('/dashboard')} style={{ marginBottom: 'var(--space-4)', padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-        العودة
+        العودة للوحة التحكم
       </button>
 
       {/* Header */}
@@ -303,7 +291,8 @@ export default function BotDetail() {
                 <span className="badge-dot" />
                 {bot.isActive ? 'نشط' : 'متوقف'}
               </span>
-              <span className="badge badge-accent">{businessTypeLabels[bot.businessType] || bot.businessType}</span>
+              <span className="badge badge-accent">{currentActivityName}</span>
+              <span className="badge badge-accent">{bot.currency || 'دج'}</span>
             </div>
           </div>
         </div>
@@ -314,7 +303,7 @@ export default function BotDetail() {
           </button>
           <button className={`btn ${bot.isActive ? 'btn-secondary' : 'btn-primary'}`} onClick={toggleActive}>
             {bot.isActive ? (
-              <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>ايقاف</>
+              <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>إيقاف</>
             ) : (
               <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>تشغيل</>
             )}
@@ -329,9 +318,9 @@ export default function BotDetail() {
       {/* Tabs */}
       <div className="detail-tabs" style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-5)', marginTop: 'var(--space-4)' }}>
         {[
-          { key: 'chat', label: 'المحادثات', count: sortedCustomers.length },
-          { key: 'orders', label: 'الطلبيات', count: newOrdersCount },
-          { key: 'info', label: 'معلومات البوت', count: null },
+          { key: 'chat', label: 'المحادثات الحية', count: sortedCustomers.length },
+          { key: 'orders', label: 'الطلبيات والحجوزات', count: newOrdersCount },
+          { key: 'info', label: 'معلومات وإعدادات البوت', count: null },
         ].map(tab => (
           <button
             key={tab.key}
@@ -351,10 +340,6 @@ export default function BotDetail() {
             )}
           </button>
         ))}
-        <button className="btn btn-secondary btn-sm" onClick={() => loadMessages()} disabled={refreshing} style={{ marginRight: 'auto', borderRadius: 'var(--radius-full)' }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }}><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-          تحديث
-        </button>
       </div>
 
       {/* Chat Tab */}
@@ -363,7 +348,7 @@ export default function BotDetail() {
           {/* Customer Sidebar */}
           <div className="chat-sidebar">
             <div className="chat-sidebar-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h4 style={{ margin: 0, fontSize: '0.9rem' }}>الزبائن ({sortedCustomers.length})</h4>
+              <h4 style={{ margin: 0, fontSize: '0.9rem' }}>المستخدمون والزبائن ({sortedCustomers.length})</h4>
               {allMessages.length > 0 && (
                 <button
                   className="btn btn-ghost btn-sm"
@@ -378,7 +363,7 @@ export default function BotDetail() {
             </div>
             {sortedCustomers.length === 0 ? (
               <div style={{ textAlign: 'center', padding: 'var(--space-6)', color: 'var(--text-tertiary)', fontSize: 'var(--text-sm)' }}>
-                لا توجد محادثات بعد
+                لا توجد محادثات بعد. ستظهر هنا فور إرسال الزبائن لأي رسالة على البوت.
               </div>
             ) : (
               <div className="chat-customer-list">
@@ -393,11 +378,11 @@ export default function BotDetail() {
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontWeight: 600, fontSize: '0.8125rem' }}>{c.userName || 'زبون'}</span>
+                          <span style={{ fontWeight: 600, fontSize: '0.8125rem' }}>{c.userName || 'مستخدم'}</span>
                           <span style={{ fontSize: '0.6875rem', color: 'var(--text-tertiary)', flexShrink: 0 }}>{formatTime(c.lastTime)}</span>
                         </div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '2px' }}>
-                          {lastMsg?.role === 'owner' ? 'انت: ' : lastMsg?.role === 'bot' ? 'البوت: ' : ''}{lastMsg?.content?.slice(0, 50) || '...'}
+                          {lastMsg?.role === 'owner' ? 'أنت: ' : lastMsg?.role === 'bot' ? 'البوت: ' : ''}{lastMsg?.content?.slice(0, 50) || '...'}
                         </div>
                       </div>
                       {isTakeover && (
@@ -415,7 +400,7 @@ export default function BotDetail() {
             {!selectedUserId ? (
               <div className="chat-empty">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.5" style={{ opacity: 0.4 }}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                <p style={{ color: 'var(--text-tertiary)', marginTop: 'var(--space-3)' }}>اختر زبوناً من القائمة لعرض المحادثة</p>
+                <p style={{ color: 'var(--text-tertiary)', marginTop: 'var(--space-3)' }}>اختر محادثة من القائمة لمشاهدة التفاصيل والرد يدوياً</p>
               </div>
             ) : (
               <>
@@ -426,10 +411,10 @@ export default function BotDetail() {
                       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                     </div>
                     <div>
-                      <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{selectedThread?.userName || 'زبون'}</div>
+                      <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{selectedThread?.userName || 'مستخدم'}</div>
                       <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>
                         {selectedThread?.messages?.length || 0} رسالة
-                        {takeoverMap[selectedUserId] && <span style={{ color: '#f59e0b', marginRight: 'var(--space-2)' }}> -- وضع يدوي</span>}
+                        {takeoverMap[selectedUserId] && <span style={{ color: '#f59e0b', marginRight: 'var(--space-2)' }}> (وضع يدوي)</span>}
                       </div>
                     </div>
                   </div>
@@ -441,7 +426,7 @@ export default function BotDetail() {
                       title={takeoverMap[selectedUserId] ? 'إعادة الرد التلقائي' : 'تولي الرد يدوياً'}
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                      {takeoverMap[selectedUserId] ? 'ارجع للتلقائي' : 'رد يدوي'}
+                      {takeoverMap[selectedUserId] ? 'إرجاع البوت' : 'رد يدوي'}
                     </button>
                     <button className="btn btn-ghost btn-sm" onClick={() => setSelectedUserId(null)} style={{ padding: '0.375rem' }}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -454,7 +439,7 @@ export default function BotDetail() {
                   <div className="takeover-banner">
                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                      <span style={{ fontWeight: 600, fontSize: '0.8125rem' }}>الوضع اليدوي مفعل - البوت متوقف عن الرد لهذا الزبون</span>
+                      <span style={{ fontWeight: 600, fontSize: '0.8125rem' }}>الوضع اليدوي مفعل — البوت متوقف عن الرد التلقائي لهذا الشخص</span>
                     </div>
                     <button
                       className="btn btn-sm"
@@ -466,8 +451,7 @@ export default function BotDetail() {
                         boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
                       }}
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                      انهِ المحادثة وأعد البوت
+                      أنهِ المحادثة وأعد البوت
                     </button>
                   </div>
                 )}
@@ -478,7 +462,7 @@ export default function BotDetail() {
                     <div key={msg.id || i} className={`chat-bubble-row ${msg.role === 'user' ? 'chat-row-user' : 'chat-row-bot'}`}>
                       <div className={`chat-bubble ${msg.role === 'user' ? 'chat-bubble-user' : msg.role === 'owner' ? 'chat-bubble-owner' : 'chat-bubble-bot'}`}>
                         <div className="chat-bubble-label">
-                          {msg.role === 'user' ? (msg.userName || 'الزبون') : msg.role === 'owner' ? 'انت' : bot.botName}
+                          {msg.role === 'user' ? (msg.userName || 'الزبون') : msg.role === 'owner' ? 'أنت' : bot.botName}
                         </div>
                         <div className="chat-bubble-text">{msg.content}</div>
                         <div className="chat-bubble-time">{formatTime(msg.createdAt)}</div>
@@ -504,7 +488,7 @@ export default function BotDetail() {
                     {sending ? <span className="spinner" /> : (
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                     )}
-                    ارسال
+                    إرسال
                   </button>
                 </div>
               </>
@@ -520,7 +504,7 @@ export default function BotDetail() {
             <h3 className="card-title" style={{ margin: 0 }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-secondary)" strokeWidth="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-                الطلبيات ({orders.length})
+                الطلبيات والحجوزات المسجلة ({orders.length})
               </span>
             </h3>
             {orders.length > 0 && (
@@ -530,14 +514,14 @@ export default function BotDetail() {
                 style={{ fontSize: '0.75rem', color: 'var(--color-error)' }}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                مسح كل الطلبيات
+                مسح كل السجلات
               </button>
             )}
           </div>
           {orders.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-tertiary)' }}>
-              <p>لا توجد طلبيات بعد</p>
-              <p style={{ fontSize: 'var(--text-sm)', marginTop: 'var(--space-2)' }}>ستظهر الطلبيات تلقائياً عندما يؤكد الزبائن طلباتهم مع عناوينهم وأرقام هواتفهم</p>
+              <p>لا توجد طلبيات أو حجوزات بعد</p>
+              <p style={{ fontSize: 'var(--text-sm)', marginTop: 'var(--space-2)' }}>يقوم الذكاء الاصطناعي باستخراج وتسجيل طلبات الشراء والمواعيد تلقائياً بمجرد تأكيد العميل للطلب مع هاتفه وعنوانه</p>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
@@ -551,6 +535,11 @@ export default function BotDetail() {
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>{formatTime(order.createdAt)}</span>
                   </div>
                   <div className="order-card-body">
+                    {order.product && (
+                      <div className="order-field" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                        📌 الطلب / الحجز: {order.product} {order.price ? `(${order.price} ${bot.currency || 'دج'})` : ''}
+                      </div>
+                    )}
                     {order.phone && (
                       <div className="order-field">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
@@ -576,12 +565,12 @@ export default function BotDetail() {
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
                           تأكيد
                         </button>
-                        <button className="btn btn-sm btn-secondary" onClick={() => updateOrderStatus(order.id, 'cancelled')} style={{ fontSize: '0.75rem' }}>الغاء</button>
+                        <button className="btn btn-sm btn-secondary" onClick={() => updateOrderStatus(order.id, 'cancelled')} style={{ fontSize: '0.75rem' }}>إلغاء</button>
                       </>
                     )}
                     {order.status === 'confirmed' && (
                       <button className="btn btn-sm btn-primary" onClick={() => updateOrderStatus(order.id, 'delivered')} style={{ fontSize: '0.75rem', background: '#25D366', borderColor: '#25D366' }}>
-                        تم التوصيل
+                        مكتمل بنجاح ✅
                       </button>
                     )}
                   </div>
@@ -599,7 +588,7 @@ export default function BotDetail() {
             <div className="modal-body" style={{ paddingBottom: 0 }}>
               <h3 className="modal-title" style={{ marginBottom: 'var(--space-5)' }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', marginLeft: '8px' }}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                تعديل بيانات البوت
+                تعديل بيانات وإعدادات البوت
               </h3>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
@@ -608,21 +597,42 @@ export default function BotDetail() {
                   <input className="form-input" value={editData.botName} onChange={e => setEditData(p => ({ ...p, botName: e.target.value }))} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">اسم المشروع</label>
+                  <label className="form-label">اسم المشروع / الجهة</label>
                   <input className="form-input" value={editData.businessName} onChange={e => setEditData(p => ({ ...p, businessName: e.target.value }))} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">نوع النشاط</label>
-                  <select className="form-input" value={editData.businessType} onChange={e => setEditData(p => ({ ...p, businessType: e.target.value }))}>
-                    <option value="restaurant">مطعم</option>
-                    <option value="shop">متجر</option>
-                    <option value="clinic">عيادة</option>
-                    <option value="salon">صالون</option>
-                    <option value="delivery">توصيل</option>
-                    <option value="education">تعليم</option>
-                    <option value="other">اخرى</option>
+                  <label className="form-label">الدولة والعملة</label>
+                  <select 
+                    className="form-input" 
+                    value={editData.country} 
+                    onChange={e => {
+                      const cObj = COUNTRIES.find(c => c.code === e.target.value);
+                      setEditData(p => ({ ...p, country: e.target.value, currency: cObj?.currency || 'دج' }));
+                    }}
+                  >
+                    {COUNTRIES.map(c => (
+                      <option key={c.code} value={c.code}>
+                        {c.flag} {c.name} ({c.currency})
+                      </option>
+                    ))}
                   </select>
                 </div>
+                <div className="form-group">
+                  <label className="form-label">نوع ومجال النشاط</label>
+                  <select className="form-input" value={editData.businessType} onChange={e => setEditData(p => ({ ...p, businessType: e.target.value }))}>
+                    {BUSINESS_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {editData.businessType === 'custom' && (
+                <div className="form-group">
+                  <label className="form-label">تحديد نوع النشاط المخصص</label>
+                  <input className="form-input" value={editData.customType} onChange={e => setEditData(p => ({ ...p, customType: e.target.value }))} placeholder="اكتب نوع نشاطك هنا..." />
+                </div>
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)', marginTop: 'var(--space-2)' }}>
                 <div className="form-group">
                   <label className="form-label">أسلوب الرد</label>
                   <select className="form-input" value={editData.responseStyle} onChange={e => setEditData(p => ({ ...p, responseStyle: e.target.value }))}>
@@ -632,45 +642,46 @@ export default function BotDetail() {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">اللغة</label>
+                  <label className="form-label">اللغة واللهجة</label>
                   <select className="form-input" value={editData.language} onChange={e => setEditData(p => ({ ...p, language: e.target.value }))}>
-                    <option value="arabic_formal">عربي فصيح</option>
                     <option value="arabic_algerian">دارجة جزائرية</option>
+                    <option value="arabic_formal">عربي فصيح</option>
                     <option value="auto">تلقائي</option>
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">ساعات العمل</label>
+                  <label className="form-label">ساعات العمل / التوفر</label>
                   <input className="form-input" value={editData.workingHours} onChange={e => setEditData(p => ({ ...p, workingHours: e.target.value }))} placeholder="مثال: 8 صباحاً - 10 مساءً" />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">الموقع</label>
+                  <label className="form-label">الموقع أو المدينة</label>
                   <input className="form-input" value={editData.location} onChange={e => setEditData(p => ({ ...p, location: e.target.value }))} placeholder="مثال: وهران، حي الصباح" />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">التواصل</label>
-                  <input className="form-input" value={editData.contact} onChange={e => setEditData(p => ({ ...p, contact: e.target.value }))} placeholder="رقم هاتف أو بريد" />
                 </div>
               </div>
 
+              <div className="form-group" style={{ marginTop: 'var(--space-2)' }}>
+                <label className="form-label">بيانات التواصل</label>
+                <input className="form-input" value={editData.contact} onChange={e => setEditData(p => ({ ...p, contact: e.target.value }))} placeholder="رقم هاتف أو بريد أو صفحة" />
+              </div>
+
               {bot.telegramToken && (
-                <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
+                <div className="form-group" style={{ marginTop: 'var(--space-3)' }}>
                   <label className="form-label">توكن تيليغرام</label>
                   <input className="form-input" value={editData.telegramToken} onChange={e => setEditData(p => ({ ...p, telegramToken: e.target.value }))} style={{ fontFamily: 'monospace', fontSize: '0.8rem' }} />
                 </div>
               )}
 
-              <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
-                <label className="form-label">الوصف</label>
-                <textarea className="form-input" rows="3" value={editData.description} onChange={e => setEditData(p => ({ ...p, description: e.target.value }))} placeholder="وصف مختصر للمشروع" />
+              <div className="form-group" style={{ marginTop: 'var(--space-3)' }}>
+                <label className="form-label">نبذة ووصف النشاط</label>
+                <textarea className="form-input" rows="2" value={editData.description} onChange={e => setEditData(p => ({ ...p, description: e.target.value }))} placeholder="وصف مختصر عن المشروع" />
               </div>
-              <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
-                <label className="form-label">الخدمات والأسعار</label>
-                <textarea className="form-input" rows="4" value={editData.services} onChange={e => setEditData(p => ({ ...p, services: e.target.value }))} placeholder="اكتب الخدمات وأسعارها" />
+              <div className="form-group" style={{ marginTop: 'var(--space-3)' }}>
+                <label className="form-label">الخدمات / المنتجات / الأسعار والمعلومات الشائعة</label>
+                <textarea className="form-input" rows="4" value={editData.services} onChange={e => setEditData(p => ({ ...p, services: e.target.value }))} placeholder="اكتب الخدمات أو المنتجات أو المعلومات هنا" />
               </div>
-              <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
-                <label className="form-label">تعليمات خاصة</label>
-                <textarea className="form-input" rows="3" value={editData.customInstructions} onChange={e => setEditData(p => ({ ...p, customInstructions: e.target.value }))} placeholder="تعليمات إضافية للذكاء الاصطناعي" />
+              <div className="form-group" style={{ marginTop: 'var(--space-3)' }}>
+                <label className="form-label">تعليمات خاصة إضافية للذكاء الاصطناعي</label>
+                <textarea className="form-input" rows="3" value={editData.customInstructions} onChange={e => setEditData(p => ({ ...p, customInstructions: e.target.value }))} placeholder="أي تعليمات أو شروط إضافية" />
               </div>
             </div>
             <div className="modal-footer">
@@ -683,7 +694,7 @@ export default function BotDetail() {
         </div>
       )}
 
-      {/* Info Tab - Premium V3 Layout */}
+      {/* Info Tab */}
       {activeTab === 'info' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
           {/* Business Info Card */}
@@ -693,27 +704,28 @@ export default function BotDetail() {
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
               </div>
               <div>
-                <h4 className="premium-title">معلومات المشروع</h4>
-                <p className="premium-subtitle">التفاصيل الأساسية للنشاط التجاري</p>
+                <h4 className="premium-title">معلومات المشروع والدولة</h4>
+                <p className="premium-subtitle">التفاصيل الأساسية لنشاط البوت</p>
               </div>
             </div>
             <div className="premium-card-content">
               <InfoRowV3 label="اسم المشروع" value={bot.businessName} />
               <InfoRowV3 label="اسم البوت" value={bot.botName} />
-              <InfoRowV3 label="نوع النشاط" value={businessTypeLabels[bot.businessType]} />
+              <InfoRowV3 label="نوع النشاط" value={currentActivityName} />
+              <InfoRowV3 label="الدولة والعملة" value={`${bot.countryName || 'الجزائر'} (${bot.currency || 'دج'})`} />
               {bot.workingHours && <InfoRowV3 label="ساعات العمل" value={bot.workingHours} />}
               {bot.location && <InfoRowV3 label="الموقع" value={bot.location} />}
               {bot.contact && <InfoRowV3 label="التواصل" value={bot.contact} />}
 
               {bot.description && (
                 <div className="premium-field-block">
-                  <span className="premium-field-label">الوصف</span>
+                  <span className="premium-field-label">الوصف والنبذة</span>
                   <div className="premium-field-text">{bot.description}</div>
                 </div>
               )}
               {bot.services && (
                 <div className="premium-field-block">
-                  <span className="premium-field-label">الخدمات والأسعار</span>
+                  <span className="premium-field-label">الخدمات / المنتجات والمعلومات</span>
                   <div className="premium-field-text">{bot.services}</div>
                 </div>
               )}
@@ -749,7 +761,7 @@ export default function BotDetail() {
               <div className="premium-card">
                 <div className="premium-card-header">
                   <div className="premium-icon blue">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-2.82.33v.28A2 2 0 0 1 10 21.54a2 2 0 0 1-1.09-2.6A1.65 1.65 0 0 0 9 17.18a1.65 1.65 0 0 0-1.82-.33 2 2 0 1 1-2.36-3.24 1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.28a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82 2 2 0 1 1 2.83-2.83 1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.28c.26.6.85 1 1.51 1a1.65 1.65 0 0 0 1.82-.33 2 2 0 1 1 2.83 2.83 1.65 1.65 0 0 0-.33 1.82V9c.26.6.85 1 1.51 1H21a2 2 0 1 1 0 4h-.28c-.66 0-1.25.4-1.51 1z"/></svg>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                   </div>
                   <div>
                     <h4 className="premium-title">الإعدادات التقنية</h4>
@@ -757,13 +769,13 @@ export default function BotDetail() {
                   </div>
                 </div>
                 <div className="premium-card-content">
-                  <InfoRowV3 label="نظام الذكاء الاصطناعي" value="المحرك المتقدم الأساسي" />
-                  <InfoRowV3 label="إصدار النموذج" value="الجيل الأحدث (V2)" />
+                  <InfoRowV3 label="نظام الذكاء الاصطناعي" value="Google Gemini 2.5 Flash" />
+                  <InfoRowV3 label="قاعدة البيانات" value="Cloud Firestore (Realtime)" />
                   <InfoRowV3 label="إجمالي الرسائل" value={String(bot.messagesCount || 0)} />
                 </div>
               </div>
 
-              {/* Auto-Orders Settings Card */}
+              {/* Auto-Orders Settings */}
               <div className="premium-card" style={{ background: 'linear-gradient(135deg, rgba(251, 146, 60, 0.05), rgba(251, 146, 60, 0.01))', borderColor: 'rgba(251, 146, 60, 0.2)' }}>
                 <div className="premium-card-header">
                   <div className="premium-icon" style={{ background: 'rgba(251, 146, 60, 0.15)', color: '#fb923c' }}>
@@ -771,26 +783,21 @@ export default function BotDetail() {
                   </div>
                   <div>
                     <h4 className="premium-title">الحجز التلقائي</h4>
-                    <p className="premium-subtitle">تسجيل طلبات الزبائن تلقائياً</p>
+                    <p className="premium-subtitle">تسجيل واستخراج طلبات الزبائن</p>
                   </div>
                 </div>
                 <div className="premium-card-content" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  {/* Telegram Toggle */}
                   {bot.telegramToken && (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 'var(--radius-lg)', background: 'var(--surface-secondary)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="#2AABEE"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
-                        <div>
-                          <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>حجز تلقائي — تيليغرام</span>
-                          <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', margin: 0 }}>البوت يجمع الطلبات ويسأل الزبون للتأكيد</p>
-                        </div>
+                      <div>
+                        <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>حجز تلقائي — تيليغرام</span>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', margin: 0 }}>جمع بيانات المشتري وتأكيد الطلبية آلياً</p>
                       </div>
                       <button
                         onClick={async () => {
                           const newVal = !(bot.autoOrdersTelegram !== false);
-                          await updateDoc('bots', id, { autoOrdersTelegram: newVal });
-                          setBot(prev => ({ ...prev, autoOrdersTelegram: newVal }));
-                          toast.success(newVal ? 'تم تفعيل الحجز التلقائي للتيليغرام' : 'تم تعطيل الحجز التلقائي للتيليغرام');
+                          await updateBot(id, { autoOrdersTelegram: newVal });
+                          toast.success(newVal ? 'تم تفعيل الحجز التلقائي' : 'تم تعطيل الحجز التلقائي');
                         }}
                         style={{
                           width: '48px', height: '26px', borderRadius: '13px', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.3s',
@@ -805,22 +812,17 @@ export default function BotDetail() {
                     </div>
                   )}
 
-                  {/* WhatsApp Toggle */}
                   {bot.whatsappEnabled && (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 'var(--radius-lg)', background: 'var(--surface-secondary)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                        <div>
-                          <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>حجز تلقائي — واتساب</span>
-                          <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', margin: 0 }}>البوت يجمع الطلبات ويسأل الزبون للتأكيد</p>
-                        </div>
+                      <div>
+                        <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>حجز تلقائي — واتساب</span>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', margin: 0 }}>جمع بيانات المشتري وتأكيد الطلبية آلياً</p>
                       </div>
                       <button
                         onClick={async () => {
                           const newVal = !(bot.autoOrdersWhatsapp !== false);
-                          await updateDoc('bots', id, { autoOrdersWhatsapp: newVal });
-                          setBot(prev => ({ ...prev, autoOrdersWhatsapp: newVal }));
-                          toast.success(newVal ? 'تم تفعيل الحجز التلقائي للواتساب' : 'تم تعطيل الحجز التلقائي للواتساب');
+                          await updateBot(id, { autoOrdersWhatsapp: newVal });
+                          toast.success(newVal ? 'تم تفعيل الحجز التلقائي' : 'تم تعطيل الحجز التلقائي');
                         }}
                         style={{
                           width: '48px', height: '26px', borderRadius: '13px', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.3s',
@@ -836,30 +838,10 @@ export default function BotDetail() {
                   )}
                 </div>
               </div>
-              {/* Telegram integration block */}
-              {bot.telegramToken && (
-                <div className="premium-card" style={{ background: 'linear-gradient(135deg, rgba(42, 171, 238, 0.05), rgba(42, 171, 238, 0.01))', borderColor: 'rgba(42, 171, 238, 0.2)' }}>
-                  <div className="premium-card-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                      <div className="premium-icon" style={{ background: 'rgba(42, 171, 238, 0.15)', color: '#2AABEE' }}>
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
-                      </div>
-                      <div>
-                        <h4 className="premium-title" style={{ fontSize: '1rem' }}>رابط تيليغرام</h4>
-                        <p className="premium-subtitle" style={{ fontSize: '0.75rem' }}>البوت نشط وجاهز لاستقبال الرسائل</p>
-                      </div>
-                    </div>
-                    <a href="https://t.me/" target="_blank" rel="noopener noreferrer" className="btn-telegram">
-                      فتح البوت
-                    </a>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>
       )}
-
 
       {/* WhatsApp Connection */}
       {bot.whatsappEnabled && activeTab === 'info' && (
@@ -875,11 +857,7 @@ export default function BotDetail() {
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
               </div>
               <h3 className="modal-title" style={{ marginBottom: '8px' }}>مسح جميع المحادثات</h3>
-              <p>
-                هل أنت متأكد من رغبتك في مسح <strong>جميع المحادثات والرسائل</strong> لهذا البوت؟
-                <br /><br />
-                سيتم تصفير عداد الرسائل في الداشبورد. هذا الإجراء سيحذف السجل بالكامل ولا يمكن التراجع عنه.
-              </p>
+              <p>هل أنت متأكد من رغبتك في مسح جميع المحادثات والرسائل لهذا البوت؟ سيتم حذف السجل بالكامل.</p>
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowClearMessagesModal(false)} disabled={clearing}>تراجع</button>
@@ -900,16 +878,12 @@ export default function BotDetail() {
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
               </div>
               <h3 className="modal-title" style={{ marginBottom: '8px' }}>مسح جميع الطلبيات</h3>
-              <p>
-                هل أنت متأكد من رغبتك في مسح <strong>جميع سجلات الطلبيات</strong> لهذا البوت المكتملة والمفتوحة بشكل نهائي؟
-                <br /><br />
-                هذا الإجراء لا يمكن التراجع عنه.
-              </p>
+              <p>هل أنت متأكد من رغبتك في مسح كافة سجلات الطلبيات والحجوزات لهذا البوت؟</p>
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowClearOrdersModal(false)} disabled={clearing}>تراجع</button>
               <button className="btn btn-danger" onClick={clearOrders} disabled={clearing}>
-                {clearing ? <span className="spinner" /> : 'مسح كل الطلبيات'}
+                {clearing ? <span className="spinner" /> : 'مسح كل السجلات'}
               </button>
             </div>
           </div>
@@ -925,9 +899,7 @@ export default function BotDetail() {
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
               </div>
               <h3 className="modal-title" style={{ marginBottom: '8px' }}>حذف البوت نهائياً</h3>
-              <p>
-                هل أنت متأكد من رغبتك في حذف البوت <strong>"{bot.botName}"</strong> مع كافة بياناته وسجل محادثاته بشكل دائم لا رجوع فيه؟
-              </p>
+              <p>هل أنت متأكد من رغبتك في حذف البوت <strong>"{bot.botName}"</strong> مع كافة بياناته وسجل محادثاته بشكل دائم؟</p>
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowDeleteModal(false)}>تراجع</button>
@@ -959,7 +931,7 @@ function OrderStatusBadge({ status }) {
   const config = {
     new: { label: 'جديد', bg: 'rgba(239,68,68,0.12)', color: '#ef4444' },
     confirmed: { label: 'مؤكد', bg: 'rgba(59,130,246,0.12)', color: '#3b82f6' },
-    delivered: { label: 'تم التوصيل', bg: 'rgba(37,211,102,0.12)', color: '#25D366' },
+    delivered: { label: 'مكتمل', bg: 'rgba(37,211,102,0.12)', color: '#25D366' },
     cancelled: { label: 'ملغي', bg: 'var(--surface-tertiary)', color: 'var(--text-tertiary)' },
   };
   const c = config[status] || config.new;
@@ -980,8 +952,8 @@ function InfoRowV3({ label, value }) {
   );
 }
 
-// ─── WhatsApp Connect ─────────────────────────────────────────
-const WA_ENGINE = import.meta.env.VITE_WA_ENGINE_URL || 'http://localhost:3001';
+// ─── WhatsApp Connect Component ───────────────────────────────
+const WA_ENGINE = import.meta.env.VITE_WHATSAPP_ENGINE_URL || 'http://localhost:3001';
 const WA_KEY = import.meta.env.VITE_API_KEY;
 
 function WhatsAppConnect({ botId, botName, status: initialStatus }) {
@@ -1043,13 +1015,13 @@ function WhatsAppConnect({ botId, botName, status: initialStatus }) {
       {(waStatus === 'not_initialized' || waStatus === 'disconnected' || waStatus === 'error') && (
         <div>
           <button className="btn btn-primary" onClick={handleConnect} disabled={connecting} style={{ background: '#25D366', borderColor: '#25D366' }}>
-            {connecting ? <span className="spinner" /> : 'ربط واتساب'}
+            {connecting ? <span className="spinner" /> : 'ربط واتساب عبر QR Code'}
           </button>
         </div>
       )}
       {waStatus === 'waiting_scan' && qrDataUrl && (
         <div>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-4)' }}>امسح هذا الكود بتطبيق واتساب</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-4)' }}>امسح هذا الكود بتطبيق واتساب (الأجهزة المرتبطة ➔ ربط جهاز)</p>
           <div style={{ background: '#fff', borderRadius: 'var(--radius-lg)', display: 'inline-block', padding: 'var(--space-4)' }}>
             <img src={qrDataUrl} alt="QR Code" style={{ width: '250px', height: '250px' }} />
           </div>

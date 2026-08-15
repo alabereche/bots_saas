@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getDocs } from '../services/nexcloud';
+import { subscribeBots } from '../services/firebase';
 import { useAuth } from '../context/AuthContext';
 
 export default function Dashboard() {
@@ -10,20 +10,16 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadBots();
-  }, [user]);
-
-  async function loadBots() {
     if (!user) return;
-    try {
-      const res = await getDocs('bots', { userId: user.id });
-      setBots(res.documents?.map(d => ({ id: d.id, ...d.data })) || []);
-    } catch (e) {
-      console.error('Failed to load bots:', e);
-    } finally {
+    setLoading(true);
+    // Realtime subscription to user's bots
+    const unsubscribe = subscribeBots(user.uid, (data) => {
+      setBots(data);
       setLoading(false);
-    }
-  }
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
   const activeBots = bots.filter(b => b.isActive);
   const totalMessages = bots.reduce((sum, b) => sum + (b.messagesCount || 0), 0);
@@ -43,9 +39,9 @@ export default function Dashboard() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-4)', marginBottom: 'var(--space-8)' }}>
         <div>
           <h1 style={{ fontSize: '2.25rem', fontWeight: 800, marginBottom: 'var(--space-2)', letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>
-            مرحباً، <span className="text-gradient">{user?.name?.split(' ')[0] || 'مستخدم'}</span>
+            مرحباً، <span className="text-gradient">{user?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || 'مستخدم'}</span>
           </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', lineHeight: 1.6 }}>أدر بوتاتك الذكية وتابع الإحصائيات من هنا</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', lineHeight: 1.6 }}>أدر بوتاتك الذكية وتابع الإحصائيات الحية من هنا</p>
         </div>
         <button className="btn btn-primary" onClick={() => navigate('/create-bot')} style={{ gap: 'var(--space-2)', padding: '0.875rem 1.5rem', fontWeight: 600, boxShadow: '0 8px 25px var(--accent-glow)' }}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
@@ -125,7 +121,7 @@ export default function Dashboard() {
           </div>
           <h3 style={{ fontSize: '1.5rem', marginBottom: 'var(--space-2)', fontWeight: 800 }}>لا توجد بوتات بعد</h3>
           <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--space-8)', maxWidth: '400px', lineHeight: 1.6 }}>
-            ابدأ بإنشاء أول بوت ذكي لمشروعك وقم بربطه بـ WhatsApp لتسهيل الردود الآلية على عملائك.
+            ابدأ بإنشاء أول بوت ذكي لمشروعك وقم بربطه بـ Telegram أو WhatsApp لتسهيل الردود الآلية على عملائك.
           </p>
           <button className="btn btn-primary" onClick={() => navigate('/create-bot')} style={{ padding: '0.875rem 2rem', fontSize: '1rem', fontWeight: 700, boxShadow: '0 8px 25px var(--accent-glow-strong)' }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
@@ -163,8 +159,9 @@ export default function Dashboard() {
                   <span>{bot.messagesCount || 0} رسالة</span>
                 </div>
                 <div className="bot-card-meta">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                  <span className="font-latin">{bot.createdAt ? new Date(bot.createdAt).toLocaleDateString('en-GB') : '--'}</span>
+                  <span>{bot.currency || 'دج'}</span>
+                  <span>•</span>
+                  <span>{bot.platform === 'whatsapp' ? 'واتساب' : 'تيليغرام'}</span>
                 </div>
               </div>
             </div>

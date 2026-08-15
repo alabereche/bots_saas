@@ -142,13 +142,24 @@ async function callGemini(apiKey, model, messages) {
       parts: [{ text: m.content }],
     }));
 
+  const isBearer = apiKey && (apiKey.startsWith('AQ') || apiKey.startsWith('ya29') || apiKey.length > 80);
+  const urlBase = 'https://generativelanguage.googleapis.com/v1beta/models';
+
   let lastError = null;
   for (const geminiModel of modelsToTry) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`;
+      const url = isBearer 
+        ? `${urlBase}/${geminiModel}:generateContent`
+        : `${urlBase}/${geminiModel}:generateContent?key=${apiKey}`;
+
+      const headers = { 'Content-Type': 'application/json' };
+      if (isBearer) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      }
+
       const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
           contents,

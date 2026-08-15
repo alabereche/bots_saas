@@ -1,6 +1,6 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════
-# BotForge — Complete One-Click VPS Setup Script (Ubuntu / Debian)
+# BotForge — Complete One-Click VPS Setup Script (Ubuntu 24.04 / 22.04)
 # Optimized for 4GB RAM + 20GB SSD (Tencent Cloud / Any Cloud)
 # ═══════════════════════════════════════════════════════════════
 
@@ -15,7 +15,7 @@ echo "[1/7] Updating system packages..."
 sudo apt-get update -y
 sudo apt-get install -y curl wget git build-essential ufw
 
-# 2. Setup 4GB Swap Space (Crucial for 4GB RAM + Chromium puppeteer stability)
+# 2. Setup 4GB Swap Space
 echo "[2/7] Checking and setting up 4GB Swap memory..."
 if ! grep -q '/swapfile' /etc/fstab; then
     echo "Creating 4GB swapfile..."
@@ -32,40 +32,42 @@ else
 fi
 
 # 3. Install Node.js 20 LTS & PM2
-echo "[3/7] Installing Node.js 20 LTS & PM2..."
+echo "[3/7] Checking Node.js 20 LTS & PM2..."
 if ! command -v node &> /dev/null; then
     curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
     sudo apt-get install -y nodejs
 fi
 
-sudo npm install -g pm2
+if ! command -v pm2 &> /dev/null; then
+    sudo npm install -g pm2
+fi
+
 echo "Node version: $(node -v)"
 echo "NPM version: $(npm -v)"
 echo "PM2 version: $(pm2 -v)"
 
-# 4. Install Chromium Dependencies for WhatsApp Engine (Puppeteer)
+# 4. Install Chromium Dependencies for Ubuntu 24.04 (Noble) & 22.04
 echo "[4/7] Installing Chromium & Puppeteer required system libraries..."
 sudo apt-get install -y \
     ca-certificates \
     fonts-liberation \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libatk1.0-0 \
+    libasound2t64 || sudo apt-get install -y libasound2 || true
+
+sudo apt-get install -y \
+    libatk-bridge2.0-0t64 \
+    libatk1.0-0t64 \
     libc6 \
     libcairo2 \
-    libcups2 \
+    libcups2t64 \
     libdbus-1-3 \
     libexpat1 \
     libfontconfig1 \
     libgbm1 \
-    libgcc1 \
-    libglib2.0-0 \
-    libgtk-3-0 \
+    libglib2.0-0t64 \
+    libgtk-3-0t64 \
     libnspr4 \
     libnss3 \
-    libpango-1-0-0 \
     libpangocairo-1.0-0 \
-    libstdc++6 \
     libx11-6 \
     libx11-xcb1 \
     libxcb1 \
@@ -79,8 +81,7 @@ sudo apt-get install -y \
     libxrender1 \
     libxss1 \
     libxtst6 \
-    lsb-release \
-    xdg-utils
+    xdg-utils || true
 
 # 5. Setup environment and install dependencies
 echo "[5/7] Setting up environment and dependencies..."
@@ -101,7 +102,7 @@ fi
 
 npm install --production || true
 (cd bot-engine && npm install)
-(cd whatsapp-engine && npm install)
+(cd whatsapp-engine && npm install && npx puppeteer browsers install chrome || true)
 
 # 6. Configure Firewall
 echo "[6/7] Configuring firewall..."
@@ -131,3 +132,4 @@ echo "    pm2 status        -> View status of engines"
 echo "    pm2 logs          -> View real-time logs"
 echo "    pm2 restart all   -> Restart all engines"
 echo "=========================================================="
+pm2 status

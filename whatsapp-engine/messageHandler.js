@@ -29,44 +29,28 @@ function extractOrder(rawReply) {
 
 // ─── Message Handler ─────────────────────────────────────────
 async function handleMessage(msg, config) {
-  // Skip messages from the bot itself
-  if (msg.fromMe) return;
-
-  // Skip non-text messages
-  if (!msg.body || msg.body.trim() === '') {
-    await msg.reply('عذراً، حالياً أستطيع الرد على الرسائل النصية فقط.');
-    return;
-  }
-
-  let isGroup = false;
-  let chat = null;
   try {
-    chat = await msg.getChat();
-    isGroup = chat?.isGroup || false;
-  } catch (e) {
-    isGroup = false;
-  }
-  
-  // Skip group messages to avoid spamming
-  if (isGroup) return;
+    // Skip messages from the bot itself
+    if (msg.fromMe) return;
 
-  const userMessage = msg.body.trim();
-  let userName = 'زبون واتساب';
-  try {
-    const contact = await msg.getContact();
-    userName = contact?.pushname || contact?.name || 'زبون واتساب';
-  } catch (e) {
-    userName = 'زبون واتساب';
-  }
-  const userId = msg.from;
+    // Skip status broadcasts and system messages
+    if (msg.from === 'status@broadcast' || !msg.from) return;
 
-  console.log(`[Handler] 📩 Message from ${userName} (${userId}): "${userMessage}"`);
-
-  try {
-    // Show typing state if possible
-    if (chat && typeof chat.sendStateTyping === 'function') {
-      chat.sendStateTyping().catch(() => {});
+    // Skip group messages (IDs ending with @g.us) to avoid group spam
+    if (typeof msg.from === 'string' && msg.from.endsWith('@g.us')) {
+      return;
     }
+
+    // Skip empty or non-text messages
+    const userMessage = (msg.body || '').trim();
+    if (!userMessage) {
+      return;
+    }
+
+    const userId = msg.from;
+    const userName = msg._data?.notifyName || msg.notifyName || 'زبون واتساب';
+
+    console.log(`[Handler] 📩 New message from ${userName} (${userId}): "${userMessage}"`);
 
     // Build config with auto-orders flag
     const aiConfig = {
@@ -74,14 +58,21 @@ async function handleMessage(msg, config) {
       autoOrdersEnabled: config.autoOrdersWhatsapp !== false,
     };
 
-    // Get AI response
+    // Get AI response from Gemini 3.5 Flash-Lite
     const rawReply = await askOpenRouter(aiConfig, userId, userMessage);
 
     // Extract order if present and clean the reply
     const { reply, orderData } = extractOrder(rawReply);
 
-    // Send cleaned reply to customer
-    await msg.reply(reply);
+    // Send reply to customer
+    await msg.reply(reply).catch(async (replyErr) => {
+      console.warn('[Handler] msg.reply failed, trying sendMessage:', replyErr.message);
+      if (msg.client && typeof msg.client.sendMessage === 'function') {
+        await msg.client.sendMessage(userId, reply);
+      }
+    });
+
+    console.log(`[Handler] 🤖 Sent AI reply to ${userName}: "${reply.slice(0, 50)}..."`);
 
     // Save order / booking if confirmed
     if (orderData) {
@@ -111,8 +102,7 @@ async function handleMessage(msg, config) {
       .catch(e => console.error('[Handler] Count error:', e.message));
 
   } catch (err) {
-    console.error(`[Handler] Error for bot "${config.botName}":`, err.message);
-    await msg.reply('عذراً، حدث خطأ أثناء المعالجة. حاول مرة أخرى.').catch(() => {});
+    console.error(`[Handler] Error for WhatsApp bot "${config?.botName}":`, err.message);
   }
 }
 

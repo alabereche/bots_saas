@@ -6,17 +6,17 @@ import { useToast } from '../context/ToastContext';
 import { COUNTRIES } from '../data/countries';
 
 export const BUSINESS_TYPES = [
-  { value: 'shop', label: '🏪 متجر إلكتروني / مبيعات وتجارة', placeholder: 'مثال:\nحذاء رياضي - 4500 دج\nقميص قطني - 2500 دج\nعطر فاخر - 6000 دج' },
-  { value: 'support', label: '🎧 خدمة عملاء ودعم فني', placeholder: 'مثال:\nكيفية إعادة تعيين كلمة المرور\nأوقات الرد على التذاكر\nسياسة الإرجاع والضمان' },
-  { value: 'agency', label: '🏢 شركة / وكالة خدمات', placeholder: 'مثال:\nتصميم المواقع وتطبيقات الموبايل\nإدارة الحملات الإعلانية\nصناعة المحتوى والتسويق' },
-  { value: 'booking', label: '📅 حجز مواعيد واستشارات', placeholder: 'مثال:\nجلسة استشارية (45 دقيقة) - 3000 دج\nموعد مقابلة عمل\nحجز معاينة ميدانية' },
-  { value: 'clinic', label: '🩺 عيادة / مركز صحي وطبي', placeholder: 'مثال:\nفحص طبي عام - 2000 دج\nتنظيف وتبييض الأسنان - 5000 دج\nجلسة علاج طبيعي - 3000 دج' },
-  { value: 'education', label: '🎓 تعليم / دورات وتدريب', placeholder: 'مثال:\nدورة الذكاء الاصطناعي - 15000 دج\nكورس اللغة الإنجليزية - 8000 دج\nدروس خصوصية' },
-  { value: 'realestate', label: '🏠 عقارات ومقاولات', placeholder: 'مثال:\nشقق للبيع F3 و F4\nكراء محلات تجارية\nأراضي للبناء واستشارات عقارية' },
-  { value: 'restaurant', label: '🍽️ مطعم / كافيه', placeholder: 'مثال:\nوجبة برجر دبل - 900 دج\nبيتزا مارغريتا - 800 دج\nعصائر ومشروبات - 250 دج' },
-  { value: 'services', label: '🛠️ خدمات مهنية وحرفية', placeholder: 'مثال:\nصيانة أجهزة التكييف\nخدمات كهرباء ومعمارية\nنقل أثاث وبضائع' },
-  { value: 'assistant', label: '🤖 مساعد ذكي شخصي / عام', placeholder: 'اكتب هنا المعلومات والبيانات والمهام التي تريد أن يجيب عنها مساعدك الشخصي...' },
-  { value: 'custom', label: '✍️ نشاط أو فكرة مخصصة', placeholder: 'اكتب هنا تفاصيل نشاطك وخدماتك والأسئلة الشائعة بالتفصيل...' },
+  { value: 'shop', label: 'متجر إلكتروني / مبيعات وتجارة', placeholder: 'مثال:\nحذاء رياضي - 4500 دج\nقميص قطني - 2500 دج\nعطر فاخر - 6000 دج' },
+  { value: 'support', label: 'خدمة عملاء ودعم فني', placeholder: 'مثال:\nكيفية إعادة تعيين كلمة المرور\nأوقات الرد على التذاكر\nسياسة الإرجاع والضمان' },
+  { value: 'agency', label: 'شركة / وكالة خدمات', placeholder: 'مثال:\nتصميم المواقع وتطبيقات الموبايل\nإدارة الحملات الإعلانية\nصناعة المحتوى والتسويق' },
+  { value: 'booking', label: 'حجز مواعيد واستشارات', placeholder: 'مثال:\nجلسة استشارية (45 دقيقة) - 3000 دج\nموعد مقابلة عمل\nحجز معاينة ميدانية' },
+  { value: 'clinic', label: 'عيادة / مركز صحي وطبي', placeholder: 'مثال:\nفحص طبي عام - 2000 دج\nتنظيف وتبييض الأسنان - 5000 دج\nجلسة علاج طبيعي - 3000 دج' },
+  { value: 'education', label: 'تعليم / دورات وتدريب', placeholder: 'مثال:\nدورة الذكاء الاصطناعي - 15000 دج\nكورس اللغة الإنجليزية - 8000 دج\nدروس خصوصية' },
+  { value: 'realestate', label: 'عقارات ومقاولات', placeholder: 'مثال:\nشقق للبيع F3 و F4\nكراء محلات تجارية\nأراضي للبناء واستشارات عقارية' },
+  { value: 'restaurant', label: 'مطعم / كافيه', placeholder: 'مثال:\nوجبة برجر دبل - 900 دج\nبيتزا مارغريتا - 800 دج\nعصائر ومشروبات - 250 دج' },
+  { value: 'services', label: 'خدمات مهنية وحرفية', placeholder: 'مثال:\nصيانة أجهزة التكييف\nخدمات كهرباء ومعمارية\nنقل أثاث وبضائع' },
+  { value: 'assistant', label: 'مساعد ذكي شخصي / عام', placeholder: 'اكتب هنا المعلومات والبيانات والمهام التي تريد أن يجيب عنها مساعدك الشخصي...' },
+  { value: 'custom', label: 'نشاط أو فكرة مخصصة', placeholder: 'اكتب هنا تفاصيل نشاطك وخدماتك والأسئلة الشائعة بالتفصيل...' },
 ];
 
 const RESPONSE_STYLES = [
@@ -146,17 +146,21 @@ export default function CreateBot() {
   };
 
   return (
-    <div className="page-container animate-enter" style={{ maxWidth: '820px' }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 'var(--space-6)' }}>
-        <button className="btn btn-secondary" onClick={() => navigate('/dashboard')} style={{ padding: '0.625rem 1.25rem', fontSize: '0.875rem', gap: 'var(--space-2)', borderRadius: 'var(--radius-full)' }}>
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    <div className="page-container" style={{ maxWidth: '760px' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '1.25rem' }}>
+        <button className="btn btn-secondary btn-sm" onClick={() => navigate('/dashboard')} style={{ gap: '6px' }}>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
           العودة للوحة التحكم
         </button>
       </div>
 
-      <div style={{ textAlign: 'center', marginBottom: 'var(--space-8)' }}>
-        <h1 style={{ fontSize: '2rem', marginBottom: 'var(--space-2)' }}>إنشاء <span className="text-gradient">بوت ذكي مخصص</span></h1>
-        <p style={{ color: 'var(--text-secondary)' }}>أنشئ مساعدك الذكي لأي نشاط، متجر، شركة، عيادة، أو خدمة في دقائق</p>
+      <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+        <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#ffffff', marginBottom: '0.4rem' }}>
+          إنشاء بوت ذكي جديد
+        </h1>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem' }}>
+          أدخل بيانات نشاطك ليقوم الذكاء الاصطناعي بالرد على عملائك وحجز طلبياتهم فوراً
+        </p>
       </div>
 
       {/* Wizard Progress */}
@@ -164,42 +168,39 @@ export default function CreateBot() {
         <div className={`wizard-step ${step >= 1 ? (step > 1 ? 'completed' : 'active') : ''}`}>
           <div className="wizard-step-number">
             {step > 1 ? (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             ) : '1'}
           </div>
-          <span className="wizard-step-label">معلومات النشاط</span>
+          <span>معلومات النشاط</span>
         </div>
         <div className={`wizard-connector ${step > 1 ? 'completed' : ''}`} />
         <div className={`wizard-step ${step >= 2 ? (step > 2 ? 'completed' : 'active') : ''}`}>
           <div className="wizard-step-number">
             {step > 2 ? (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             ) : '2'}
           </div>
-          <span className="wizard-step-label">شخصية البوت</span>
+          <span>شخصية البوت</span>
         </div>
         <div className={`wizard-connector ${step > 2 ? 'completed' : ''}`} />
         <div className={`wizard-step ${step === 3 ? 'active' : ''}`}>
           <div className="wizard-step-number">3</div>
-          <span className="wizard-step-label">الربط والتشغيل</span>
+          <span>الربط والتشغيل</span>
         </div>
       </div>
 
       <div className="card">
         {/* Step 1: Business Info */}
         {step === 1 && (
-          <div className="wizard-body">
-            <h3 className="card-title" style={{ marginBottom: 'var(--space-6)' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-                معلومات المشروع أو النشاط
-              </span>
+          <div>
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ffffff', marginBottom: '1.25rem' }}>
+              معلومات المشروع أو النشاط
             </h3>
 
             {/* Platform Selection */}
             <div className="form-group">
               <label className="form-label">منصة البوت <span className="required">*</span></label>
-              <div className="radio-group" style={{ gridTemplateColumns: '1fr 1fr' }}>
+              <div className="radio-group form-grid-2">
                 <label className={`radio-card ${platform === 'telegram' ? 'selected' : ''}`}>
                   <input type="radio" name="platform" value="telegram" checked={platform === 'telegram'} onChange={e => setPlatform(e.target.value)} />
                   <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
@@ -239,7 +240,7 @@ export default function CreateBot() {
               </select>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
+            <div className="form-grid-2">
               <div className="form-group">
                 <label className="form-label">اسم المشروع / الجهة <span className="required">*</span></label>
                 <input type="text" className="form-input" placeholder="مثال: متجر النور / عيادة الشفاء / وكالة الإبداع" value={businessName} onChange={e => setBusinessName(e.target.value)} />
@@ -288,7 +289,7 @@ export default function CreateBot() {
               <p className="form-helper">أدخل هنا كل الخدمات، المنتجات، الأسعار، أو الأسئلة المتكررة التي تريد من البوت الإجابة عنها</p>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
+            <div className="form-grid-2">
               <div className="form-group">
                 <label className="form-label">مواعيد وساعات العمل / التوفر</label>
                 <input type="text" className="form-input" placeholder="مثال: يومياً من 8 صباحاً حتى 8 مساءً" value={workingHours} onChange={e => setWorkingHours(e.target.value)} />

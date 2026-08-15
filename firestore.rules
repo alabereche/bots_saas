@@ -1,0 +1,56 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helper Functions ─────────────────────────────────────────
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    function isCreatingOwnDoc() {
+      return isAuthenticated() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // ─── User Profiles (users collection) ─────────────────────────
+    // Protects against Privilege Escalation (preventing users from changing their plan to 'pro'/'enterprise' directly)
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && (!('plan' in request.resource.data) || request.resource.data.plan == 'free');
+      allow update: if isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['plan', 'role', 'isAdmin']);
+      allow delete: if false;
+    }
+
+    // ─── Bots (bots collection) ───────────────────────────────────
+    // Multi-tenant isolation: Users can only see, edit, and delete their own bots
+    match /bots/{botId} {
+      allow read: if isDocOwner();
+      allow create: if isCreatingOwnDoc();
+      allow update: if isDocOwner() && isCreatingOwnDoc();
+      allow delete: if isDocOwner();
+    }
+
+    // ─── Conversations (conversations collection) ─────────────────
+    // Logs and messages for customer interactions
+    match /conversations/{msgId} {
+      allow read: if isAuthenticated();
+      allow create: if true; // Allows backend bot engines / webhooks to save incoming chat logs
+      allow update, delete: if isAuthenticated();
+    }
+
+    // ─── Orders & Bookings (orders collection) ─────────────────────
+    // Customer orders and booking records extracted by bots
+    match /orders/{orderId} {
+      allow read: if isAuthenticated();
+      allow create: if true; // Allows backend bot engines to store customer orders
+      allow update, delete: if isAuthenticated();
+    }
+  }
+}

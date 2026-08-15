@@ -22,7 +22,7 @@ import { buildSystemPrompt } from './prompt-builder.js';
 
 const PORT = process.env.PORT || 3002;
 const API_SECRET_KEY = process.env.API_KEY || 'botforge_secret_key_2026';
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyAnTqZ5upTb05CEapy8sGTMyiWDbTlb7JQ';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 
 // ─── Firebase Initialization ──────────────────────────────────
 const firebaseConfig = {
@@ -326,6 +326,15 @@ function listenToBots() {
 const app = express();
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '1mb' }));
+
+// ─── Security: API Key Verification ───────────────────────────
+app.use('/api', (req, res, next) => {
+  const apiKey = req.headers['x-api-key'];
+  if (!apiKey || apiKey !== API_SECRET_KEY) {
+    return res.status(401).json({ error: 'Unauthorized: Missing or invalid x-api-key' });
+  }
+  next();
+});
 
 // Health check
 app.get('/health', (req, res) => {

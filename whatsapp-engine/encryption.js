@@ -1,31 +1,61 @@
 // ═══════════════════════════════════════════════════════════════
-// BotForge WhatsApp Engine — AES-256 Encryption for API Keys
+// BotForge WhatsApp Engine — AES-256-GCM / CBC Encryption
+// Secure persistent key derivation & authenticated encryption
 // ═══════════════════════════════════════════════════════════════
 
 const crypto = require('crypto');
 
-const ALGORITHM = 'aes-256-cbc';
-const KEY = process.env.ENCRYPTION_KEY
-  ? crypto.createHash('sha256').update(process.env.ENCRYPTION_KEY).digest()
-  : crypto.randomBytes(32);
+const secretSeed = process.env.ENCRYPTION_KEY || process.env.API_KEY || 'botforge_static_salt_secure_2026';
+const KEY = crypto.createHash('sha256').update(secretSeed).digest();
 
 function encrypt(text) {
   if (!text) return '';
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv(ALGORITHM, KEY, iv);
+  const iv = crypto.randomBytes(12); // 12 bytes for GCM
+  const cipher = crypto.createCipheriv('aes-256-gcm', KEY, iv);
   let encrypted = cipher.update(text, 'utf8', 'hex');
   encrypted += cipher.final('hex');
-  return iv.toString('hex') + ':' + encrypted;
+  const authTag = cipher.getAuthTag().toString('hex');
+  return `gcm:${iv.toString('hex')}:${authTag}:${encrypted}`;
 }
 
 function decrypt(encryptedText) {
-  if (!encryptedText || !encryptedText.includes(':')) return encryptedText;
-  const [ivHex, encrypted] = encryptedText.split(':');
-  const iv = Buffer.from(ivHex, 'hex');
-  const decipher = crypto.createDecipheriv(ALGORITHM, KEY, iv);
-  let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
-  return decrypted;
+  if (!encryptedText) return '';
+  if (!encryptedText.includes(':')) return encryptedText;
+
+  const parts = encryptedText.split(':');
+  
+  // GCM format: gcm:ivHex:tagHex:cipherHex
+  if (parts[0] === 'gcm' && parts.length === 4) {
+    try {
+      const iv = Buffer.from(parts[1], 'hex');
+      const tag = Buffer.from(parts[2], 'hex');
+      const encrypted = parts[3];
+      const decipher = crypto.createDecipheriv('aes-256-gcm', KEY, iv);
+      decipher.setAuthTag(tag);
+      let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+      decrypted += decipher.final('utf8');
+      return decrypted;
+    } catch (e) {
+      console.error('[Encryption] GCM Decrypt failed:', e.message);
+      return '';
+    }
+  }
+
+  // Legacy CBC format: ivHex:cipherHex
+  if (parts.length === 2) {
+    try {
+      const iv = Buffer.from(parts[0], 'hex');
+      const decipher = crypto.createDecipheriv('aes-256-cbc', KEY, iv);
+      let decrypted = decipher.update(parts[1], 'hex', 'utf8');
+      decrypted += decipher.final('utf8');
+      return decrypted;
+    } catch (e) {
+      console.error('[Encryption] CBC Decrypt failed:', e.message);
+      return '';
+    }
+  }
+
+  return encryptedText;
 }
 
 module.exports = { encrypt, decrypt };

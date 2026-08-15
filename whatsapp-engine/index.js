@@ -28,8 +28,8 @@ app.use(express.json({ limit: '2mb' }));
 // ─── Security: API Key Verification ───────────────────────────
 app.use('/api', (req, res, next) => {
   const apiKey = req.headers['x-api-key'];
-  if (apiKey && apiKey !== API_SECRET && apiKey !== process.env.NEXCLOUD_KEY) {
-    return res.status(401).json({ error: 'غير مصرح' });
+  if (!apiKey || (apiKey !== API_SECRET && apiKey !== process.env.NEXCLOUD_KEY)) {
+    return res.status(401).json({ error: 'غير مصرح - مفتاح API مفقود أو غير صحيح' });
   }
   next();
 });

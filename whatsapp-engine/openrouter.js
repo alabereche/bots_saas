@@ -8,8 +8,8 @@ const { buildSystemPrompt } = require('./promptGenerator');
 const conversationHistory = new Map();
 const MAX_HISTORY = 20;
 
-// Hardcoded Gemini API key — used for all bots
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyAnTqZ5upTb05CEapy8sGTMyiWDbTlb7JQ';
+// Gemini API key from environment
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 
 // --- Google Gemini ---
 async function callGemini(apiKey, model, messages) {

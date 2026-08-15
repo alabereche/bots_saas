@@ -769,7 +769,7 @@ export default function BotDetail() {
                   </div>
                 </div>
                 <div className="premium-card-content">
-                  <InfoRowV3 label="نظام الذكاء الاصطناعي" value="Google Gemini 2.5 Flash" />
+                  <InfoRowV3 label="نظام الذكاء الاصطناعي" value="Google Gemini 3.5 Flash-Lite" />
                   <InfoRowV3 label="قاعدة البيانات" value="Cloud Firestore (Realtime)" />
                   <InfoRowV3 label="إجمالي الرسائل" value={String(bot.messagesCount || 0)} />
                 </div>

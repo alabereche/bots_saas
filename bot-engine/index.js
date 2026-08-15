@@ -126,8 +126,14 @@ function extractAndSaveOrder(botId, customerId, customerName, rawReply) {
 // ─── Google Gemini AI ─────────────────────────────────────────
 
 async function callGemini(apiKey, model, messages) {
-  const geminiModel = model || 'gemini-2.5-flash';
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`;
+  const modelsToTry = [
+    model || 'gemini-3.5-flash-lite',
+    'gemini-2.5-flash-lite',
+    'gemini-2.5-flash',
+    'gemini-2.0-flash-lite',
+    'gemini-1.5-flash',
+  ];
+
   const systemInstruction = messages.find(m => m.role === 'system')?.content || '';
   const contents = messages
     .filter(m => m.role !== 'system')
@@ -136,22 +142,35 @@ async function callGemini(apiKey, model, messages) {
       parts: [{ text: m.content }],
     }));
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-      contents,
-      generationConfig: { maxOutputTokens: 1024, temperature: 0.7 },
-    }),
-  });
+  let lastError = null;
+  for (const geminiModel of modelsToTry) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
+          contents,
+          generationConfig: { maxOutputTokens: 800, temperature: 0.7 },
+        }),
+      });
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Gemini ${res.status}: ${err}`);
+      if (res.ok) {
+        const data = await res.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) return text;
+      } else {
+        const err = await res.text();
+        lastError = new Error(`Gemini ${geminiModel} ${res.status}: ${err}`);
+      }
+    } catch (e) {
+      lastError = e;
+    }
   }
-  const data = await res.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
+
+  if (lastError) throw lastError;
+  return null;
 }
 
 async function askAI(config, userId, userMessage) {

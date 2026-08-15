@@ -120,7 +120,7 @@ export default function CreateBot() {
         language,
         customInstructions: customInstructions.trim(),
         aiProvider: 'gemini',
-        aiModel: 'gemini-2.5-flash',
+        aiModel: 'gemini-3.5-flash-lite',
         isActive: false,
         messagesCount: 0,
         ordersCount: 0,
@@ -391,7 +391,7 @@ export default function CreateBot() {
             <div style={{ background: 'rgba(139, 92, 246, 0.08)', border: '1px solid rgba(139, 92, 246, 0.2)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-4)', marginBottom: 'var(--space-2)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-color)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
-                <span style={{ fontWeight: 600, color: 'var(--accent-color)', fontSize: 'var(--text-sm)' }}>الذكاء الاصطناعي (Google Gemini 2.5 Flash)</span>
+                <span style={{ fontWeight: 600, color: 'var(--accent-color)', fontSize: 'var(--text-sm)' }}>الذكاء الاصطناعي (Google Gemini 3.5 Flash-Lite — فائق السرعة والخفة)</span>
               </div>
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', lineHeight: 'var(--leading-relaxed)' }}>
                 سيتحدث البوت بلهجة وعملة <strong>{countryObj.name} ({countryObj.currency})</strong> مع دعم كامل لحجز الطلبات والاستشارات والمواعيد وتسجيلها آلياً في لوحة تحكمك.

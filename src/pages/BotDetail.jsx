@@ -953,39 +953,63 @@ function InfoRowV3({ label, value }) {
 }
 
 // ─── WhatsApp Connect Component ───────────────────────────────
-const WA_ENGINE = import.meta.env.VITE_WHATSAPP_ENGINE_URL || 'http://localhost:3001';
-const WA_KEY = import.meta.env.VITE_API_KEY;
+const WA_ENGINE = import.meta.env.VITE_WHATSAPP_ENGINE_URL || 'http://162.62.233.152:3001';
+const WA_KEY = import.meta.env.VITE_API_KEY || 'botforge_secret_key_2026';
 
 function WhatsAppConnect({ botId, botName, status: initialStatus }) {
   const [waStatus, setWaStatus] = useState(initialStatus || 'not_initialized');
   const [qrDataUrl, setQrDataUrl] = useState(null);
   const [connecting, setConnecting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     if (waStatus !== 'waiting_scan' && waStatus !== 'initializing') return;
     const interval = setInterval(async () => {
       try {
         const res = await fetch(`${WA_ENGINE}/api/whatsapp/${botId}/qr`, { headers: { 'x-api-key': WA_KEY } });
-        const data = await res.json();
-        setWaStatus(data.status);
-        if (data.qrDataUrl) setQrDataUrl(data.qrDataUrl);
-        if (data.status === 'connected') { setQrDataUrl(null); clearInterval(interval); }
-      } catch {}
-    }, 3000);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.status) setWaStatus(data.status);
+          if (data.qrDataUrl) {
+            setQrDataUrl(data.qrDataUrl);
+            setWaStatus('waiting_scan');
+          }
+          if (data.status === 'connected') {
+            setQrDataUrl(null);
+            clearInterval(interval);
+          }
+        }
+      } catch (err) {
+        console.warn('QR poll error:', err.message);
+      }
+    }, 2000);
     return () => clearInterval(interval);
   }, [waStatus, botId]);
 
   const handleConnect = async () => {
     setConnecting(true);
+    setErrorMsg('');
+    setWaStatus('initializing');
     try {
       const res = await fetch(`${WA_ENGINE}/api/whatsapp/create`, {
-        method: 'POST', headers: { 'x-api-key': WA_KEY, 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'x-api-key': WA_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({ botId }),
       });
       const data = await res.json();
-      if (data.success) setWaStatus('initializing');
-    } catch {}
-    setConnecting(false);
+      if (!res.ok || data.error) {
+        setErrorMsg(data.error || 'تعذر تشغيل محرك واتساب');
+        setWaStatus('error');
+      } else {
+        setWaStatus(data.status || 'initializing');
+      }
+    } catch (err) {
+      console.error('WhatsApp connect error:', err);
+      setErrorMsg(`تعذر الاتصال بالسيرفر (${err.message})`);
+      setWaStatus('error');
+    } finally {
+      setConnecting(false);
+    }
   };
 
   const handleDisconnect = async () => {
@@ -1017,6 +1041,7 @@ function WhatsAppConnect({ botId, botName, status: initialStatus }) {
           <button className="btn btn-primary" onClick={handleConnect} disabled={connecting} style={{ background: '#25D366', borderColor: '#25D366' }}>
             {connecting ? <span className="spinner" /> : 'ربط واتساب عبر QR Code'}
           </button>
+          {errorMsg && <p style={{ color: '#ef4444', fontSize: 'var(--text-sm)', marginTop: 'var(--space-3)' }}>{errorMsg}</p>}
         </div>
       )}
       {waStatus === 'waiting_scan' && qrDataUrl && (

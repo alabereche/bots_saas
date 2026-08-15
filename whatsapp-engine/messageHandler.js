@@ -38,21 +38,35 @@ async function handleMessage(msg, config) {
     return;
   }
 
-  const chat = await msg.getChat();
+  let isGroup = false;
+  let chat = null;
+  try {
+    chat = await msg.getChat();
+    isGroup = chat?.isGroup || false;
+  } catch (e) {
+    isGroup = false;
+  }
   
   // Skip group messages to avoid spamming
-  if (chat.isGroup) {
-    return;
-  }
+  if (isGroup) return;
 
   const userMessage = msg.body.trim();
-  const contact = await msg.getContact();
-  const userName = contact.pushname || contact.name || 'زبون واتساب';
+  let userName = 'زبون واتساب';
+  try {
+    const contact = await msg.getContact();
+    userName = contact?.pushname || contact?.name || 'زبون واتساب';
+  } catch (e) {
+    userName = 'زبون واتساب';
+  }
   const userId = msg.from;
 
+  console.log(`[Handler] 📩 Message from ${userName} (${userId}): "${userMessage}"`);
+
   try {
-    // Show typing state
-    await chat.sendStateTyping();
+    // Show typing state if possible
+    if (chat && typeof chat.sendStateTyping === 'function') {
+      chat.sendStateTyping().catch(() => {});
+    }
 
     // Build config with auto-orders flag
     const aiConfig = {

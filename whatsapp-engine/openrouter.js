@@ -78,7 +78,9 @@ async function askOpenRouter(config, userId, userMessage) {
   let reply = null;
 
   try {
-    reply = await callGemini(GEMINI_API_KEY, 'gemini-2.5-flash', messages);
+    const key = process.env.GEMINI_API_KEY || config.geminiApiKey || GEMINI_API_KEY;
+    const model = config.aiModel || process.env.DEFAULT_AI_MODEL || 'gemini-3.5-flash-lite';
+    reply = await callGemini(key, model, messages);
   } catch (err) {
     console.error(`[WA Engine] Gemini call failed: ${err.message}`);
     throw err;

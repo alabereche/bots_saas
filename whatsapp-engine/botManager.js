@@ -128,8 +128,15 @@ async function createWhatsAppBot(botId, config, phoneNumber = null) {
 
   // Incoming Messages
   client.on('message', async (msg) => {
+    console.log(`[BotManager] Incoming WhatsApp message from ${msg.from}: "${msg.body}"`);
     if (msg.fromMe) return;
     await handleMessage(msg, config);
+  });
+
+  client.on('message_create', async (msg) => {
+    if (msg.fromMe) {
+      console.log(`[BotManager] Outgoing/Self message: "${msg.body}"`);
+    }
   });
 
   // Error Handler

@@ -6,6 +6,7 @@
 
 const { askOpenRouter } = require('./openrouter');
 const firestore = require('./firestore');
+const { isTakeoverActive } = require('./takeover');
 
 // ─── Smart Order & Booking Extraction ─────────────────────────
 const ORDER_TAG = '[ORDER_CONFIRMED]';
@@ -51,6 +52,20 @@ async function handleMessage(msg, config) {
     const userName = msg._data?.notifyName || msg.notifyName || 'زبون واتساب';
 
     console.log(`[Handler] 📩 New message from ${userName} (${userId}): "${userMessage}"`);
+
+    // Manual mode: the owner took over this chat — log the message
+    // for the dashboard but stay silent (no AI reply)
+    if (isTakeoverActive(config.id, userId)) {
+      console.log(`[Handler] ✋ Manual mode ON for ${userId} — skipping AI reply`);
+      await firestore.logMessage({
+        botId: config.id,
+        from: userId,
+        userName,
+        message: userMessage,
+        response: null,
+      }).catch(e => console.error('[Handler] Log error:', e.message));
+      return;
+    }
 
     // Build config with auto-orders flag
     const aiConfig = {

@@ -14,6 +14,16 @@ import { useToast } from '../context/ToastContext';
 import { COUNTRIES } from '../data/countries';
 import { BUSINESS_TYPES } from './CreateBot';
 
+// Engine endpoints — WhatsApp engine (3001) handles WhatsApp bots,
+// the Telegram engine (3002) handles everything else
+const WHATSAPP_ENGINE_URL = import.meta.env.VITE_WHATSAPP_ENGINE_URL || 'http://162.62.233.152:3001';
+const TELEGRAM_ENGINE_URL = import.meta.env.VITE_ENGINE_URL || 'http://162.62.233.152:3002';
+const ENGINE_API_KEY = import.meta.env.VITE_API_KEY || 'botforge_secret_key_2026';
+
+function engineUrlFor(platform) {
+  return platform === 'whatsapp' ? WHATSAPP_ENGINE_URL : TELEGRAM_ENGINE_URL;
+}
+
 const businessTypeLabels = {
   shop: 'متجر إلكتروني / تجارة',
   support: 'خدمة عملاء ودعم فني',
@@ -112,6 +122,18 @@ export default function BotDetail() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [allMessages, selectedUserId]);
 
+  // Load current manual-mode (takeover) state from the WhatsApp engine,
+  // so the UI matches reality after a page reload
+  useEffect(() => {
+    if (!id || !bot || bot.platform !== 'whatsapp') return;
+    fetch(`${WHATSAPP_ENGINE_URL}/api/takeover/${id}`, { headers: { 'x-api-key': ENGINE_API_KEY } })
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => {
+        if (data?.takeovers) setTakeoverMap(data.takeovers);
+      })
+      .catch(() => {});
+  }, [id, bot?.platform]);
+
   // Group messages by customer
   const customerThreads = {};
   (allMessages || []).forEach(m => {
@@ -203,17 +225,17 @@ export default function BotDetail() {
     if (!replyText.trim() || !selectedUserId || sending) return;
     setSending(true);
     try {
-      const res = await fetch(`${ENGINE_URL}/api/reply`, {
+      const res = await fetch(`${engineUrlFor(bot?.platform)}/api/reply`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': ENGINE_KEY },
+        headers: { 'Content-Type': 'application/json', 'x-api-key': ENGINE_API_KEY },
         body: JSON.stringify({
           botId: id,
           telegramUserId: selectedUserId,
           message: replyText.trim(),
         }),
       });
-      const data = await res.json();
-      if (data.success) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
         setReplyText('');
         toast.success('تم إرسال الرد بنجاح');
         setTakeoverMap(prev => ({ ...prev, [selectedUserId]: true }));
@@ -230,15 +252,19 @@ export default function BotDetail() {
   const toggleTakeover = async (userId) => {
     const newState = !takeoverMap[userId];
     try {
-      await fetch(`${ENGINE_URL}/api/takeover`, {
+      const res = await fetch(`${engineUrlFor(bot?.platform)}/api/takeover`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': ENGINE_KEY },
+        headers: { 'Content-Type': 'application/json', 'x-api-key': ENGINE_API_KEY },
         body: JSON.stringify({ botId: id, telegramUserId: userId, enabled: newState }),
       });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'فشل تغيير الوضع');
+      }
       setTakeoverMap(prev => ({ ...prev, [userId]: newState }));
       toast.success(newState ? 'تم تفعيل الوضع اليدوي' : 'تم تفعيل الرد التلقائي');
-    } catch {
-      toast.error('فشل تغيير الوضع');
+    } catch (err) {
+      toast.error(err.message || 'فشل تغيير الوضع');
     }
   };
 
@@ -885,9 +911,6 @@ function InfoRow({ label, value }) {
 }
 
 // WhatsApp Connect
-const WA_ENGINE = import.meta.env.VITE_WHATSAPP_ENGINE_URL || 'http://162.62.233.152:3001';
-const WA_KEY = import.meta.env.VITE_API_KEY || 'botforge_secret_key_2026';
-
 function WhatsAppConnect({ botId }) {
   const [waStatus, setWaStatus] = useState('not_initialized');
   const [qrDataUrl, setQrDataUrl] = useState(null);
@@ -898,7 +921,7 @@ function WhatsAppConnect({ botId }) {
     if (waStatus !== 'waiting_scan' && waStatus !== 'initializing') return;
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`${WA_ENGINE}/api/whatsapp/${botId}/qr`, { headers: { 'x-api-key': WA_KEY } });
+        const res = await fetch(`${WHATSAPP_ENGINE_URL}/api/whatsapp/${botId}/qr`, { headers: { 'x-api-key': ENGINE_API_KEY } });
         if (res.ok) {
           const data = await res.json();
           if (data.status) setWaStatus(data.status);
@@ -923,9 +946,9 @@ function WhatsAppConnect({ botId }) {
     setErrorMsg('');
     setWaStatus('initializing');
     try {
-      const res = await fetch(`${WA_ENGINE}/api/whatsapp/create`, {
+      const res = await fetch(`${WHATSAPP_ENGINE_URL}/api/whatsapp/create`, {
         method: 'POST',
-        headers: { 'x-api-key': WA_KEY, 'Content-Type': 'application/json' },
+        headers: { 'x-api-key': ENGINE_API_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({ botId }),
       });
       const data = await res.json();
@@ -945,7 +968,7 @@ function WhatsAppConnect({ botId }) {
 
   const handleDisconnect = async () => {
     try {
-      await fetch(`${WA_ENGINE}/api/whatsapp/${botId}/stop`, { method: 'POST', headers: { 'x-api-key': WA_KEY } });
+      await fetch(`${WHATSAPP_ENGINE_URL}/api/whatsapp/${botId}/stop`, { method: 'POST', headers: { 'x-api-key': ENGINE_API_KEY } });
       setWaStatus('disconnected');
       setQrDataUrl(null);
     } catch {}

@@ -73,7 +73,7 @@ async function updateBotStatus(botId, status, extra = {}) {
 
 // ─── Conversations (Messages) ─────────────────────────────────
 
-async function logMessage({ botId, from, userName, message, response }) {
+async function logMessage({ botId, from, userName, message, response = null }) {
   const ts = new Date().toISOString();
   try {
     // Save customer message
@@ -88,19 +88,40 @@ async function logMessage({ botId, from, userName, message, response }) {
       timestamp: serverTimestamp(),
     });
 
-    // Save bot response
+    // Save bot response (absent in manual-takeover mode: only the
+    // customer's message is logged, the owner replies themselves)
+    if (response != null) {
+      await addDoc(collection(db, 'conversations'), {
+        botId,
+        platform: 'whatsapp',
+        telegramUserId: String(from),
+        userName: userName || 'زبون واتساب',
+        content: response.slice(0, 1000),
+        role: 'bot',
+        createdAt: new Date(Date.now() + 10).toISOString(),
+        timestamp: serverTimestamp(),
+      });
+    }
+  } catch (e) {
+    console.error('[Firestore] Log message error:', e.message);
+  }
+}
+
+// Owner's manual reply sent from the dashboard
+async function logOwnerMessage({ botId, to, userName, message }) {
+  try {
     await addDoc(collection(db, 'conversations'), {
       botId,
       platform: 'whatsapp',
-      telegramUserId: String(from),
-      userName: userName || 'زبون واتساب',
-      content: response.slice(0, 1000),
-      role: 'bot',
-      createdAt: new Date(Date.now() + 10).toISOString(),
+      telegramUserId: String(to),
+      userName: userName || 'المالك',
+      content: String(message).slice(0, 1000),
+      role: 'owner',
+      createdAt: new Date().toISOString(),
       timestamp: serverTimestamp(),
     });
   } catch (e) {
-    console.error('[Firestore] Log message error:', e.message);
+    console.error('[Firestore] Log owner message error:', e.message);
   }
 }
 
@@ -141,6 +162,7 @@ module.exports = {
   getBot,
   updateBotStatus,
   logMessage,
+  logOwnerMessage,
   incrementMessageCount,
   saveOrder,
 };

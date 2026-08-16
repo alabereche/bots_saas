@@ -16,6 +16,7 @@ const {
   getAllBotStatuses,
 } = require('./botManager');
 const firestore = require('./firestore');
+const { setTakeover, getTakeoverMap } = require('./takeover');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -117,6 +118,59 @@ app.post('/api/whatsapp/:id/restart', async (req, res) => {
 // GET /api/whatsapp/all — Get all active bot statuses
 app.get('/api/whatsapp/all', (req, res) => {
   res.json({ bots: getAllBotStatuses() });
+});
+
+// ─── Manual Reply & Human Takeover (dashboard) ────────────────
+
+// POST /api/reply — Owner manual reply via dashboard
+app.post('/api/reply', async (req, res) => {
+  const { botId, telegramUserId, message } = req.body;
+  if (!botId || !telegramUserId || !message) {
+    return res.status(400).json({ error: 'معطيات ناقصة (botId, telegramUserId, message)' });
+  }
+
+  const state = getBotState(botId);
+  if (!state) {
+    return res.status(404).json({ error: 'البوت غير مشغل على محرك واتساب — أعد ربط واتساب من صفحة الإعدادات' });
+  }
+  if (state.status !== 'connected') {
+    return res.status(409).json({ error: `واتساب غير متصل حالياً (الحالة: ${state.status})` });
+  }
+
+  try {
+    // A manual reply implies manual mode: pause the AI for this customer
+    setTakeover(botId, telegramUserId, true);
+
+    await state.client.sendMessage(String(telegramUserId), String(message));
+
+    await firestore.logOwnerMessage({
+      botId,
+      to: telegramUserId,
+      message: String(message),
+    });
+
+    console.log(`[API] ✉️ Manual reply sent to ${telegramUserId} for bot ${botId}`);
+    res.json({ success: true, takeover: true });
+  } catch (err) {
+    console.error('[API] Reply error:', err.message);
+    res.status(500).json({ error: 'فشل إرسال الرسالة عبر واتساب: ' + err.message });
+  }
+});
+
+// POST /api/takeover — Toggle manual (human) mode for a customer
+app.post('/api/takeover', (req, res) => {
+  const { botId, telegramUserId, enabled } = req.body;
+  if (!botId || !telegramUserId) {
+    return res.status(400).json({ error: 'معطيات ناقصة (botId, telegramUserId)' });
+  }
+  setTakeover(botId, telegramUserId, !!enabled);
+  console.log(`[API] ${enabled ? '🖐️' : '🤖'} Takeover ${enabled ? 'ON' : 'OFF'} for ${telegramUserId} (bot ${botId})`);
+  res.json({ success: true, takeover: !!enabled });
+});
+
+// GET /api/takeover/:botId — Current manual-mode customers of a bot
+app.get('/api/takeover/:botId', (req, res) => {
+  res.json({ takeovers: getTakeoverMap(req.params.botId) });
 });
 
 // GET /health

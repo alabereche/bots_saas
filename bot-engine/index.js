@@ -7,9 +7,32 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import { Bot } from 'grammy';
+import { Bot, InputFile } from 'grammy';
 import admin from 'firebase-admin';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { buildSystemPrompt } from './prompt-builder.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+function resolveInputMedia(mediaUrl) {
+  try {
+    if (typeof mediaUrl === 'string') {
+      const filename = path.basename(new URL(mediaUrl).pathname);
+      const localPath = path.resolve(__dirname, '../whatsapp-engine/uploads', filename);
+      if (fs.existsSync(localPath)) {
+        return new InputFile(localPath);
+      }
+      return new InputFile(new URL(mediaUrl));
+    }
+  } catch (e) {
+    console.warn('[Telegram Engine] resolveInputMedia warning:', e.message);
+  }
+  return mediaUrl;
+}
+
 
 const PORT = process.env.PORT || 3002;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
@@ -337,22 +360,24 @@ async function startBot(config) {
 
 
         if (mediaToSend.length > 1) {
-          // Send Telegram Media Group (Album)
+          // Send Telegram Media Group (Album) via direct InputFile upload
           const mediaGroup = mediaToSend.map((url, idx) => ({
             type: 'photo',
-            media: url,
+            media: resolveInputMedia(url),
             caption: idx === 0 ? reply : undefined,
             parse_mode: idx === 0 ? 'Markdown' : undefined,
           }));
           await ctx.replyWithMediaGroup(mediaGroup).catch(async (err) => {
             console.warn('[Telegram Engine] replyWithMediaGroup failed, fallback to single photo:', err.message);
-            await ctx.replyWithPhoto(mediaToSend[0], { caption: reply, parse_mode: 'Markdown' }).catch(async () => {
+            await ctx.replyWithPhoto(resolveInputMedia(mediaToSend[0]), { caption: reply, parse_mode: 'Markdown' }).catch(async (err2) => {
+              console.warn('[Telegram Engine] replyWithPhoto fallback failed:', err2.message);
               await ctx.reply(reply, { parse_mode: 'Markdown' }).catch(() => ctx.reply(reply));
             });
           });
         } else if (mediaToSend.length === 1) {
-          // Send Single Photo with Caption
-          await ctx.replyWithPhoto(mediaToSend[0], { caption: reply, parse_mode: 'Markdown' }).catch(async () => {
+          // Send Single Photo with Caption via direct InputFile upload
+          await ctx.replyWithPhoto(resolveInputMedia(mediaToSend[0]), { caption: reply, parse_mode: 'Markdown' }).catch(async (err) => {
+            console.warn('[Telegram Engine] replyWithPhoto failed:', err.message);
             await ctx.reply(reply, { parse_mode: 'Markdown' }).catch(() => ctx.reply(reply));
           });
         } else {
@@ -361,6 +386,7 @@ async function startBot(config) {
             await ctx.reply(reply);
           });
         }
+
 
         // Save bot reply
         saveMessage(config.id, config.userId, userId, userName, reply, 'bot');

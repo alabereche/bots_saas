@@ -115,6 +115,22 @@ function sanitizeOrder(orderData) {
   return sanitized;
 }
 
+const path = require('path');
+const fs = require('fs');
+
+async function resolveWhatsAppMedia(mediaUrl) {
+  try {
+    if (typeof mediaUrl === 'string') {
+      const filename = path.basename(new URL(mediaUrl).pathname);
+      const localPath = path.resolve(__dirname, 'uploads', filename);
+      if (fs.existsSync(localPath)) {
+        return MessageMedia.fromFilePath(localPath);
+      }
+    }
+  } catch (e) {}
+  return await MessageMedia.fromUrl(mediaUrl, { unsafeMime: true }).catch(() => null);
+}
+
 // ─── Message Handler ─────────────────────────────────────────
 async function handleMessage(msg, config) {
   let userId = null;
@@ -160,10 +176,19 @@ async function handleMessage(msg, config) {
       return;
     }
 
+    // Fetch live bot document to guarantee instant sync of newly added products
+    let liveConfig = config;
+    try {
+      const freshBot = await firestore.getBot(config.id);
+      if (freshBot) {
+        liveConfig = { ...config, ...freshBot };
+      }
+    } catch (e) {}
+
     // Build config with auto-orders flag
     const aiConfig = {
-      ...config,
-      autoOrdersEnabled: config.autoOrdersWhatsapp !== false,
+      ...liveConfig,
+      autoOrdersEnabled: liveConfig.autoOrdersWhatsapp !== false,
     };
 
     // Get AI response from Gemini
@@ -173,21 +198,20 @@ async function handleMessage(msg, config) {
     const { reply: replyWithoutOrder, orderData } = extractOrder(rawReply);
 
     // Extract Zero-Trust product media tags
-    const { cleanReply: finalReplyText, mediaToSend } = extractProductMedia(replyWithoutOrder, config.products);
+    const { cleanReply: finalReplyText, mediaToSend } = extractProductMedia(replyWithoutOrder, liveConfig.products);
     const reply = finalReplyText || replyWithoutOrder;
 
     // Send reply with media (Primary Image / Gallery) or Fallback to Text
     if (mediaToSend.length > 0) {
       try {
-        const firstImgUrl = mediaToSend[0];
-        const media = await MessageMedia.fromUrl(firstImgUrl, { unsafeMime: true }).catch(() => null);
+        const media = await resolveWhatsAppMedia(mediaToSend[0]);
         if (media && msg.client) {
           // Send primary image with caption text
           await msg.client.sendMessage(userId, media, { caption: reply });
 
           // Send secondary images if in gallery mode
           for (let i = 1; i < mediaToSend.length; i++) {
-            const extraMedia = await MessageMedia.fromUrl(mediaToSend[i], { unsafeMime: true }).catch(() => null);
+            const extraMedia = await resolveWhatsAppMedia(mediaToSend[i]);
             if (extraMedia) {
               await new Promise(r => setTimeout(r, 400));
               await msg.client.sendMessage(userId, extraMedia);
@@ -205,6 +229,7 @@ async function handleMessage(msg, config) {
       // Standard text reply
       await sendTextReply(msg, userId, reply);
     }
+
 
     console.log(`[Handler] 🤖 Sent AI reply to ${userName}: "${reply.slice(0, 50)}..."`);
 

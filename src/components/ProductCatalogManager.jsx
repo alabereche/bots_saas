@@ -109,7 +109,7 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
       };
     });
 
-    toast.success('تم ضغط ورفع الصورة الرئيسية (WebP)');
+    toast.success('تم ضغط ورفع الصورة بنجاح (WebP)');
     if (primaryInputRef.current) primaryInputRef.current.value = '';
   };
 
@@ -126,7 +126,6 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
       let newSecondary = [...(prev.secondaryImages || [])];
       let toAssign = [...uploaded];
 
-      // If no primary image yet, automatically assign the first image as primary
       if (!newPrimary && toAssign.length > 0) {
         newPrimary = toAssign.shift();
       }
@@ -158,7 +157,7 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
         secondaryImages: newSecondary.slice(0, 4),
       };
     });
-    toast.success('تم تعيين الصورة كصورة رئيسية للمنتج ⭐');
+    toast.success('تم تعيين الصورة كصورة رئيسية للمنتج');
   };
 
   // Remove Secondary Image
@@ -217,7 +216,6 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
   const handleDeleteProduct = async (product) => {
     if (!window.confirm(`هل أنت متأكد من حذف المنتج "${product.name}"؟`)) return;
 
-    // Delete image files from VPS
     if (product.primaryImage) deleteImageFile(product.primaryImage);
     if (Array.isArray(product.secondaryImages)) {
       product.secondaryImages.forEach(deleteImageFile);
@@ -249,42 +247,63 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
 
   return (
     <div className="catalog-manager">
-      {/* Header Info */}
-      <div className="catalog-header">
-        <div>
-          <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>
-            🛍️ كتالوج المنتجات المصور (اختياري)
-          </h3>
-          <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-            أضف منتجاتك بصورة رئيسية و حتى 4 صور للزوايا. سيقوم الذكاء الاصطناعي بعرض الصورة وسعرها عند استفسار الزبون، أو إرسال الألبوم الكامل عند طلبه.
-          </p>
+      {/* Header Banner */}
+      <div className="catalog-hero-card">
+        <div className="catalog-hero-content">
+          <div className="catalog-hero-icon-box">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+              <line x1="3" y1="6" x2="21" y2="6"/>
+              <path d="M16 10a4 4 0 0 1-8 0"/>
+            </svg>
+          </div>
+          <div>
+            <h3 className="catalog-hero-title">
+              كتالوج المنتجات المصور (اختياري)
+            </h3>
+            <p className="catalog-hero-subtitle">
+              أضف منتجاتك بصور مضغوطة تلقائياً. يعرض الذكاء الاصطناعي الصورة الأساسية مع السعر فوراً، ويرسل الألبوم الكامل للزبون عند طلبه.
+            </p>
+          </div>
         </div>
+
         {!isAdding && (
           <button
             type="button"
             className="btn btn-primary"
+            style={{ gap: '8px', padding: '0.65rem 1.25rem', whiteSpace: 'nowrap' }}
             onClick={() => {
               setEditingId(null);
               setFormData({ name: '', price: '', description: '', primaryImage: '', secondaryImages: [] });
               setIsAdding(true);
             }}
           >
-            + إضافة منتج جديد
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            إضافة منتج جديد
           </button>
         )}
       </div>
 
-      {/* Add / Edit Form Modal / Box */}
+      {/* Add / Edit Form Box */}
       {isAdding && (
-        <form onSubmit={handleSaveProduct} className="catalog-form-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
-            <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-              {editingId ? '✏️ تعديل المنتج' : '✨ إضافة منتج جديد إلى الكتالوج'}
-            </h4>
+        <form onSubmit={handleSaveProduct} className="catalog-editor-card">
+          <div className="editor-header-row">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div className="editor-badge-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </div>
+              <div>
+                <h4 className="editor-title">
+                  {editingId ? 'تعديل بيانات المنتج' : 'إضافة منتج جديد إلى الكتالوج'}
+                </h4>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)' }}>
+                  يتم ضغط وتخزين الصور بصيغة WebP لتسريع التحميل وحفظ المساحة
+                </span>
+              </div>
+            </div>
             <button
               type="button"
-              className="btn btn-ghost"
-              style={{ fontSize: '0.8rem', padding: '4px 10px' }}
+              className="btn btn-secondary btn-sm"
               onClick={() => {
                 setIsAdding(false);
                 setEditingId(null);
@@ -294,53 +313,58 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
             </button>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+          <div className="editor-form-grid">
             <div className="form-group">
               <label className="form-label">اسم المنتج *</label>
               <input
                 type="text"
-                className="form-input"
-                placeholder="مثال: كارت شاشة Nvidia RTX 4060 8GB"
+                className="form-input custom-input"
+                placeholder="مثال: ساعة ذكية Ultra Smartwatch مع 3 أحزمة"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
               />
             </div>
+
             <div className="form-group">
               <label className="form-label">السعر ({bot.currency || 'دج'})</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="مثال: 64,000"
-                value={formData.price}
-                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-              />
+              <div className="price-input-wrapper">
+                <input
+                  type="text"
+                  className="form-input custom-input price-input"
+                  placeholder="مثال: 6500"
+                  value={formData.price}
+                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                />
+                <span className="currency-pill">{bot.currency || 'دج'}</span>
+              </div>
             </div>
           </div>
 
-          <div className="form-group" style={{ marginBottom: '1.2rem' }}>
+          <div className="form-group" style={{ marginBottom: '1.25rem' }}>
             <label className="form-label">الوصف والمواصفات (يقرأها الذكاء الاصطناعي لإجابة الزبون بدقة)</label>
             <textarea
-              className="form-textarea"
-              rows="2"
-              placeholder="مثال: نسخة ثلاثية المراوح، تدعم DLSS 3، جديدة مع ضمان رسمي سنة كاملة..."
+              className="form-textarea custom-textarea"
+              rows="3"
+              placeholder="مثال: ساعة أوريجينال وقوية، تأتي مع 3 أحزمة تبديل، تدعم الإشعارات والاتصال، شاشة لمس عالية الدقة..."
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             />
           </div>
 
-          {/* Media Section: 1 Primary + up to 4 Secondary */}
-          <div className="catalog-media-section">
-            {/* 1. Primary Image */}
-            <div className="media-box primary-media-box">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#34d399' }}>
-                  ⭐ الصورة الرئيسية (تظهر في أول رد)
-                </span>
+          {/* Media Section: Unified & Balanced Layout */}
+          <div className="editor-media-layout">
+            {/* 1. Primary Image Box */}
+            <div className="media-card primary-card">
+              <div className="media-card-header">
+                <div className="media-card-title">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none" style={{ color: '#fbbf24' }}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                  الصورة الأساسية (تظهر أولاً)
+                </div>
                 {formData.primaryImage && (
                   <button
                     type="button"
-                    style={{ background: 'none', border: 'none', color: '#f87171', fontSize: '0.75rem', cursor: 'pointer' }}
+                    className="btn-text-danger"
                     onClick={() => {
                       deleteImageFile(formData.primaryImage);
                       setFormData({ ...formData, primaryImage: '' });
@@ -352,13 +376,15 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
               </div>
 
               {formData.primaryImage ? (
-                <div className="image-preview-wrapper main-preview">
+                <div className="preview-primary-box">
                   <img src={formData.primaryImage} alt="الرئيسية" />
-                  <span className="badge badge-success" style={{ position: 'absolute', bottom: '6px', right: '6px' }}>WebP مضغوطة</span>
+                  <div className="webp-pill-badge">
+                    <span>WebP</span>
+                  </div>
                 </div>
               ) : (
                 <div
-                  className="upload-dropzone"
+                  className="dropzone-box primary-dropzone"
                   onClick={() => primaryInputRef.current?.click()}
                 >
                   <input
@@ -370,51 +396,57 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
                     onChange={handlePrimaryUpload}
                     disabled={uploading}
                   />
-                  <div style={{ fontSize: '1.5rem', marginBottom: '4px' }}>📷</div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    {uploading ? 'جاري الضغط والرفع...' : 'اضغط لرفع الصورة الرئيسية'}
+                  <div className="dropzone-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                   </div>
+                  <div className="dropzone-text">
+                    {uploading ? 'جاري الضغط والرفع...' : 'اضغط لرفع الصورة الأساسية'}
+                  </div>
+                  <div className="dropzone-hint">JPG, PNG, WebP</div>
                 </div>
               )}
             </div>
 
-            {/* 2. Secondary Images (Max 4) */}
-            <div className="media-box secondary-media-box">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                  🖼️ صور إضافية وزوايا (حتى 4 صور - تظهر عند طلب الزبون)
-                </span>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
+            {/* 2. Secondary Images Box */}
+            <div className="media-card secondary-card">
+              <div className="media-card-header">
+                <div className="media-card-title">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                  صور إضافية وزوايا (ألبوم عند الطلب)
+                </div>
+                <span className="count-tag">
                   {formData.secondaryImages?.length || 0} / 4 صور
                 </span>
               </div>
 
-              <div className="secondary-grid">
+              <div className="secondary-slots-grid">
                 {(formData.secondaryImages || []).map((imgUrl, i) => (
-                  <div key={i} className="image-preview-wrapper secondary-preview">
+                  <div key={i} className="preview-secondary-slot">
                     <img src={imgUrl} alt={`زاوية ${i + 1}`} />
-                    <button
-                      type="button"
-                      className="btn-set-primary"
-                      onClick={() => setAsPrimary(i)}
-                      title="تعيين هذه كصورة رئيسية"
-                    >
-                      ⭐ رئيسية
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-remove-img"
-                      onClick={() => removeSecondaryImage(i)}
-                      title="حذف هذه الصورة"
-                    >
-                      ×
-                    </button>
+                    <div className="slot-actions-overlay">
+                      <button
+                        type="button"
+                        className="btn-slot-primary"
+                        onClick={() => setAsPrimary(i)}
+                        title="تعيين كصورة أساسية"
+                      >
+                        رئيسية
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-slot-delete"
+                        onClick={() => removeSecondaryImage(i)}
+                        title="حذف الصورة"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      </button>
+                    </div>
                   </div>
                 ))}
 
                 {(formData.secondaryImages?.length || 0) < 4 && (
                   <div
-                    className="upload-dropzone secondary-dropzone"
+                    className="dropzone-box secondary-slot-dropzone"
                     onClick={() => secondaryInputRef.current?.click()}
                   >
                     <input
@@ -426,9 +458,9 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
                       onChange={handleSecondaryUpload}
                       disabled={uploading}
                     />
-                    <div style={{ fontSize: '1.2rem' }}>+</div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>
-                      {uploading ? 'جاري الرفع...' : 'إضافة صور إضافية'}
+                    <div style={{ fontSize: '1.2rem', color: 'var(--color-primary)' }}>+</div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', fontWeight: 600 }}>
+                      {uploading ? 'جاري الرفع...' : 'إضافة صورة'}
                     </div>
                   </div>
                 )}
@@ -436,7 +468,8 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '1.2rem' }}>
+          {/* Form Actions Footer */}
+          <div className="editor-footer-actions">
             <button
               type="button"
               className="btn btn-secondary"
@@ -451,6 +484,7 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
             <button
               type="submit"
               className="btn btn-primary"
+              style={{ minWidth: '130px' }}
               disabled={saving || uploading}
             >
               {saving ? 'جاري الحفظ...' : editingId ? 'حفظ التعديلات' : 'إضافة للمتجر'}
@@ -459,15 +493,17 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
         </form>
       )}
 
-      {/* Products List Grid */}
+      {/* Products Grid */}
       {products.length === 0 && !isAdding ? (
-        <div className="catalog-empty-state">
-          <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>📦</div>
-          <h4 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
-            لا توجد منتجات مصورة حتى الآن
+        <div className="catalog-empty-container">
+          <div className="empty-icon-circle">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+          </div>
+          <h4 className="empty-title">
+            لا توجد منتجات مضافة في الكتالوج حتى الآن
           </h4>
-          <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', maxWidth: '400px', margin: '0 auto 1.2rem' }}>
-            هذه الميزة اختيارية. إذا تركتها فارغة، سيعمل البوت بشكل نصي طبيعي مع قائمة الخدمات. أضف منتجات إذا كنت تريد إرسال الصور للزبائن.
+          <p className="empty-desc">
+            هذه الميزة اختيارية. إذا أردت أن يقوم البوت بإرسال صور حقيقية ومواصفات منظمة للزبائن عند السؤال، أضف أول منتج الآن.
           </p>
           <button
             type="button"
@@ -478,56 +514,68 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
           </button>
         </div>
       ) : (
-        <div className="products-grid">
+        <div className="catalog-items-grid">
           {products.map((p) => {
             const hasImages = !!p.primaryImage || (p.secondaryImages && p.secondaryImages.length > 0);
             const totalImgs = (p.primaryImage ? 1 : 0) + (p.secondaryImages?.length || 0);
 
             return (
-              <div key={p.id} className="product-card">
-                {/* Thumbnail Preview */}
-                <div className="product-card-thumb">
+              <div key={p.id} className="catalog-item-card">
+                {/* Image Cover */}
+                <div className="item-cover-wrapper">
                   {p.primaryImage ? (
-                    <img src={p.primaryImage} alt={p.name} />
+                    <img src={p.primaryImage} alt={p.name} className="item-cover-img" />
                   ) : (
-                    <div className="thumb-placeholder">📷 بدون صورة</div>
+                    <div className="item-no-image">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                      <span>بدون صورة</span>
+                    </div>
                   )}
+
+                  <div className="item-cover-gradient" />
+
                   {totalImgs > 0 && (
-                    <span className="thumb-count-badge">
+                    <div className="item-count-chip">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                       {totalImgs} {totalImgs === 1 ? 'صورة' : 'صور'}
-                    </span>
+                    </div>
                   )}
                 </div>
 
-                {/* Info */}
-                <div className="product-card-body">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '6px' }}>
-                    <h5 className="product-title">{p.name}</h5>
+                {/* Body Content */}
+                <div className="item-content-body">
+                  <div className="item-header-row">
+                    <h5 className="item-name" title={p.name}>{p.name}</h5>
                     {p.price && (
-                      <span className="product-price-badge">
+                      <span className="item-price-tag">
                         {p.price} {bot.currency || 'دج'}
                       </span>
                     )}
                   </div>
-                  {p.description && (
-                    <p className="product-desc">{p.description}</p>
+
+                  {p.description ? (
+                    <p className="item-description-text">{p.description}</p>
+                  ) : (
+                    <p className="item-description-text" style={{ fontStyle: 'italic', opacity: 0.5 }}>بدون وصف إضافي</p>
                   )}
 
-                  {/* Actions */}
-                  <div className="product-card-actions">
+                  {/* Actions Footer */}
+                  <div className="item-actions-footer">
                     <button
                       type="button"
-                      className="btn-action-edit"
+                      className="btn-item-edit"
                       onClick={() => startEdit(p)}
                     >
-                      ✏️ تعديل
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                      تعديل
                     </button>
                     <button
                       type="button"
-                      className="btn-action-delete"
+                      className="btn-item-delete"
                       onClick={() => handleDeleteProduct(p)}
                     >
-                      🗑️ حذف
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      حذف
                     </button>
                   </div>
                 </div>

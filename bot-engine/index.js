@@ -318,18 +318,23 @@ async function startBot(config) {
         return;
       }
 
+      // Retrieve latest live config from activeBots
+      const liveEntry = activeBots.get(config.id);
+      const currentConfig = (liveEntry && liveEntry.config) ? liveEntry.config : config;
+
       try {
         await ctx.replyWithChatAction('typing');
 
         const aiConfig = {
-          ...config,
-          autoOrdersEnabled: config.autoOrdersTelegram !== false,
+          ...currentConfig,
+          autoOrdersEnabled: currentConfig.autoOrdersTelegram !== false,
         };
 
         const rawReply = await askAI(aiConfig, userId, userMessage);
-        const { reply: replyWithoutOrder, orderFound } = extractAndSaveOrder(config.id, config.userId, userId, userName, rawReply);
-        const { cleanReply: finalReplyText, mediaToSend } = extractProductMedia(replyWithoutOrder, config.products);
+        const { reply: replyWithoutOrder, orderFound } = extractAndSaveOrder(currentConfig.id, currentConfig.userId, userId, userName, rawReply);
+        const { cleanReply: finalReplyText, mediaToSend } = extractProductMedia(replyWithoutOrder, currentConfig.products);
         const reply = finalReplyText || replyWithoutOrder;
+
 
         if (mediaToSend.length > 1) {
           // Send Telegram Media Group (Album)

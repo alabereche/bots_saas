@@ -12,7 +12,6 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-
   // Form State
   const [formData, setFormData] = useState({
     name: '',
@@ -90,39 +89,76 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
 
   // Handle Primary Image Upload
   const handlePrimaryUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const uploaded = await uploadFiles([file]);
-    if (uploaded.length > 0) {
-      // If there was an old image, delete it
-      if (formData.primaryImage) deleteImageFile(formData.primaryImage);
-      setFormData((prev) => ({ ...prev, primaryImage: uploaded[0] }));
-      toast.success('تم ضغط ورفع الصورة الرئيسية (WebP)');
-    }
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const uploaded = await uploadFiles(files);
+    if (uploaded.length === 0) return;
+
+    setFormData((prev) => {
+      const newPrimary = uploaded[0];
+      const rest = uploaded.slice(1);
+      const combinedSecondary = [...(prev.secondaryImages || []), ...rest].slice(0, 4);
+
+      if (prev.primaryImage) deleteImageFile(prev.primaryImage);
+
+      return {
+        ...prev,
+        primaryImage: newPrimary,
+        secondaryImages: combinedSecondary,
+      };
+    });
+
+    toast.success('تم ضغط ورفع الصورة الرئيسية (WebP)');
+    if (primaryInputRef.current) primaryInputRef.current.value = '';
   };
 
-  // Handle Secondary Images Upload (Max 4)
+  // Handle Secondary Images Upload (Auto-promotes to primary if primary is missing)
   const handleSecondaryUpload = async (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    const currentCount = formData.secondaryImages?.length || 0;
-    const availableSlots = 4 - currentCount;
+    const uploaded = await uploadFiles(files);
+    if (uploaded.length === 0) return;
 
-    if (availableSlots <= 0) {
-      toast.error('الحد الأقصى للصور الثانوية هو 4 صور فقط');
-      return;
-    }
+    setFormData((prev) => {
+      let newPrimary = prev.primaryImage;
+      let newSecondary = [...(prev.secondaryImages || [])];
+      let toAssign = [...uploaded];
 
-    const filesToUpload = files.slice(0, availableSlots);
-    const uploaded = await uploadFiles(filesToUpload);
-    if (uploaded.length > 0) {
-      setFormData((prev) => ({
+      // If no primary image yet, automatically assign the first image as primary
+      if (!newPrimary && toAssign.length > 0) {
+        newPrimary = toAssign.shift();
+      }
+
+      newSecondary = [...newSecondary, ...toAssign].slice(0, 4);
+
+      return {
         ...prev,
-        secondaryImages: [...(prev.secondaryImages || []), ...uploaded].slice(0, 4),
-      }));
-      toast.success(`تم ضغط ورفع ${uploaded.length} صورة ثانوية (WebP)`);
-    }
+        primaryImage: newPrimary,
+        secondaryImages: newSecondary,
+      };
+    });
+
+    toast.success(`تم ضغط ورفع الصور بنجاح (WebP)`);
+    if (secondaryInputRef.current) secondaryInputRef.current.value = '';
+  };
+
+  // Set any secondary image as Primary
+  const setAsPrimary = (idx) => {
+    setFormData((prev) => {
+      const selectedImg = prev.secondaryImages[idx];
+      const oldPrimary = prev.primaryImage;
+      const newSecondary = prev.secondaryImages.filter((_, i) => i !== idx);
+      if (oldPrimary) newSecondary.unshift(oldPrimary);
+
+      return {
+        ...prev,
+        primaryImage: selectedImg,
+        secondaryImages: newSecondary.slice(0, 4),
+      };
+    });
+    toast.success('تم تعيين الصورة كصورة رئيسية للمنتج ⭐');
   };
 
   // Remove Secondary Image
@@ -283,7 +319,7 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
           </div>
 
           <div className="form-group" style={{ marginBottom: '1.2rem' }}>
-            <label className="form-label">الوصف والمواصفات (يقرأها الذكاء الاصطناعي لإجابة الزبون)</label>
+            <label className="form-label">الوصف والمواصفات (يقرأها الذكاء الاصطناعي لإجابة الزبون بدقة)</label>
             <textarea
               className="form-textarea"
               rows="2"
@@ -299,7 +335,7 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
             <div className="media-box primary-media-box">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                 <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#34d399' }}>
-                  ⭐ الصورة الرئيسية (تظهر في الرد الأول)
+                  ⭐ الصورة الرئيسية (تظهر في أول رد)
                 </span>
                 {formData.primaryImage && (
                   <button
@@ -329,13 +365,14 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
                     type="file"
                     ref={primaryInputRef}
                     accept="image/jpeg,image/png,image/webp,image/jpg"
+                    multiple
                     style={{ display: 'none' }}
                     onChange={handlePrimaryUpload}
                     disabled={uploading}
                   />
                   <div style={{ fontSize: '1.5rem', marginBottom: '4px' }}>📷</div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    {uploading ? 'جاري الضغط والرفع...' : 'اضغط لرفع الصورة الرئيسية (JPG / PNG / WebP)'}
+                    {uploading ? 'جاري الضغط والرفع...' : 'اضغط لرفع الصورة الرئيسية'}
                   </div>
                 </div>
               )}
@@ -356,6 +393,14 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
                 {(formData.secondaryImages || []).map((imgUrl, i) => (
                   <div key={i} className="image-preview-wrapper secondary-preview">
                     <img src={imgUrl} alt={`زاوية ${i + 1}`} />
+                    <button
+                      type="button"
+                      className="btn-set-primary"
+                      onClick={() => setAsPrimary(i)}
+                      title="تعيين هذه كصورة رئيسية"
+                    >
+                      ⭐ رئيسية
+                    </button>
                     <button
                       type="button"
                       className="btn-remove-img"
@@ -383,7 +428,7 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
                     />
                     <div style={{ fontSize: '1.2rem' }}>+</div>
                     <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>
-                      {uploading ? 'جاري الرفع...' : 'إضافة صورة'}
+                      {uploading ? 'جاري الرفع...' : 'إضافة صور إضافية'}
                     </div>
                   </div>
                 )}

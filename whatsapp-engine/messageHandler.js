@@ -6,6 +6,7 @@
 // never lost, and AI-derived order data is validated before saving.
 // ═══════════════════════════════════════════════════════════════
 
+const { MessageMedia } = require('whatsapp-web.js');
 const { askOpenRouter } = require('./openrouter');
 const firestore = require('./firestore');
 const { isTakeoverActive } = require('./takeover');
@@ -28,6 +29,75 @@ function extractOrder(rawReply) {
     console.error('[Handler] Failed to parse order JSON:', e.message);
     return { reply: cleanReply, orderData: null };
   }
+}
+
+// ─── Zero-Trust Product Media Resolution (ID-Based) ───────────
+const SHOW_PRODUCT_TAG = '[SHOW_PRODUCT:';
+const SHOW_GALLERY_TAG = '[SHOW_PRODUCT_GALLERY:';
+
+function extractProductMedia(rawReply, productsList = []) {
+  let cleanReply = rawReply;
+  let singleProductId = null;
+  let galleryProductId = null;
+
+  // 1. Check for single product tag [SHOW_PRODUCT: prod_id]
+  const singleIdx = cleanReply.indexOf(SHOW_PRODUCT_TAG);
+  if (singleIdx !== -1) {
+    const endIdx = cleanReply.indexOf(']', singleIdx);
+    if (endIdx !== -1) {
+      singleProductId = cleanReply.slice(singleIdx + SHOW_PRODUCT_TAG.length, endIdx).trim();
+      cleanReply = cleanReply.slice(0, singleIdx) + cleanReply.slice(endIdx + 1);
+    }
+  }
+
+  // 2. Check for gallery tag [SHOW_PRODUCT_GALLERY: prod_id]
+  const galleryIdx = cleanReply.indexOf(SHOW_GALLERY_TAG);
+  if (galleryIdx !== -1) {
+    const endIdx = cleanReply.indexOf(']', galleryIdx);
+    if (endIdx !== -1) {
+      galleryProductId = cleanReply.slice(galleryIdx + SHOW_GALLERY_TAG.length, endIdx).trim();
+      cleanReply = cleanReply.slice(0, galleryIdx) + cleanReply.slice(endIdx + 1);
+    }
+  }
+
+  cleanReply = cleanReply.trim();
+
+  // Lookup strictly in trusted products array (Zero-Trust)
+  let mediaToSend = [];
+  const targetId = galleryProductId || singleProductId;
+
+  if (targetId && Array.isArray(productsList)) {
+    const product = productsList.find(p => p && String(p.id).trim() === targetId);
+    if (product) {
+      if (galleryProductId) {
+        // Gallery mode: Send all available images (primary + secondary) up to 5
+        const allImages = [];
+        if (product.primaryImage) allImages.push(product.primaryImage);
+        if (Array.isArray(product.secondaryImages)) {
+          allImages.push(...product.secondaryImages.filter(Boolean));
+        } else if (Array.isArray(product.images)) {
+          allImages.push(...product.images.filter(Boolean));
+        }
+        mediaToSend = allImages.slice(0, 5);
+      } else if (singleProductId) {
+        // Single mode: Send primary image
+        const mainImg = product.primaryImage || (Array.isArray(product.images) ? product.images[0] : null);
+        if (mainImg) mediaToSend = [mainImg];
+      }
+    }
+  }
+
+  return { cleanReply, mediaToSend };
+}
+
+// Helper: send plain text reply
+async function sendTextReply(msg, userId, text) {
+  await msg.reply(text).catch(async (replyErr) => {
+    console.warn('[Handler] msg.reply failed, trying sendMessage:', replyErr.message);
+    if (msg.client && typeof msg.client.sendMessage === 'function') {
+      await msg.client.sendMessage(userId, text);
+    }
+  });
 }
 
 // AI output is untrusted input: whitelist the fields we accept and
@@ -99,18 +169,45 @@ async function handleMessage(msg, config) {
     // Get AI response from Gemini
     const rawReply = await askOpenRouter(aiConfig, userId, userMessage);
 
-    // Extract order if present and clean the reply
-    const { reply, orderData } = extractOrder(rawReply);
+    // Extract order if present
+    const { reply: replyWithoutOrder, orderData } = extractOrder(rawReply);
 
-    // Send reply to customer
-    await msg.reply(reply).catch(async (replyErr) => {
-      console.warn('[Handler] msg.reply failed, trying sendMessage:', replyErr.message);
-      if (msg.client && typeof msg.client.sendMessage === 'function') {
-        await msg.client.sendMessage(userId, reply);
+    // Extract Zero-Trust product media tags
+    const { cleanReply: finalReplyText, mediaToSend } = extractProductMedia(replyWithoutOrder, config.products);
+    const reply = finalReplyText || replyWithoutOrder;
+
+    // Send reply with media (Primary Image / Gallery) or Fallback to Text
+    if (mediaToSend.length > 0) {
+      try {
+        const firstImgUrl = mediaToSend[0];
+        const media = await MessageMedia.fromUrl(firstImgUrl, { unsafeMime: true }).catch(() => null);
+        if (media && msg.client) {
+          // Send primary image with caption text
+          await msg.client.sendMessage(userId, media, { caption: reply });
+
+          // Send secondary images if in gallery mode
+          for (let i = 1; i < mediaToSend.length; i++) {
+            const extraMedia = await MessageMedia.fromUrl(mediaToSend[i], { unsafeMime: true }).catch(() => null);
+            if (extraMedia) {
+              await new Promise(r => setTimeout(r, 400));
+              await msg.client.sendMessage(userId, extraMedia);
+            }
+          }
+        } else {
+          // Fallback to text if media failed to download
+          await sendTextReply(msg, userId, reply);
+        }
+      } catch (mediaErr) {
+        console.warn('[Handler] Media send failed, falling back to text:', mediaErr.message);
+        await sendTextReply(msg, userId, reply);
       }
-    });
+    } else {
+      // Standard text reply
+      await sendTextReply(msg, userId, reply);
+    }
 
     console.log(`[Handler] 🤖 Sent AI reply to ${userName}: "${reply.slice(0, 50)}..."`);
+
 
     // Log the bot's reply on its own
     firestore.logBotMessage({

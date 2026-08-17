@@ -14,6 +14,8 @@ import { useToast } from '../context/ToastContext';
 import { COUNTRIES } from '../data/countries';
 import { BUSINESS_TYPES } from './CreateBot';
 import { auth } from '../services/firebase';
+import ProductCatalogManager from '../components/ProductCatalogManager';
+
 
 // Engine endpoints — WhatsApp engine (3001) handles WhatsApp bots,
 // the Telegram engine (3002) handles everything else
@@ -387,11 +389,12 @@ export default function BotDetail() {
         </div>
       </div>
 
-      {/* Solid High-Contrast Tabs Bar (3 Equal Grid Columns) */}
-      <div className="tabs-container">
+      {/* Solid High-Contrast Tabs Bar (4 Grid Columns) */}
+      <div className="tabs-container" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
         {[
           { key: 'chat', label: 'المحادثات', count: sortedCustomers.length },
           { key: 'orders', label: 'الطلبيات', count: newOrdersCount },
+          { key: 'catalog', label: 'الكتالوج والمنتجات', count: bot?.products?.length || null },
           { key: 'info', label: 'الإعدادات', count: null },
         ].map(tab => (
           <button
@@ -640,7 +643,17 @@ export default function BotDetail() {
         </div>
       )}
 
-      {/* ─── Tab 3: Bot Info Tab ─── */}
+      {/* ─── Tab 3: Product Catalog Tab (Optional) ─── */}
+      {activeTab === 'catalog' && (
+        <ProductCatalogManager
+          bot={bot}
+          onUpdateBot={async (data) => {
+            await updateBot(id, data);
+          }}
+        />
+      )}
+
+      {/* ─── Tab 4: Bot Info Tab ─── */}
       {activeTab === 'info' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {/* Card 1: Business Details */}

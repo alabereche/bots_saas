@@ -233,7 +233,60 @@ async function askAI(config, userId, userMessage) {
   return reply;
 }
 
-// ─── Start / Stop Grammy Bot ──────────────────────────────────
+// ─── Zero-Trust Product Media Resolution (ID-Based) ───────────
+const SHOW_PRODUCT_TAG = '[SHOW_PRODUCT:';
+const SHOW_GALLERY_TAG = '[SHOW_PRODUCT_GALLERY:';
+
+function extractProductMedia(rawReply, productsList = []) {
+  let cleanReply = rawReply;
+  let singleProductId = null;
+  let galleryProductId = null;
+
+  const singleIdx = cleanReply.indexOf(SHOW_PRODUCT_TAG);
+  if (singleIdx !== -1) {
+    const endIdx = cleanReply.indexOf(']', singleIdx);
+    if (endIdx !== -1) {
+      singleProductId = cleanReply.slice(singleIdx + SHOW_PRODUCT_TAG.length, endIdx).trim();
+      cleanReply = cleanReply.slice(0, singleIdx) + cleanReply.slice(endIdx + 1);
+    }
+  }
+
+  const galleryIdx = cleanReply.indexOf(SHOW_GALLERY_TAG);
+  if (galleryIdx !== -1) {
+    const endIdx = cleanReply.indexOf(']', galleryIdx);
+    if (endIdx !== -1) {
+      galleryProductId = cleanReply.slice(galleryIdx + SHOW_GALLERY_TAG.length, endIdx).trim();
+      cleanReply = cleanReply.slice(0, galleryIdx) + cleanReply.slice(endIdx + 1);
+    }
+  }
+
+  cleanReply = cleanReply.trim();
+
+  let mediaToSend = [];
+  const targetId = galleryProductId || singleProductId;
+
+  if (targetId && Array.isArray(productsList)) {
+    const product = productsList.find(p => p && String(p.id).trim() === targetId);
+    if (product) {
+      if (galleryProductId) {
+        const allImages = [];
+        if (product.primaryImage) allImages.push(product.primaryImage);
+        if (Array.isArray(product.secondaryImages)) {
+          allImages.push(...product.secondaryImages.filter(Boolean));
+        } else if (Array.isArray(product.images)) {
+          allImages.push(...product.images.filter(Boolean));
+        }
+        mediaToSend = allImages.slice(0, 5);
+      } else if (singleProductId) {
+        const mainImg = product.primaryImage || (Array.isArray(product.images) ? product.images[0] : null);
+        if (mainImg) mediaToSend = [mainImg];
+      }
+    }
+  }
+
+  return { cleanReply, mediaToSend };
+}
+
 
 async function startBot(config) {
   if (activeBots.has(config.id)) return;
@@ -274,22 +327,40 @@ async function startBot(config) {
         };
 
         const rawReply = await askAI(aiConfig, userId, userMessage);
-        const { reply, orderFound } = extractAndSaveOrder(config.id, config.userId, userId, userName, rawReply);
+        const { reply: replyWithoutOrder, orderFound } = extractAndSaveOrder(config.id, config.userId, userId, userName, rawReply);
+        const { cleanReply: finalReplyText, mediaToSend } = extractProductMedia(replyWithoutOrder, config.products);
+        const reply = finalReplyText || replyWithoutOrder;
 
-        await ctx.reply(reply, { parse_mode: 'Markdown' }).catch(async () => {
-          await ctx.reply(reply);
-        });
+        if (mediaToSend.length > 1) {
+          // Send Telegram Media Group (Album)
+          const mediaGroup = mediaToSend.map((url, idx) => ({
+            type: 'photo',
+            media: url,
+            caption: idx === 0 ? reply : undefined,
+            parse_mode: idx === 0 ? 'Markdown' : undefined,
+          }));
+          await ctx.replyWithMediaGroup(mediaGroup).catch(async (err) => {
+            console.warn('[Telegram Engine] replyWithMediaGroup failed, fallback to single photo:', err.message);
+            await ctx.replyWithPhoto(mediaToSend[0], { caption: reply, parse_mode: 'Markdown' }).catch(async () => {
+              await ctx.reply(reply, { parse_mode: 'Markdown' }).catch(() => ctx.reply(reply));
+            });
+          });
+        } else if (mediaToSend.length === 1) {
+          // Send Single Photo with Caption
+          await ctx.replyWithPhoto(mediaToSend[0], { caption: reply, parse_mode: 'Markdown' }).catch(async () => {
+            await ctx.reply(reply, { parse_mode: 'Markdown' }).catch(() => ctx.reply(reply));
+          });
+        } else {
+          // Standard Text Reply
+          await ctx.reply(reply, { parse_mode: 'Markdown' }).catch(async () => {
+            await ctx.reply(reply);
+          });
+        }
 
         // Save bot reply
         saveMessage(config.id, config.userId, userId, userName, reply, 'bot');
         incrementMessageCount(config.id);
 
-        // Detect transfer to owner request
-        const transferPhrases = ['سأحولك', 'سأحيلك', 'سأوصلك', 'يرجى الانتظار', 'صاحب المحل', 'صاحب المشروع'];
-        if (transferPhrases.some(p => reply.includes(p))) {
-          humanTakeoverMap.set(takeoverKey, true);
-          console.log(`[Engine] Auto-takeover ON for user ${userId}`);
-        }
 
       } catch (err) {
         console.error(`[Engine] Bot "${config.botName}" error:`, err.message);

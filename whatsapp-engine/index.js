@@ -7,6 +7,11 @@
 
 require('dotenv').config();
 
+const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
+const multer = require('multer');
+const sharp = require('sharp');
 const express = require('express');
 const cors = require('cors');
 const {
@@ -25,6 +30,38 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const MAX_CONCURRENT_BOTS = parseInt(process.env.MAX_CONCURRENT_BOTS || '10', 10);
 
+// ─── Uploads Directory & Static Serving ───────────────────────
+const UPLOADS_DIR = path.join(__dirname, 'uploads');
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+
+// Serve uploaded static WebP images
+app.use('/uploads', express.static(UPLOADS_DIR, {
+  maxAge: '30d',
+  immutable: true,
+  setHeaders: (res) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+  }
+}));
+
+// ─── Multer Storage & Validation ──────────────────────────────
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB max per image
+    files: 5,                  // Max 5 images per upload batch
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('نوع الملف غير مدعوم — يرجى رفع صور بصيغة JPG أو PNG أو WebP فقط'));
+    }
+  },
+});
+
 // ─── Middleware ───────────────────────────────────────────────
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '2mb' }));
@@ -33,6 +70,7 @@ app.use(express.json({ limit: '2mb' }));
 // The dashboard signs in with Firebase Auth and sends its ID token;
 // the engine verifies the token and checks the caller owns the bot.
 app.use('/api', async (req, res, next) => {
+
   const header = req.headers.authorization || '';
   if (!header.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'مصادقة مطلوبة — سجل الدخول وأعد المحاولة' });
@@ -232,16 +270,116 @@ app.post('/api/takeover', async (req, res) => {
   res.json({ success: true, takeover: !!enabled });
 });
 
-// GET /api/takeover/:botId — Current manual-mode customers of a bot
-app.get('/api/takeover/:botId', async (req, res) => {
-  if (!(await requireBotAccess(res, req.uid, req.params.botId))) return;
-  res.json({ takeovers: getTakeoverMap(req.params.botId) });
+// ─── Product Image Upload & Management ─────────────────────────
+
+// POST /api/upload — Upload and auto-compress product images to WebP
+app.post('/api/upload', (req, res, next) => {
+  upload.array('images', 5)(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message || 'خطأ أثناء رفع الملفات' });
+    }
+    next();
+  });
+}, async (req, res) => {
+  const botId = req.body.botId;
+  if (!botId) {
+    return res.status(400).json({ error: 'معرّف البوت مطلوب (botId)' });
+  }
+
+  // Security check: caller must own this bot
+  const bot = await requireBotAccess(res, req.uid, botId);
+  if (!bot) return;
+
+  const files = req.files;
+  if (!files || files.length === 0) {
+    return res.status(400).json({ error: 'لم يتم إرسال أي صورة' });
+  }
+
+  try {
+    const uploadedUrls = [];
+    const host = req.get('host') || `162.62.233.152:${PORT}`;
+    const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
+
+    for (const file of files) {
+      const filename = `prod_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.webp`;
+      const outputPath = path.join(UPLOADS_DIR, filename);
+
+      // WebP compression & resizing (max 1200px width/height, 80% quality)
+      await sharp(file.buffer)
+        .resize({ width: 1200, height: 1200, fit: 'inside', withoutEnlargement: true })
+        .webp({ quality: 80, effort: 4 })
+        .toFile(outputPath);
+
+      const url = `${protocol}://${host}/uploads/${filename}`;
+      uploadedUrls.push({
+        filename,
+        url,
+        size: fs.statSync(outputPath).size,
+      });
+    }
+
+    res.json({
+      success: true,
+      images: uploadedUrls,
+      message: 'تم رفع وضغط الصور بنجاح',
+    });
+  } catch (err) {
+    console.error('[Upload] Image processing error:', err.message);
+    res.status(500).json({ error: 'فشل معالجة وضغط الصورة' });
+  }
+});
+
+// POST /api/upload/delete — Delete product image from VPS disk (Garbage Collection)
+app.post('/api/upload/delete', async (req, res) => {
+  const { botId, filename, url } = req.body;
+  if (!botId) {
+    return res.status(400).json({ error: 'معرّف البوت مطلوب (botId)' });
+  }
+
+  // Security check: caller must own this bot
+  const bot = await requireBotAccess(res, req.uid, botId);
+  if (!bot) return;
+
+  let targetFilename = filename;
+  if (!targetFilename && url) {
+    try {
+      const parsedUrl = new URL(url);
+      targetFilename = path.basename(parsedUrl.pathname);
+    } catch {
+      targetFilename = path.basename(url);
+    }
+  }
+
+  if (!targetFilename) {
+    return res.status(400).json({ error: 'اسم الملف أو رابطه مطلوب' });
+  }
+
+  // Sanitize filename to prevent directory traversal
+  const safeFilename = path.basename(targetFilename);
+  const targetPath = path.join(UPLOADS_DIR, safeFilename);
+
+  // Security check: ensure path is within UPLOADS_DIR
+  if (!targetPath.startsWith(UPLOADS_DIR)) {
+    return res.status(403).json({ error: 'مسار غير مصرح به' });
+  }
+
+  try {
+    if (fs.existsSync(targetPath)) {
+      fs.unlinkSync(targetPath);
+      console.log(`[Upload] Deleted image file: ${safeFilename}`);
+    }
+    res.json({ success: true, message: 'تم حذف الصورة بنجاح' });
+  } catch (err) {
+    console.error('[Upload] Delete file error:', err.message);
+    res.status(500).json({ error: 'فشل حذف الملف من السيرفر' });
+  }
 });
 
 // GET /health
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', engine: 'whatsapp', uptime: process.uptime() });
 });
+
 
 // Global Error Handler
 app.use((err, req, res, next) => {

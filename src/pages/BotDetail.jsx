@@ -173,8 +173,9 @@ export default function BotDetail() {
 
   const defaultDeliveryMessage = (order, currentBot) => {
     const customerName = order.customerName || 'عميلنا العزيز';
-    const productName = order.product || 'طلبك';
+    const productName = order.product || 'طلبيتكم';
     const price = order.price ? `${order.price} ${currentBot.currency || 'دج'}` : '';
+    const address = order.address || '';
     const storeName = currentBot.businessName || 'متجرنا';
 
     if (currentBot.deliveryReceiptMessage && currentBot.deliveryReceiptMessage.trim()) {
@@ -182,16 +183,19 @@ export default function BotDetail() {
         .replace(/{name}/g, customerName)
         .replace(/{product}/g, productName)
         .replace(/{price}/g, price)
+        .replace(/{address}/g, address)
         .replace(/{store}/g, storeName);
     }
 
-    let text = `تم تسليم طلبيتك بنجاح!\n\n`;
+    let text = `طلبيتك وصلت وهي جاهزة للاستلام!\n\n`;
     text += `عزيزي/عزيزتي ${customerName}،\n`;
-    text += `يسعدنا إبلاغك باكتمال توصيل واستلام طلبيتك:\n`;
-    text += `• المنتج / الطلب: ${productName}\n`;
-    if (price) text += `• المبلغ الإجمالي: ${price}\n`;
-    text += `\nشكراً جزيلاً لتعاملك وثقتك بـ "${storeName}"!\n`;
-    text += `نتمنى أن ينال المنتج رضاك وإعجابك، ويسعدنا دائماً خدمتك.`;
+    text += `يسعدنا إبلاغك بأن طلبيتك الخاصة بـ (${productName}) قد وصلت وباتت جاهزة للاستلام.\n\n`;
+    text += `📋 تفاصيل الاستلام:\n`;
+    text += `• الطلب / المنتج: ${productName}\n`;
+    if (price) text += `• المبلغ المطلوب عند الاستلام: ${price}\n`;
+    if (address) text += `• العنوان / جهة التسليم: ${address}\n`;
+    text += `\nيرجى التقدم للاستلام، وإذا كان لديك أي استفسار يسعدنا دائماً تواصلك معنا!\n`;
+    text += `شكراً لتعاملك وثقتك بـ "${storeName}".`;
     return text;
   };
 
@@ -726,7 +730,7 @@ export default function BotDetail() {
               <InfoRow label="اسم البوت" value={bot.botName} />
               <InfoRow label="نوع النشاط" value={currentActivityName} />
               <InfoRow label="الدولة والعملة" value={`${bot.countryName || 'الجزائر'} (${bot.currency || 'دج'})`} />
-              <InfoRow label="إشعار اكتمال التوصيل" value={bot.autoDeliveryReceipt !== false ? 'مفعل (إرسال إيصال تلقائي)' : 'معطل'} />
+              <InfoRow label="إشعار وصول الطلبية والاستلام" value={bot.autoDeliveryReceipt !== false ? 'مفعل (إرسال إيصال تلقائي)' : 'معطل'} />
               {bot.workingHours && <InfoRow label="ساعات العمل" value={bot.workingHours} />}
               {bot.location && <InfoRow label="الموقع" value={bot.location} />}
               {bot.contact && <InfoRow label="التواصل" value={bot.contact} />}
@@ -896,10 +900,10 @@ export default function BotDetail() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginBottom: editData.autoDeliveryReceipt ? '0.75rem' : '0' }}>
                   <div>
                     <label style={{ fontWeight: 700, fontSize: '0.9rem', color: '#ffffff', display: 'block', marginBottom: '2px' }}>
-                      إشعار وإيصال التوصيل التلقائي
+                      إشعار وصول الطلبية والاستلام
                     </label>
                     <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                      عند الضغط على "اكتمل التوصيل" في أي طلبية، يتم إرسال رسالة شكر وإيصال استلام للزبون تلقائياً في المحادثة.
+                      عند الضغط على "وصلت الطلبية"، يتم إرسال إشعار فوري للزبون بأن طلبيته وصلت وجاهزة للاستلام مع العنوان والمبلغ المطلوب.
                     </span>
                   </div>
                   <label className="toggle-switch">

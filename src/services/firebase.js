@@ -214,11 +214,15 @@ export async function deleteBot(botId) {
 // ─── Conversations (Firestore) ────────────────────────────────
 
 // Subscribe to messages of a bot in realtime
+// The userId filter matches the security rules (owner-only reads)
 export function subscribeConversations(botId, callback) {
   if (!botId) return () => {};
+  const uid = auth.currentUser?.uid;
+  if (!uid) return () => {};
   const q = query(
     collection(db, 'conversations'),
-    where('botId', '==', botId)
+    where('botId', '==', botId),
+    where('userId', '==', uid)
   );
   return onSnapshot(q, (snapshot) => {
     const messages = snapshot.docs.map(d => ({
@@ -238,6 +242,7 @@ export async function saveMessage({ botId, platform = 'telegram', telegramUserId
   return await addDoc(collection(db, 'conversations'), {
     botId,
     platform,
+    userId: auth.currentUser?.uid || '',
     telegramUserId: String(telegramUserId),
     userName: userName || 'زبون',
     content,
@@ -255,7 +260,13 @@ export async function deleteConversation(messageId) {
 
 // Clear all messages of a bot
 export async function clearBotMessages(botId) {
-  const q = query(collection(db, 'conversations'), where('botId', '==', botId));
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new Error('غير مسجل الدخول');
+  const q = query(
+    collection(db, 'conversations'),
+    where('botId', '==', botId),
+    where('userId', '==', uid)
+  );
   const snap = await getDocs(q);
   const batch = writeBatch(db);
   snap.docs.forEach(d => batch.delete(d.ref));
@@ -266,11 +277,15 @@ export async function clearBotMessages(botId) {
 // ─── Orders (Firestore) ───────────────────────────────────────
 
 // Subscribe to orders in realtime
+// The userId filter matches the security rules (owner-only reads)
 export function subscribeOrders(botId, callback) {
   if (!botId) return () => {};
+  const uid = auth.currentUser?.uid;
+  if (!uid) return () => {};
   const q = query(
     collection(db, 'orders'),
-    where('botId', '==', botId)
+    where('botId', '==', botId),
+    where('userId', '==', uid)
   );
   return onSnapshot(q, (snapshot) => {
     const orders = snapshot.docs.map(d => ({
@@ -289,6 +304,7 @@ export function subscribeOrders(botId, callback) {
 export async function saveOrder(orderData) {
   return await addDoc(collection(db, 'orders'), {
     ...orderData,
+    userId: auth.currentUser?.uid || '',
     status: orderData.status || 'new',
     createdAt: new Date().toISOString(),
     timestamp: serverTimestamp(),
@@ -309,7 +325,13 @@ export async function deleteOrder(orderId) {
 
 // Clear all orders of a bot
 export async function clearBotOrders(botId) {
-  const q = query(collection(db, 'orders'), where('botId', '==', botId));
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new Error('غير مسجل الدخول');
+  const q = query(
+    collection(db, 'orders'),
+    where('botId', '==', botId),
+    where('userId', '==', uid)
+  );
   const snap = await getDocs(q);
   const batch = writeBatch(db);
   snap.docs.forEach(d => batch.delete(d.ref));

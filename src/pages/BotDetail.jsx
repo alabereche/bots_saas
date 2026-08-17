@@ -13,15 +13,24 @@ import {
 import { useToast } from '../context/ToastContext';
 import { COUNTRIES } from '../data/countries';
 import { BUSINESS_TYPES } from './CreateBot';
+import { auth } from '../services/firebase';
 
 // Engine endpoints — WhatsApp engine (3001) handles WhatsApp bots,
 // the Telegram engine (3002) handles everything else
 const WHATSAPP_ENGINE_URL = import.meta.env.VITE_WHATSAPP_ENGINE_URL || 'http://162.62.233.152:3001';
 const TELEGRAM_ENGINE_URL = import.meta.env.VITE_ENGINE_URL || 'http://162.62.233.152:3002';
-const ENGINE_API_KEY = import.meta.env.VITE_API_KEY || 'botforge_secret_key_2026';
 
 function engineUrlFor(platform) {
   return platform === 'whatsapp' ? WHATSAPP_ENGINE_URL : TELEGRAM_ENGINE_URL;
+}
+
+// Engines authenticate the signed-in dashboard user via their
+// Firebase ID token — no shared secret ships in the client bundle
+async function engineHeaders(json = true) {
+  const token = await auth.currentUser?.getIdToken();
+  const headers = { Authorization: `Bearer ${token || ''}` };
+  if (json) headers['Content-Type'] = 'application/json';
+  return headers;
 }
 
 const businessTypeLabels = {
@@ -126,7 +135,8 @@ export default function BotDetail() {
   // so the UI matches reality after a page reload
   useEffect(() => {
     if (!id || !bot || bot.platform !== 'whatsapp') return;
-    fetch(`${WHATSAPP_ENGINE_URL}/api/takeover/${id}`, { headers: { 'x-api-key': ENGINE_API_KEY } })
+    engineHeaders(false)
+      .then(headers => fetch(`${WHATSAPP_ENGINE_URL}/api/takeover/${id}`, { headers }))
       .then(res => (res.ok ? res.json() : null))
       .then(data => {
         if (data?.takeovers) setTakeoverMap(data.takeovers);
@@ -227,7 +237,7 @@ export default function BotDetail() {
     try {
       const res = await fetch(`${engineUrlFor(bot?.platform)}/api/reply`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': ENGINE_API_KEY },
+        headers: await engineHeaders(),
         body: JSON.stringify({
           botId: id,
           telegramUserId: selectedUserId,
@@ -254,7 +264,7 @@ export default function BotDetail() {
     try {
       const res = await fetch(`${engineUrlFor(bot?.platform)}/api/takeover`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': ENGINE_API_KEY },
+        headers: await engineHeaders(),
         body: JSON.stringify({ botId: id, telegramUserId: userId, enabled: newState }),
       });
       const data = await res.json().catch(() => ({}));
@@ -921,7 +931,7 @@ function WhatsAppConnect({ botId }) {
     if (waStatus !== 'waiting_scan' && waStatus !== 'initializing') return;
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`${WHATSAPP_ENGINE_URL}/api/whatsapp/${botId}/qr`, { headers: { 'x-api-key': ENGINE_API_KEY } });
+        const res = await fetch(`${WHATSAPP_ENGINE_URL}/api/whatsapp/${botId}/qr`, { headers: await engineHeaders(false) });
         if (res.ok) {
           const data = await res.json();
           if (data.status) setWaStatus(data.status);
@@ -948,7 +958,7 @@ function WhatsAppConnect({ botId }) {
     try {
       const res = await fetch(`${WHATSAPP_ENGINE_URL}/api/whatsapp/create`, {
         method: 'POST',
-        headers: { 'x-api-key': ENGINE_API_KEY, 'Content-Type': 'application/json' },
+        headers: await engineHeaders(),
         body: JSON.stringify({ botId }),
       });
       const data = await res.json();
@@ -968,7 +978,7 @@ function WhatsAppConnect({ botId }) {
 
   const handleDisconnect = async () => {
     try {
-      await fetch(`${WHATSAPP_ENGINE_URL}/api/whatsapp/${botId}/stop`, { method: 'POST', headers: { 'x-api-key': ENGINE_API_KEY } });
+      await fetch(`${WHATSAPP_ENGINE_URL}/api/whatsapp/${botId}/stop`, { method: 'POST', headers: await engineHeaders(false) });
       setWaStatus('disconnected');
       setQrDataUrl(null);
     } catch {}

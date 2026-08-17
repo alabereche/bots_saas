@@ -8,34 +8,29 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { Bot } from 'grammy';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import {
-  getFirestore,
-  collection,
-  doc,
-  addDoc,
-  updateDoc,
-  onSnapshot,
-  serverTimestamp,
-} from 'firebase/firestore';
+import admin from 'firebase-admin';
 import { buildSystemPrompt } from './prompt-builder.js';
 
 const PORT = process.env.PORT || 3002;
-const API_SECRET_KEY = process.env.API_KEY || 'botforge_secret_key_2026';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+const AI_TIMEOUT_MS = 20000;
+const MAX_HISTORY_KEYS = 5000;
 
-// ─── Firebase Initialization ──────────────────────────────────
-const firebaseConfig = {
-  apiKey: process.env.FIREBASE_API_KEY || "AIzaSyAB6AS2qy2e9iAgG4RMIERDmLXCvs2WQEU",
-  authDomain: process.env.FIREBASE_AUTH_DOMAIN || "bots-saas-c7190.firebaseapp.com",
-  projectId: process.env.FIREBASE_PROJECT_ID || "bots-saas-c7190",
-  storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "bots-saas-c7190.firebasestorage.app",
-  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || "99967470267",
-  appId: process.env.FIREBASE_APP_ID || "1:99967470267:web:8e75a4c7f90d460407f79e",
-};
+// ─── Firebase Initialization (Admin SDK — privileged server identity,
+// bypasses security rules so the client-facing rules can stay locked) ──
+const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_B64
+  ? Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_B64, 'base64').toString('utf8')
+  : null;
 
-const app_fb = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const db = getFirestore(app_fb);
+if (!admin.apps.length) {
+  const credential = serviceAccountJson
+    ? admin.credential.cert(JSON.parse(serviceAccountJson))
+    : admin.credential.applicationDefault();
+  admin.initializeApp({ credential });
+}
+
+const db = admin.firestore();
+const FieldValue = admin.firestore.FieldValue;
 
 // Active running bot instances: botId -> { bot, config }
 const activeBots = new Map();
@@ -49,28 +44,30 @@ const MAX_HISTORY = 20;
 
 // ─── Firestore Helpers ────────────────────────────────────────
 
-async function saveMessage(botId, telegramUserId, userName, content, role) {
+// ownerUserId is stamped on every document so the security rules can
+// authorize owner access without a per-document get()
+async function saveMessage(botId, ownerUserId, telegramUserId, userName, content, role) {
   try {
-    await addDoc(collection(db, 'conversations'), {
+    await db.collection('conversations').add({
       botId,
       platform: 'telegram',
+      userId: ownerUserId || '',
       telegramUserId: String(telegramUserId),
       userName: userName || 'زبون تيليغرام',
       content,
       role, // 'user' | 'bot' | 'owner'
       createdAt: new Date().toISOString(),
-      timestamp: serverTimestamp(),
+      timestamp: FieldValue.serverTimestamp(),
     });
   } catch (e) {
     console.error('[Engine] Save message error:', e.message);
   }
 }
 
-async function incrementMessageCount(botId, currentCount = 0) {
+async function incrementMessageCount(botId) {
   try {
-    const botRef = doc(db, 'bots', botId);
-    await updateDoc(botRef, {
-      messagesCount: (currentCount || 0) + 1,
+    await db.collection('bots').doc(botId).update({
+      messagesCount: FieldValue.increment(1),
       lastActiveAt: new Date().toISOString(),
     });
   } catch (e) {
@@ -80,11 +77,12 @@ async function incrementMessageCount(botId, currentCount = 0) {
 
 async function saveOrderToFirestore(orderData) {
   try {
-    await addDoc(collection(db, 'orders'), {
+    await db.collection('orders').add({
       ...orderData,
+      userId: orderData.ownerUserId || '',
       status: 'new',
       createdAt: new Date().toISOString(),
-      timestamp: serverTimestamp(),
+      timestamp: FieldValue.serverTimestamp(),
     });
     console.log(`[Engine] 📦 Order saved in Firestore: ${orderData.customerName} - ${orderData.product}`);
   } catch (e) {
@@ -95,7 +93,7 @@ async function saveOrderToFirestore(orderData) {
 // ─── Smart Order Extraction ──────────────────────────────────
 const ORDER_TAG = '[ORDER_CONFIRMED]';
 
-function extractAndSaveOrder(botId, customerId, customerName, rawReply) {
+function extractAndSaveOrder(botId, ownerUserId, customerId, customerName, rawReply) {
   const tagIndex = rawReply.indexOf(ORDER_TAG);
   if (tagIndex === -1) return { reply: rawReply, orderFound: false };
 
@@ -105,18 +103,26 @@ function extractAndSaveOrder(botId, customerId, customerName, rawReply) {
 
   try {
     const orderData = JSON.parse(jsonStr);
-    saveOrderToFirestore({
-      botId,
-      platform: 'telegram',
-      customerId: String(customerId),
-      customerName: customerName || 'زبون',
-      phone: orderData.phone || '',
-      address: orderData.address || '',
-      product: orderData.product || '',
-      price: orderData.price || '',
-      orderSummary: cleanReply.slice(-500),
-    });
-    return { reply: cleanReply, orderFound: true };
+    // AI output is untrusted: whitelist fields and clamp length
+    const str = v => (typeof v === 'string' ? v.trim().slice(0, 300) : '');
+    const phone = str(orderData?.phone);
+    const product = str(orderData?.product);
+    if (product || phone) {
+      saveOrderToFirestore({
+        botId,
+        ownerUserId,
+        platform: 'telegram',
+        customerId: String(customerId),
+        customerName: customerName || 'زبون',
+        phone,
+        address: str(orderData?.address),
+        product,
+        price: str(orderData?.price),
+        orderSummary: cleanReply.slice(-500),
+      });
+      return { reply: cleanReply, orderFound: true };
+    }
+    return { reply: cleanReply, orderFound: false };
   } catch (e) {
     console.error('[Engine] Order JSON parse error:', e.message);
     return { reply: cleanReply, orderFound: false };
@@ -148,13 +154,15 @@ async function callGemini(apiKey, model, messages) {
   let lastError = null;
   for (const geminiModel of modelsToTry) {
     try {
-      const url = isBearer 
-        ? `${urlBase}/${geminiModel}:generateContent`
-        : `${urlBase}/${geminiModel}:generateContent?key=${apiKey}`;
+      // The key travels in a header, never in the URL where it would
+      // land in proxy/access logs
+      const url = `${urlBase}/${geminiModel}:generateContent`;
 
       const headers = { 'Content-Type': 'application/json' };
       if (isBearer) {
         headers['Authorization'] = `Bearer ${apiKey}`;
+      } else {
+        headers['x-goog-api-key'] = apiKey;
       }
 
       const res = await fetch(url, {
@@ -165,18 +173,25 @@ async function callGemini(apiKey, model, messages) {
           contents,
           generationConfig: { maxOutputTokens: 800, temperature: 0.7 },
         }),
+        signal: AbortSignal.timeout(AI_TIMEOUT_MS),
       });
 
       if (res.ok) {
         const data = await res.json();
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (text) return text;
+        lastError = new Error(`Gemini ${geminiModel}: empty response`);
       } else {
         const err = await res.text();
         lastError = new Error(`Gemini ${geminiModel} ${res.status}: ${err}`);
+        // Fatal client errors (bad key, bad request) fail on every
+        // model — retrying only multiplies the latency
+        const retryable = res.status === 429 || res.status >= 500;
+        if (!retryable) break;
       }
     } catch (e) {
       lastError = e;
+      if (e.name === 'AbortError' || e.name === 'TimeoutError') break;
     }
   }
 
@@ -187,6 +202,11 @@ async function callGemini(apiKey, model, messages) {
 async function askAI(config, userId, userMessage) {
   const historyKey = `${config.id}_${userId}`;
   if (!conversationHistory.has(historyKey)) {
+    // Bound the number of tracked chats so memory stays flat
+    if (conversationHistory.size >= MAX_HISTORY_KEYS) {
+      const oldestKey = conversationHistory.keys().next().value;
+      conversationHistory.delete(oldestKey);
+    }
     conversationHistory.set(historyKey, []);
   }
   const history = conversationHistory.get(historyKey);
@@ -199,7 +219,15 @@ async function askAI(config, userId, userMessage) {
   const messages = [{ role: 'system', content: systemPrompt }, ...history];
   const model = config.aiModel || 'gemini-2.5-flash';
 
-  let reply = await callGemini(GEMINI_API_KEY, model, messages);
+  let reply;
+  try {
+    reply = await callGemini(GEMINI_API_KEY, model, messages);
+  } catch (err) {
+    // The attempt failed: drop the user message so a retry doesn't
+    // carry a phantom turn
+    history.pop();
+    throw err;
+  }
   if (!reply) reply = 'عذراً، لم أتمكن من الرد. يرجى المحاولة مرة أخرى.';
   history.push({ role: 'assistant', content: reply });
   return reply;
@@ -229,7 +257,7 @@ async function startBot(config) {
       const takeoverKey = `${config.id}_${userId}`;
 
       // Save user message immediately
-      saveMessage(config.id, userId, userName, userMessage, 'user');
+      saveMessage(config.id, config.userId, userId, userName, userMessage, 'user');
 
       // Check human takeover
       if (humanTakeoverMap.get(takeoverKey)) {
@@ -246,15 +274,15 @@ async function startBot(config) {
         };
 
         const rawReply = await askAI(aiConfig, userId, userMessage);
-        const { reply, orderFound } = extractAndSaveOrder(config.id, userId, userName, rawReply);
+        const { reply, orderFound } = extractAndSaveOrder(config.id, config.userId, userId, userName, rawReply);
 
         await ctx.reply(reply, { parse_mode: 'Markdown' }).catch(async () => {
           await ctx.reply(reply);
         });
 
         // Save bot reply
-        saveMessage(config.id, userId, userName, reply, 'bot');
-        incrementMessageCount(config.id, config.messagesCount || 0);
+        saveMessage(config.id, config.userId, userId, userName, reply, 'bot');
+        incrementMessageCount(config.id);
 
         // Detect transfer to owner request
         const transferPhrases = ['سأحولك', 'سأحيلك', 'سأوصلك', 'يرجى الانتظار', 'صاحب المحل', 'صاحب المشروع'];
@@ -298,9 +326,8 @@ async function stopBot(botId) {
 
 function listenToBots() {
   console.log('[Engine] Subscribing to Firestore "bots" collection in realtime...');
-  const botsCol = collection(db, 'bots');
 
-  onSnapshot(botsCol, (snapshot) => {
+  db.collection('bots').onSnapshot((snapshot) => {
     const currentBotIds = new Set();
 
     snapshot.docs.forEach((docSnap) => {
@@ -338,13 +365,21 @@ const app = express();
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '1mb' }));
 
-// ─── Security: API Key Verification ───────────────────────────
-app.use('/api', (req, res, next) => {
-  const apiKey = req.headers['x-api-key'];
-  if (!apiKey || apiKey !== API_SECRET_KEY) {
-    return res.status(401).json({ error: 'Unauthorized: Missing or invalid x-api-key' });
+// ─── Security: Firebase ID token verification ──────────────────
+// The dashboard signs in with Firebase Auth and sends its ID token;
+// the engine verifies the token and checks the caller owns the bot.
+app.use('/api', async (req, res, next) => {
+  const header = req.headers.authorization || '';
+  if (!header.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'مصادقة مطلوبة — سجل الدخول وأعد المحاولة' });
   }
-  next();
+  try {
+    const decoded = await admin.auth().verifyIdToken(header.slice(7));
+    req.uid = decoded.uid;
+    next();
+  } catch {
+    return res.status(401).json({ error: 'رمز المصادقة غير صالح أو منتهي الصلاحية' });
+  }
 });
 
 // Health check
@@ -357,38 +392,51 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Ownership guard: the authenticated user must own this running bot
+function requireBotAccess(res, uid, entry) {
+  if (!entry) {
+    res.status(404).json({ error: 'البوت غير مشغل حالياً' });
+    return false;
+  }
+  if (!entry.config.userId || entry.config.userId !== uid) {
+    res.status(403).json({ error: 'لا تملك صلاحية الوصول إلى هذا البوت' });
+    return false;
+  }
+  return true;
+}
+
 // Owner manual reply via dashboard
 app.post('/api/reply', async (req, res) => {
   const { botId, telegramUserId, message } = req.body;
   if (!botId || !telegramUserId || !message) {
-    return res.status(400).json({ error: 'Missing required parameters' });
+    return res.status(400).json({ error: 'معطيات ناقصة (botId, telegramUserId, message)' });
   }
 
   const entry = activeBots.get(botId);
-  if (!entry) {
-    return res.status(404).json({ error: 'Bot is not running or inactive' });
-  }
+  if (!requireBotAccess(res, req.uid, entry)) return;
 
   try {
     const takeoverKey = `${botId}_${telegramUserId}`;
     humanTakeoverMap.set(takeoverKey, true);
 
     await entry.bot.api.sendMessage(telegramUserId, message);
-    await saveMessage(botId, telegramUserId, 'المالك', message, 'owner');
+    await saveMessage(botId, entry.config.userId, telegramUserId, 'المالك', message, 'owner');
 
     res.json({ success: true, takeover: true });
   } catch (err) {
     console.error('[API] Reply error:', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'فشل إرسال الرسالة — يرجى المحاولة لاحقاً' });
   }
 });
 
 // Human takeover toggle
-app.post('/api/takeover', (req, res) => {
+app.post('/api/takeover', async (req, res) => {
   const { botId, telegramUserId, enabled } = req.body;
   if (!botId || !telegramUserId) {
-    return res.status(400).json({ error: 'Missing parameters' });
+    return res.status(400).json({ error: 'معطيات ناقصة (botId, telegramUserId)' });
   }
+  const entry = activeBots.get(botId);
+  if (!requireBotAccess(res, req.uid, entry)) return;
   const key = `${botId}_${telegramUserId}`;
   humanTakeoverMap.set(key, !!enabled);
   res.json({ success: true, takeover: !!enabled });

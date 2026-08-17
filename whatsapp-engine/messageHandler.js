@@ -1,7 +1,9 @@
 // ═══════════════════════════════════════════════════════════════
 // BotForge WhatsApp Engine — Message Handler
 // Processes incoming WhatsApp messages via Gemini AI
-// with universal order/booking extraction and customer confirmation
+// with universal order/booking extraction and customer confirmation.
+// The customer's message is logged BEFORE the AI call so it is
+// never lost, and AI-derived order data is validated before saving.
 // ═══════════════════════════════════════════════════════════════
 
 const { askOpenRouter } = require('./openrouter');
@@ -28,8 +30,25 @@ function extractOrder(rawReply) {
   }
 }
 
+// AI output is untrusted input: whitelist the fields we accept and
+// clamp their length before anything reaches the database.
+function sanitizeOrder(orderData) {
+  if (!orderData || typeof orderData !== 'object') return null;
+  const str = v => (typeof v === 'string' ? v.trim().slice(0, 300) : '');
+  const sanitized = {
+    phone: str(orderData.phone),
+    address: str(orderData.address),
+    product: str(orderData.product),
+    price: str(orderData.price),
+  };
+  if (!sanitized.product && !sanitized.phone) return null;
+  return sanitized;
+}
+
 // ─── Message Handler ─────────────────────────────────────────
 async function handleMessage(msg, config) {
+  let userId = null;
+  let userName = null;
   try {
     // Skip messages from the bot itself
     if (msg.fromMe) return;
@@ -48,22 +67,26 @@ async function handleMessage(msg, config) {
       return;
     }
 
-    const userId = msg.from;
-    const userName = msg._data?.notifyName || msg.notifyName || 'زبون واتساب';
+    userId = msg.from;
+    userName = msg._data?.notifyName || msg.notifyName || 'زبون واتساب';
 
     console.log(`[Handler] 📩 New message from ${userName} (${userId}): "${userMessage}"`);
 
-    // Manual mode: the owner took over this chat — log the message
-    // for the dashboard but stay silent (no AI reply)
+    // Log the customer's message IMMEDIATELY — before any AI call —
+    // so a provider outage can never silently swallow it
+    await firestore.logMessage({
+      botId: config.id,
+      ownerUserId: config.userId,
+      from: userId,
+      userName,
+      message: userMessage,
+      response: null,
+    }).catch(e => console.error('[Handler] Log error:', e.message));
+
+    // Manual mode: the owner took over this chat — message is logged
+    // above; stay silent (no AI reply)
     if (isTakeoverActive(config.id, userId)) {
       console.log(`[Handler] ✋ Manual mode ON for ${userId} — skipping AI reply`);
-      await firestore.logMessage({
-        botId: config.id,
-        from: userId,
-        userName,
-        message: userMessage,
-        response: null,
-      }).catch(e => console.error('[Handler] Log error:', e.message));
       return;
     }
 
@@ -73,7 +96,7 @@ async function handleMessage(msg, config) {
       autoOrdersEnabled: config.autoOrdersWhatsapp !== false,
     };
 
-    // Get AI response from Gemini 3.5 Flash-Lite
+    // Get AI response from Gemini
     const rawReply = await askOpenRouter(aiConfig, userId, userMessage);
 
     // Extract order if present and clean the reply
@@ -89,35 +112,43 @@ async function handleMessage(msg, config) {
 
     console.log(`[Handler] 🤖 Sent AI reply to ${userName}: "${reply.slice(0, 50)}..."`);
 
-    // Save order / booking if confirmed
-    if (orderData) {
+    // Log the bot's reply on its own
+    firestore.logBotMessage({
+      botId: config.id,
+      ownerUserId: config.userId,
+      to: userId,
+      userName,
+      message: reply,
+    }).catch(e => console.error('[Handler] Log error:', e.message));
+
+    // Save order / booking if confirmed (validated: whitelisted fields only)
+    const order = sanitizeOrder(orderData);
+    if (order) {
       firestore.saveOrder({
         botId: config.id,
+        ownerUserId: config.userId,
         platform: 'whatsapp',
         customerId: String(userId),
         customerName: userName,
-        phone: orderData.phone || '',
-        address: orderData.address || '',
-        product: orderData.product || '',
-        price: orderData.price || '',
+        phone: order.phone,
+        address: order.address,
+        product: order.product,
+        price: order.price,
         orderSummary: reply.slice(-500),
       }).catch(e => console.error('[Handler] Save order error:', e.message));
     }
-
-    // Log to Firestore (non-blocking)
-    firestore.logMessage({
-      botId: config.id,
-      from: userId,
-      userName,
-      message: userMessage,
-      response: reply,
-    }).catch(e => console.error('[Handler] Log error:', e.message));
 
     firestore.incrementMessageCount(config.id)
       .catch(e => console.error('[Handler] Count error:', e.message));
 
   } catch (err) {
     console.error(`[Handler] Error for WhatsApp bot "${config?.botName}":`, err.message);
+    // Never leave the customer in silence when the AI fails
+    if (userId) {
+      try {
+        await msg.reply('عذراً، حدث خطأ مؤقت في المعالجة. يرجى إعادة إرسال رسالتك بعد قليل. 🙏');
+      } catch {}
+    }
   }
 }
 

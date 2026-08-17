@@ -1,44 +1,43 @@
 // ═══════════════════════════════════════════════════════════════
-// BotForge WhatsApp Engine — Firestore Service Layer
-// Cloud Firestore integration for bot configs, logs & orders
+// BotForge WhatsApp Engine — Firestore Service Layer (Admin SDK)
+// Privileged server identity: bypasses security rules, so the
+// client-facing rules can stay locked to owners only.
+// Credential: FIREBASE_SERVICE_ACCOUNT_B64 (base64 JSON) or
+// GOOGLE_APPLICATION_CREDENTIALS (key file path).
 // ═══════════════════════════════════════════════════════════════
 
-const { initializeApp, getApps, getApp } = require('firebase/app');
-const {
-  getFirestore,
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  addDoc,
-  updateDoc,
-  query,
-  where,
-  serverTimestamp,
-} = require('firebase/firestore');
+const admin = require('firebase-admin');
 
-const firebaseConfig = {
-  apiKey: process.env.FIREBASE_API_KEY || "AIzaSyAB6AS2qy2e9iAgG4RMIERDmLXCvs2WQEU",
-  authDomain: process.env.FIREBASE_AUTH_DOMAIN || "bots-saas-c7190.firebaseapp.com",
-  projectId: process.env.FIREBASE_PROJECT_ID || "bots-saas-c7190",
-  storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "bots-saas-c7190.firebasestorage.app",
-  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || "99967470267",
-  appId: process.env.FIREBASE_APP_ID || "1:99967470267:web:8e75a4c7f90d460407f79e",
-};
+const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_B64
+  ? Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_B64, 'base64').toString('utf8')
+  : null;
 
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const db = getFirestore(app);
+if (!admin.apps.length) {
+  const credential = serviceAccountJson
+    ? admin.credential.cert(JSON.parse(serviceAccountJson))
+    : admin.credential.applicationDefault();
+  admin.initializeApp({ credential });
+}
+
+const db = admin.firestore();
+const FieldValue = admin.firestore.FieldValue;
+
+// Every conversation/order document carries its owner's userId so the
+// security rules can authorize reads/writes without a per-document get().
+async function resolveOwnerUserId(botId, provided) {
+  if (provided) return provided;
+  const bot = await getBot(botId);
+  return bot ? bot.userId || null : null;
+}
 
 // ─── Bots ─────────────────────────────────────────────────────
 
 async function getActiveBots() {
   try {
-    const q = query(
-      collection(db, 'bots'),
-      where('platform', '==', 'whatsapp'),
-      where('isActive', '==', true)
-    );
-    const snap = await getDocs(q);
+    const snap = await db.collection('bots')
+      .where('platform', '==', 'whatsapp')
+      .where('isActive', '==', true)
+      .get();
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch (e) {
     console.error('[Firestore] Get active bots error:', e.message);
@@ -48,23 +47,33 @@ async function getActiveBots() {
 
 async function getBot(botId) {
   try {
-    const botRef = doc(db, 'bots', botId);
-    const snap = await getDoc(botRef);
-    return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+    const snap = await db.collection('bots').doc(botId).get();
+    return snap.exists ? { id: snap.id, ...snap.data() } : null;
   } catch (e) {
     console.error(`[Firestore] Get bot ${botId} error:`, e.message);
     return null;
   }
 }
 
+async function getBotsByOwner(userId) {
+  try {
+    const snap = await db.collection('bots')
+      .where('userId', '==', userId)
+      .get();
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    console.error('[Firestore] Get bots by owner error:', e.message);
+    return [];
+  }
+}
+
 async function updateBotStatus(botId, status, extra = {}) {
   try {
-    const botRef = doc(db, 'bots', botId);
-    await updateDoc(botRef, {
+    await db.collection('bots').doc(botId).update({
       whatsappStatus: status,
       isActive: status === 'connected',
       ...extra,
-      updatedAt: serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
   } catch (e) {
     console.error(`[Firestore] Update bot status ${botId} error:`, e.message);
@@ -73,33 +82,37 @@ async function updateBotStatus(botId, status, extra = {}) {
 
 // ─── Conversations (Messages) ─────────────────────────────────
 
-async function logMessage({ botId, from, userName, message, response = null }) {
+async function logMessage({ botId, ownerUserId, from, userName, message, response = null }) {
   const ts = new Date().toISOString();
   try {
+    const userId = await resolveOwnerUserId(botId, ownerUserId);
+
     // Save customer message
-    await addDoc(collection(db, 'conversations'), {
+    await db.collection('conversations').add({
       botId,
       platform: 'whatsapp',
+      userId: userId || '',
       telegramUserId: String(from),
       userName: userName || 'زبون واتساب',
       content: message.slice(0, 1000),
       role: 'user',
       createdAt: ts,
-      timestamp: serverTimestamp(),
+      timestamp: FieldValue.serverTimestamp(),
     });
 
     // Save bot response (absent in manual-takeover mode: only the
     // customer's message is logged, the owner replies themselves)
     if (response != null) {
-      await addDoc(collection(db, 'conversations'), {
+      await db.collection('conversations').add({
         botId,
         platform: 'whatsapp',
+        userId: userId || '',
         telegramUserId: String(from),
         userName: userName || 'زبون واتساب',
         content: response.slice(0, 1000),
         role: 'bot',
         createdAt: new Date(Date.now() + 10).toISOString(),
-        timestamp: serverTimestamp(),
+        timestamp: FieldValue.serverTimestamp(),
       });
     }
   } catch (e) {
@@ -107,18 +120,41 @@ async function logMessage({ botId, from, userName, message, response = null }) {
   }
 }
 
-// Owner's manual reply sent from the dashboard
-async function logOwnerMessage({ botId, to, userName, message }) {
+// Bot reply logged on its own (the customer's message is logged
+// immediately on arrival, before the AI call, so it is never lost)
+async function logBotMessage({ botId, ownerUserId, to, userName, message }) {
   try {
-    await addDoc(collection(db, 'conversations'), {
+    const userId = await resolveOwnerUserId(botId, ownerUserId);
+    await db.collection('conversations').add({
       botId,
       platform: 'whatsapp',
+      userId: userId || '',
+      telegramUserId: String(to),
+      userName: userName || 'زبون واتساب',
+      content: String(message).slice(0, 1000),
+      role: 'bot',
+      createdAt: new Date().toISOString(),
+      timestamp: FieldValue.serverTimestamp(),
+    });
+  } catch (e) {
+    console.error('[Firestore] Log bot message error:', e.message);
+  }
+}
+
+// Owner's manual reply sent from the dashboard
+async function logOwnerMessage({ botId, ownerUserId, to, userName, message }) {
+  try {
+    const userId = await resolveOwnerUserId(botId, ownerUserId);
+    await db.collection('conversations').add({
+      botId,
+      platform: 'whatsapp',
+      userId: userId || '',
       telegramUserId: String(to),
       userName: userName || 'المالك',
       content: String(message).slice(0, 1000),
       role: 'owner',
       createdAt: new Date().toISOString(),
-      timestamp: serverTimestamp(),
+      timestamp: FieldValue.serverTimestamp(),
     });
   } catch (e) {
     console.error('[Firestore] Log owner message error:', e.message);
@@ -127,28 +163,26 @@ async function logOwnerMessage({ botId, to, userName, message }) {
 
 async function incrementMessageCount(botId) {
   try {
-    const bot = await getBot(botId);
-    if (bot) {
-      const botRef = doc(db, 'bots', botId);
-      await updateDoc(botRef, {
-        messagesCount: (bot.messagesCount || 0) + 1,
-        lastActiveAt: new Date().toISOString(),
-      });
-    }
+    await db.collection('bots').doc(botId).update({
+      messagesCount: FieldValue.increment(1),
+      lastActiveAt: new Date().toISOString(),
+    });
   } catch (e) {
     console.error('[Firestore] Increment message count error:', e.message);
   }
 }
 
-// ─── Orders ────────────────────────────────────────────────────
+// ─── Orders & Bookings ──────────────────────────────────────────
 
 async function saveOrder(orderData) {
   try {
-    await addDoc(collection(db, 'orders'), {
+    const userId = await resolveOwnerUserId(orderData.botId, orderData.ownerUserId);
+    await db.collection('orders').add({
       ...orderData,
+      userId: userId || '',
       status: 'new',
       createdAt: new Date().toISOString(),
-      timestamp: serverTimestamp(),
+      timestamp: FieldValue.serverTimestamp(),
     });
     console.log(`[Firestore] 📦 WhatsApp Order saved: ${orderData.customerName} - ${orderData.product}`);
   } catch (e) {
@@ -157,11 +191,14 @@ async function saveOrder(orderData) {
 }
 
 module.exports = {
+  admin,
   db,
   getActiveBots,
   getBot,
+  getBotsByOwner,
   updateBotStatus,
   logMessage,
+  logBotMessage,
   logOwnerMessage,
   incrementMessageCount,
   saveOrder,

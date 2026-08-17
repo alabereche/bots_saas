@@ -111,15 +111,26 @@ async function createWhatsAppBot(botId, config, phoneNumber = null) {
   client.on('auth_failure', async (msg) => {
     console.error(`[BotManager] Auth failure for "${config.botName}":`, msg);
     botState.status = 'auth_failure';
-    await firestore.updateBotStatus(botId, 'auth_failure').catch(() => {});
+    firestore.updateBotStatus(botId, 'auth_failure').catch(() => {});
+    // Release the slot immediately, and only if THIS client still owns
+    // it (a restart may have replaced the map entry meanwhile)
+    if (activeBots.get(botId) === botState) activeBots.delete(botId);
+    // Destroy the browser explicitly — dropping the map entry alone
+    // leaks a Chromium process and its memory
+    try { await client.destroy(); } catch {}
   });
 
   // Disconnected
   client.on('disconnected', async (reason) => {
     console.log(`[BotManager] Bot "${config.botName}" disconnected:`, reason);
     botState.status = 'disconnected';
-    await firestore.updateBotStatus(botId, 'disconnected').catch(() => {});
-    activeBots.delete(botId);
+    firestore.updateBotStatus(botId, 'disconnected').catch(() => {});
+    // Release the slot immediately, and only if THIS client still owns
+    // it (a restart may have replaced the map entry meanwhile)
+    if (activeBots.get(botId) === botState) activeBots.delete(botId);
+    // Destroy the browser explicitly — dropping the map entry alone
+    // leaks a Chromium process and its memory
+    try { await client.destroy(); } catch {}
   });
 
   // Incoming Messages
@@ -203,8 +214,21 @@ async function restoreBotsOnStartup() {
     const whatsappBots = bots.filter(b => b.whatsappEnabled && b.whatsappStatus === 'connected');
     console.log(`[BotManager] Found ${whatsappBots.length} WhatsApp bot(s) to restore.`);
 
-    for (const bot of whatsappBots) {
-      await createWhatsAppBot(bot.id, bot);
+    // Restore in small staggered groups: each bot boots its own
+    // Chromium (~150-300MB), and launching them all at once on a
+    // small VPS spikes memory past PM2's restart cap
+    const CHUNK = 3;
+    for (let i = 0; i < whatsappBots.length; i += CHUNK) {
+      const group = whatsappBots.slice(i, i + CHUNK);
+      await Promise.all(group.map(bot =>
+        createWhatsAppBot(bot.id, bot).catch(err =>
+          console.error(`[BotManager] Restore failed for "${bot.botName}":`, err.message)
+        )
+      ));
+      if (i + CHUNK < whatsappBots.length) {
+        console.log(`[BotManager] Restored ${Math.min(i + CHUNK, whatsappBots.length)}/${whatsappBots.length} — pausing before next group...`);
+        await new Promise(r => setTimeout(r, 5000));
+      }
     }
   } catch (err) {
     console.error('[BotManager] Restore failed:', err.message);

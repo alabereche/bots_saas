@@ -19,6 +19,22 @@ service cloud.firestore {
       return isAuthenticated() && request.resource.data.userId == request.auth.uid;
     }
 
+    // Owner of the document's data, enforced on the document itself
+    // (every conversation/order carries a denormalized userId)
+    function isDataOwner() {
+      return isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    function isCreatingOwnData() {
+      return isAuthenticated() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Updates may not re-assign a document to another owner or bot
+    function keepsIdentityData() {
+      return request.resource.data.userId == resource.data.userId
+        && request.resource.data.botId == resource.data.botId;
+    }
+
     // ─── User Profiles (users collection) ─────────────────────────
     // Protects against Privilege Escalation (preventing users from changing their plan to 'pro'/'enterprise' directly)
     match /users/{userId} {
@@ -29,28 +45,32 @@ service cloud.firestore {
     }
 
     // ─── Bots (bots collection) ───────────────────────────────────
-    // Secure configuration: Owner manages config; server engine syncs realtime status
+    // Owner-only access. The VPS engines read/write through the
+    // Firebase Admin SDK, which bypasses these rules entirely.
     match /bots/{botId} {
-      allow read: if true; // Allows VPS engine real-time listener to sync bots
+      allow read: if isDocOwner();
       allow create: if isCreatingOwnDoc();
-      allow update: if isDocOwner() || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['whatsappStatus', 'isActive', 'messagesCount', 'lastActiveAt', 'whatsappConnectedAt', 'updatedAt']);
+      allow update: if isDocOwner() && request.resource.data.userId == resource.data.userId;
       allow delete: if isDocOwner();
     }
 
     // ─── Conversations (conversations collection) ─────────────────
-    // Logs and messages for customer interactions
+    // Each document carries the owner's userId; clients must query
+    // with where('userId', '==', <their uid>) for the rule to authorize.
+    // Bot engines write via the Admin SDK (rules do not apply).
     match /conversations/{msgId} {
-      allow read: if true;
-      allow create: if true; // Allows backend bot engines / webhooks to save incoming chat logs
-      allow update, delete: if isAuthenticated();
+      allow read: if isDataOwner();
+      allow create: if isCreatingOwnData();
+      allow update: if isDataOwner() && keepsIdentityData();
+      allow delete: if isDataOwner();
     }
 
     // ─── Orders & Bookings (orders collection) ─────────────────────
-    // Customer orders and booking records extracted by bots
     match /orders/{orderId} {
-      allow read: if true;
-      allow create: if true; // Allows backend bot engines to store customer orders
-      allow update, delete: if isAuthenticated();
+      allow read: if isDataOwner();
+      allow create: if isCreatingOwnData();
+      allow update: if isDataOwner() && keepsIdentityData();
+      allow delete: if isDataOwner();
     }
   }
 }

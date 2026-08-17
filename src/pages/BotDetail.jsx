@@ -171,6 +171,30 @@ export default function BotDetail() {
 
   const selectedThread = selectedUserId ? customerThreads[selectedUserId] : null;
 
+  const defaultDeliveryMessage = (order, currentBot) => {
+    const customerName = order.customerName || 'عميلنا العزيز';
+    const productName = order.product || 'طلبك';
+    const price = order.price ? `${order.price} ${currentBot.currency || 'دج'}` : '';
+    const storeName = currentBot.businessName || 'متجرنا';
+
+    if (currentBot.deliveryReceiptMessage && currentBot.deliveryReceiptMessage.trim()) {
+      return currentBot.deliveryReceiptMessage
+        .replace(/{name}/g, customerName)
+        .replace(/{product}/g, productName)
+        .replace(/{price}/g, price)
+        .replace(/{store}/g, storeName);
+    }
+
+    let text = `تم تسليم طلبيتك بنجاح!\n\n`;
+    text += `عزيزي/عزيزتي ${customerName}،\n`;
+    text += `يسعدنا إبلاغك باكتمال توصيل واستلام طلبيتك:\n`;
+    text += `• المنتج / الطلب: ${productName}\n`;
+    if (price) text += `• المبلغ الإجمالي: ${price}\n`;
+    text += `\nشكراً جزيلاً لتعاملك وثقتك بـ "${storeName}"!\n`;
+    text += `نتمنى أن ينال المنتج رضاك وإعجابك، ويسعدنا دائماً خدمتك.`;
+    return text;
+  };
+
   // Actions
   const toggleActive = async () => {
     if (!bot) return;
@@ -199,6 +223,8 @@ export default function BotDetail() {
       workingHours: bot.workingHours || '',
       location: bot.location || '',
       contact: bot.contact || '',
+      autoDeliveryReceipt: bot.autoDeliveryReceipt !== false,
+      deliveryReceiptMessage: bot.deliveryReceiptMessage || '',
     });
     setShowEditModal(true);
   };
@@ -280,10 +306,40 @@ export default function BotDetail() {
     }
   };
 
-  const updateOrderStatus = async (orderId, status) => {
+  const updateOrderStatus = async (order, status) => {
     try {
+      const orderId = typeof order === 'object' ? order.id : order;
       await fbUpdateOrderStatus(orderId, status);
-      toast.success('تم تحديث حالة الطلبية');
+
+      if (status === 'delivered') {
+        const currentOrder = typeof order === 'object' ? order : orders.find(o => o.id === orderId);
+        if (bot?.autoDeliveryReceipt !== false && currentOrder?.customerId) {
+          const receiptMsg = defaultDeliveryMessage(currentOrder, bot);
+          try {
+            const res = await fetch(`${engineUrlFor(bot?.platform)}/api/reply`, {
+              method: 'POST',
+              headers: await engineHeaders(),
+              body: JSON.stringify({
+                botId: id,
+                telegramUserId: currentOrder.customerId,
+                message: receiptMsg,
+              }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.success) {
+              toast.success('تم تحديث الحالة وإرسال إشعار الإيصال للزبون في المحادثة');
+            } else {
+              toast.success('تم تحديث حالة الطلبية إلى مكتمل التوصيل');
+            }
+          } catch (netErr) {
+            toast.success('تم تحديث حالة الطلبية إلى مكتمل التوصيل');
+          }
+        } else {
+          toast.success('تم تحديث حالة الطلبية إلى مكتمل التوصيل');
+        }
+      } else {
+        toast.success(status === 'confirmed' ? 'تم تأكيد الطلبية بنجاح' : 'تم تحديث حالة الطلبية');
+      }
     } catch {
       toast.error('فشل التحديث');
     }
@@ -622,16 +678,16 @@ export default function BotDetail() {
                   <div className="order-card-actions">
                     {order.status === 'new' && (
                       <>
-                        <button className="btn btn-sm btn-primary" onClick={() => updateOrderStatus(order.id, 'confirmed')}>
+                        <button className="btn btn-sm btn-primary" onClick={() => updateOrderStatus(order, 'confirmed')}>
                           تأكيد الطلبية
                         </button>
-                        <button className="btn btn-sm btn-secondary" onClick={() => updateOrderStatus(order.id, 'cancelled')}>
+                        <button className="btn btn-sm btn-secondary" onClick={() => updateOrderStatus(order, 'cancelled')}>
                           إلغاء
                         </button>
                       </>
                     )}
                     {order.status === 'confirmed' && (
-                      <button className="btn btn-sm btn-primary" onClick={() => updateOrderStatus(order.id, 'delivered')}>
+                      <button className="btn btn-sm btn-primary" onClick={() => updateOrderStatus(order, 'delivered')}>
                         اكتمل التوصيل
                       </button>
                     )}
@@ -670,6 +726,7 @@ export default function BotDetail() {
               <InfoRow label="اسم البوت" value={bot.botName} />
               <InfoRow label="نوع النشاط" value={currentActivityName} />
               <InfoRow label="الدولة والعملة" value={`${bot.countryName || 'الجزائر'} (${bot.currency || 'دج'})`} />
+              <InfoRow label="إشعار اكتمال التوصيل" value={bot.autoDeliveryReceipt !== false ? 'مفعل (إرسال إيصال تلقائي)' : 'معطل'} />
               {bot.workingHours && <InfoRow label="ساعات العمل" value={bot.workingHours} />}
               {bot.location && <InfoRow label="الموقع" value={bot.location} />}
               {bot.contact && <InfoRow label="التواصل" value={bot.contact} />}
@@ -826,6 +883,49 @@ export default function BotDetail() {
               <div className="form-group">
                 <label className="form-label">تعليمات خاصة إضافية</label>
                 <textarea className="form-textarea" rows="2" value={editData.customInstructions} onChange={e => setEditData(p => ({ ...p, customInstructions: e.target.value }))} />
+              </div>
+
+              {/* Delivery Receipt Notification Setting */}
+              <div style={{
+                background: 'rgba(52, 211, 153, 0.05)',
+                border: '1px solid rgba(52, 211, 153, 0.25)',
+                borderRadius: 'var(--radius-md)',
+                padding: '1rem',
+                marginBottom: '1.25rem'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginBottom: editData.autoDeliveryReceipt ? '0.75rem' : '0' }}>
+                  <div>
+                    <label style={{ fontWeight: 700, fontSize: '0.9rem', color: '#ffffff', display: 'block', marginBottom: '2px' }}>
+                      إشعار وإيصال التوصيل التلقائي
+                    </label>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                      عند الضغط على "اكتمل التوصيل" في أي طلبية، يتم إرسال رسالة شكر وإيصال استلام للزبون تلقائياً في المحادثة.
+                    </span>
+                  </div>
+                  <label className="toggle-switch">
+                    <input
+                      type="checkbox"
+                      checked={editData.autoDeliveryReceipt}
+                      onChange={e => setEditData(p => ({ ...p, autoDeliveryReceipt: e.target.checked }))}
+                    />
+                    <span className="toggle-slider"></span>
+                  </label>
+                </div>
+
+                {editData.autoDeliveryReceipt && (
+                  <div className="form-group" style={{ marginBottom: 0, marginTop: '0.5rem' }}>
+                    <label className="form-label" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      نص الرسالة المخصص (اختياري - يمكنك استخدام: {'{name}'}، {'{product}'}، {'{price}'}، {'{store}'})
+                    </label>
+                    <textarea
+                      className="form-textarea"
+                      rows="3"
+                      placeholder="اتركه فارغاً لاستخدام نص الإيصال الافتراضي الأنيق..."
+                      value={editData.deliveryReceiptMessage || ''}
+                      onChange={e => setEditData(p => ({ ...p, deliveryReceiptMessage: e.target.value }))}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="modal-footer">

@@ -137,39 +137,13 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
     setOauthLoading(true);
     try {
       const redirectUri = window.location.origin + '/meta-callback';
-      
-      let oauthUrl = null;
-      let state = null;
+      const res = await fetch(`${TELEGRAM_ENGINE_URL}/api/meta/oauth/url?botId=${bot.id}&redirectUri=${encodeURIComponent(redirectUri)}`, {
+        headers: await engineHeaders(false),
+      });
+      const data = await res.json();
 
-      try {
-        const res = await fetch(`${TELEGRAM_ENGINE_URL}/api/meta/oauth/url?botId=${bot.id}&redirectUri=${encodeURIComponent(redirectUri)}`, {
-          headers: await engineHeaders(false),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          oauthUrl = data.oauthUrl;
-          state = data.state;
-        }
-      } catch (netErr) {
-        console.warn('Backend oauth url fetch error:', netErr.message);
-      }
-
-      if (!oauthUrl) {
-        // Fallback to Instant Page Selector (using user's business profile for seamless setup)
-        setFetchedPages([
-          {
-            id: `page_${bot.id.slice(0, 8)}`,
-            name: `${bot.businessName || bot.botName || 'متجري'} (صفحة فيسبوك الرسمية)`,
-            category: 'التجارة الإلكترونية والتسوق',
-            instagramAccount: { 
-              id: `ig_${bot.id.slice(0, 8)}`, 
-              username: `${(bot.botName || 'store').replace(/\s+/g, '_').toLowerCase()}_dz` 
-            },
-            tokenEncrypted: 'demo_token_secure',
-          }
-        ]);
-        setShowPagePickerModal(true);
-        return;
+      if (!res.ok || !data.oauthUrl) {
+        throw new Error(data.error || 'تعذر بدء جلسة الربط مع فيسبوك');
       }
 
       // Open Meta OAuth popup
@@ -178,12 +152,12 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
       const left = window.screenX + (window.outerWidth - width) / 2;
       const top = window.screenY + (window.outerHeight - height) / 2.5;
       const popup = window.open(
-        oauthUrl,
+        data.oauthUrl,
         'MetaConnectPopup',
         `width=${width},height=${height},left=${left},top=${top},scrollbars=yes`
       );
 
-      // Listen for OAuth message or fallback to exchange
+      // Listen for OAuth message
       const checkPopup = setInterval(async () => {
         if (!popup || popup.closed) {
           clearInterval(checkPopup);
@@ -203,7 +177,7 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
               code,
               redirectUri,
               botId: bot.id,
-              state,
+              state: data.state,
             }),
           });
           const exchangeData = await exchangeRes.json();
@@ -211,13 +185,13 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
             setFetchedPages(exchangeData.pages);
             setShowPagePickerModal(true);
           } else {
-            toast.error(exchangeData.error || 'لم يتم العثور على صفحات فيسبوك');
+            toast.error(exchangeData.error || 'لم يتم العثور على أي صفحات فيسبوك تديرها');
           }
         }
       }, { once: true });
 
     } catch (err) {
-      toast.error('تأكد من تشغيل السيرفر على الـ VPS: ' + err.message);
+      toast.error(err.message || 'فشل الاتصال بفيسبوك');
     } finally {
       setOauthLoading(false);
     }

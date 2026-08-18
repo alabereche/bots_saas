@@ -15,9 +15,12 @@ import { fileURLToPath } from 'url';
 import { buildSystemPrompt } from './prompt-builder.js';
 import {
   isTrackingIntent,
+  extractTrackingCode,
   formatSingleOrderCard,
   formatMultipleOrdersList,
-  formatNoOrdersFound
+  formatNoOrdersFound,
+  DELIVERY_STATUS_LABELS,
+  PROVIDER_NAMES,
 } from './tracking-helper.js';
 import { encrypt, decrypt } from './encryption.js';
 
@@ -105,15 +108,6 @@ async function incrementMessageCount(botId) {
   }
 }
 
-import {
-  isTrackingIntent,
-  extractTrackingCode,
-  formatSingleOrderCard,
-  formatMultipleOrdersList,
-  formatNoOrdersFound,
-  DELIVERY_STATUS_LABELS,
-  PROVIDER_NAMES,
-} from './tracking-helper.js';
 
 const TRACKING_CHARS = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 

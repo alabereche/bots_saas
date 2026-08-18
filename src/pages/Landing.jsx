@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import InteractivePlayground from '../components/InteractivePlayground';
@@ -5,13 +6,18 @@ import ModernBackground from '../components/ModernBackground';
 
 export default function Landing() {
   const { isAuthenticated } = useAuth();
+  const [dailyMessages, setDailyMessages] = useState(60);
+
+  // ROI Calculator formula
+  const hoursSavedPerDay = (dailyMessages * 2.5 / 60).toFixed(1);
+  const extraMonthlyOrders = Math.round(dailyMessages * 30 * 0.08);
 
   return (
     <div className="landing-page-root">
-      {/* Ambient backdrop */}
+      {/* Ambient background atmosphere */}
       <ModernBackground />
 
-      {/* ─── Minimalist Top Navigation ─── */}
+      {/* ─── Top Floating Glass Capsule Navigation ─── */}
       <header className="landing-navbar-wrapper">
         <nav className="landing-navbar">
           <Link to="/" className="landing-logo">
@@ -28,7 +34,8 @@ export default function Landing() {
           <div className="landing-nav-links">
             <a href="#interactive-demo" className="nav-link">المعاينة الحية</a>
             <a href="#how-it-works" className="nav-link">آلية العمل</a>
-            <a href="#features" className="nav-link">المواصفات</a>
+            <a href="#features" className="nav-link">المواصفات التقنية</a>
+            <a href="#roi-calculator" className="nav-link">حاسبة التوفير</a>
             <a href="#pricing" className="nav-link">الاشتراكات</a>
           </div>
 
@@ -58,16 +65,16 @@ export default function Landing() {
           <div className="hero-content-block">
             <div className="hero-badge">
               <span className="hero-badge-dot" />
-              <span>منظومة الذكاء الاصطناعي لأتمتة خدمة العملاء والتجارة</span>
+              <span>الجيل القادم من الذكاء الاصطناعي التجاري • WhatsApp & Telegram</span>
             </div>
 
             <h1 className="hero-title">
-              أتمتة ذكية لخدمة العملاء <br className="desktop-break" />
-              عبر <span className="highlight-text-emerald">واتساب وتيليغرام على مدار الساعة</span>
+              حوّل كل محادثة إلى <span className="highlight-text-emerald">مبيعات مؤكدة 24/7</span><br className="desktop-break" />
+              دون الحاجة لفريق دعم يدوي
             </h1>
 
             <p className="hero-subtitle">
-              روبوت متطور يفهم اللهجة المحلية بدقة، يقدم استجابة فورية خلال أقل من ثانية، ويسجل بيانات الطلبيات آلياً في قاعدة بياناتك دون انقطاع.
+              أول منظومة ذكاء اصطناعي تفهم اللهجة الجزائرية والمحلية بدقة، ترسل صور المنتجات بجودة عالية وسرعة فائقة (WebP)، وتستخرج وتسجل الطلبيات آلياً في قاعدة بياناتك دون انقطاع.
             </p>
 
             <div className="hero-cta-group">
@@ -78,46 +85,46 @@ export default function Landing() {
                 </svg>
               </Link>
               <a href="#interactive-demo" className="hero-btn-secondary">
-                <span>المعاينة التفاعلية</span>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polyline points="6 9 12 15 18 9"/>
+                  <polygon points="5 3 19 12 5 21 5 3"/>
                 </svg>
+                <span>تجربة المحاكي التفاعلي</span>
               </a>
             </div>
 
-            {/* Metrics Row */}
+            {/* Metrics Ribbon */}
             <div className="hero-metrics-row">
               <div className="metric-chip">
                 <div className="metric-num">+50,000</div>
-                <div className="metric-label">محادثة مؤتمتة شهرياً</div>
+                <div className="metric-label">محادثة معالجة شهرياً</div>
               </div>
               <div className="metric-chip">
                 <div className="metric-num highlight-emerald">0.8 ثانية</div>
-                <div className="metric-label">متوسط سرعة الاستجابة</div>
+                <div className="metric-label">متوسط سرعة الرد</div>
               </div>
               <div className="metric-chip">
                 <div className="metric-num">58 ولاية</div>
                 <div className="metric-label">تغطية شبكة التوصيل</div>
               </div>
               <div className="metric-chip">
-                <div className="metric-num highlight-emerald">99.9%</div>
-                <div className="metric-label">جاهزية واستقرار الخوادم</div>
+                <div className="metric-num highlight-emerald">99.99%</div>
+                <div className="metric-label">استقرار وجاهزية الخوادم</div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ─── Interactive Playground Section ─── */}
+      {/* ─── Interactive Dual-Terminal Section ─── */}
       <section className="landing-section playground-section" id="interactive-demo">
         <div className="landing-container">
           <div className="section-header-center">
-            <div className="section-pill">بيئة التجربة الحية</div>
+            <div className="section-pill">المعاينة الحية المتزامنة</div>
             <h2 className="section-title">
-              اختبر سرعة ودقة الاستجابة <span className="highlight-text-emerald">في الوقت الفعلي</span>
+              شاهد كيف يعمل النظام <span className="highlight-text-emerald">بين الزبون ولوحة التحكم</span>
             </h2>
             <p className="section-subtitle">
-              تفاعل مع المحاكي واكتشف كيفية معالجة الاستفسارات وتأكيد الطلبيات تلقائياً.
+              تفاعل مع المحاكي على اليسار، وشاهد كيف تُستخرج وتُسجل الطلبية في لوحة تحكم التاجر على اليمين فوراً وبدقة متناهية.
             </p>
           </div>
 
@@ -125,57 +132,57 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ─── How It Works (3 Steps) ─── */}
+      {/* ─── How It Works (Sequential Architecture) ─── */}
       <section className="landing-section" id="how-it-works">
         <div className="landing-container">
           <div className="section-header-center">
             <div className="section-pill">آلية التشغيل</div>
             <h2 className="section-title">
-              ثلاث خطوات لبدء <span className="highlight-text-emerald">الأتمتة الكاملة</span>
+              ثلاث خطوات لبدء <span className="highlight-text-emerald">الأتمتة الشاملة</span>
             </h2>
             <p className="section-subtitle">
-              إعداد فوري وسلس دون الحاجة لأي متطلبات تقنية معقدة.
+              إعداد فوري وسهل دون الحاجة لأي خبرة برمجية.
             </p>
           </div>
 
           <div className="how-it-works-grid">
             <div className="step-card">
-              <div className="step-number-badge">01</div>
+              <div className="step-number-badge">1</div>
               <div className="step-icon-box">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                 </svg>
               </div>
-              <h3 className="step-title">تهيئة معلومات النشاط</h3>
+              <h3 className="step-title">تهيئة الكتالوج والأسعار</h3>
               <p className="step-desc">
-                حدد طبيعة نشاطك، قائمة المنتجات، جداول الأسعار، وسياسة التوصيل المعتمدة.
+                أدخل اسم نشاطك، أسعار المنتجات، وصورها ليتم ضغطها وتجهيزها تلقائياً بصيغة WebP خفيفة وفائقة السرعة.
               </p>
             </div>
 
             <div className="step-card">
-              <div className="step-number-badge">02</div>
+              <div className="step-number-badge">2</div>
               <div className="step-icon-box">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
                   <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
                 </svg>
               </div>
-              <h3 className="step-title">ربط الحساب عبر رمز QR</h3>
+              <h3 className="step-title">ربط قنوات التواصل (QR / Token)</h3>
               <p className="step-desc">
-                امسح الرمز المباشر لربط واتساب أو تيليغرام بخوادم المنصة خلال ثوانٍ معدودة.
+                اربط حساب واتساب بمسح رمز QR أو تيليغرام عبر التوكن لتبدأ الخوادم بالعمل والمزامنة فوراً.
               </p>
             </div>
 
             <div className="step-card">
-              <div className="step-number-badge">03</div>
+              <div className="step-number-badge">3</div>
               <div className="step-icon-box">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <polyline points="20 6 9 17 4 12"/>
                 </svg>
               </div>
-              <h3 className="step-title">معالجة وتأكيد الطلبيات</h3>
+              <h3 className="step-title">استقبال وأرشفة الطلبيات</h3>
               <p className="step-desc">
-                يباشر البوت خدمة العملاء واستقبال الطلبات وتنسيقها داخل لوحة التحكم المركزية.
+                يقوم البوت بالإجابة عن الاستفسارات، إرسال صور المنتجات، واستخراج الاسم والهاتف والعنوان وتسجيل الطلب بالكامل.
               </p>
             </div>
           </div>
@@ -186,28 +193,43 @@ export default function Landing() {
       <section className="landing-section" id="features">
         <div className="landing-container">
           <div className="section-header-center">
-            <div className="section-pill">القدرات التقنية</div>
+            <div className="section-pill">القدرات التقنية الحصرية</div>
             <h2 className="section-title">
-              حلول مصممة لتلبية متطلبات <span className="highlight-text-emerald">التجارة الحديثة</span>
+              بنية تحتية هندسية مصممة خصيصاً <span className="highlight-text-emerald">للتجارة المحلية</span>
             </h2>
             <p className="section-subtitle">
-              أدوات متكاملة لإدارة المحادثات ورفع كفاءة التحويلات التجارية.
+              أقوى منظومة لأتمتة خدمة الزبائن، التوصيل، وإدارة المحادثات الحساسة.
             </p>
           </div>
 
           <div className="features-bento-grid">
-            <div className="bento-card">
+            {/* Featured Card 1: Local Dialect NLP */}
+            <div className="bento-card bento-wide">
               <div className="bento-icon-box">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                 </svg>
               </div>
-              <h3 className="bento-title">فهم اللهجات والسياق المحلي</h3>
+              <h3 className="bento-title">معالجة اللهجة الجزائرية والمحلية بدقة متناهية</h3>
               <p className="bento-desc">
-                معالجة لغوية متقدمة تفهم التعبيرات المحلية، مصطلحات التسوق، وأسماء الولايات والبلديات بدقة.
+                يفهم البوت المصطلحات الدارجة ("شحال"، "واه"، "كاين"، "حبيت نكوموندي")، وأسماء الولايات والبلديات، ويجيب بأسلوب تجاري راقٍ ومقنع يشبه تعامل خبير مبيعات محترف.
               </p>
             </div>
 
+            {/* Featured Card 2: Visual Catalog */}
+            <div className="bento-card">
+              <div className="bento-icon-box">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                </svg>
+              </div>
+              <h3 className="bento-title">كتالوج صور المنتجات الذكي (WebP)</h3>
+              <p className="bento-desc">
+                ضغط تلقائي للصور وتقليص حجمها بنسبة 85% لترسل للزبائن كألبوم أو صورة أساسية بسرعة البرق.
+              </p>
+            </div>
+
+            {/* Featured Card 3: Automated Orders */}
             <div className="bento-card">
               <div className="bento-icon-box">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -216,71 +238,113 @@ export default function Landing() {
               </div>
               <h3 className="bento-title">استخراج منظم لبيانات الطلبيات</h3>
               <p className="bento-desc">
-                استخلاص الاسم، رقم الهاتف، العنوان، والمنتجات المطلوبة وترتيبها في جداول قابلة للتصدير.
+                استخراج الاسم، رقم الهاتف، الولاية، والكمية وتجميعها في جدول مركزي قابل للتصدير وإدارة الشحن.
               </p>
             </div>
 
-            <div className="bento-card">
-              <div className="bento-icon-box">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-                </svg>
-              </div>
-              <h3 className="bento-title">استجابة سريعة وتوافر 24/7</h3>
-              <p className="bento-desc">
-                خدمة الزبائن في أوقات الذروة وخارج ساعات العمل الرسمية لضمان عدم ضياع أي فرصة بيع.
-              </p>
-            </div>
-
+            {/* Featured Card 4: Human Takeover */}
             <div className="bento-card">
               <div className="bento-icon-box">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7.5" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/>
                 </svg>
               </div>
-              <h3 className="bento-title">التحكم والتدخل المباشر</h3>
+              <h3 className="bento-title">التدخل البشري المباشر (Takeover)</h3>
               <p className="bento-desc">
-                إمكانية استلام المحادثة يدوياً في أي لحظة مع إيقاف مؤقت للبوت وإعادة تفعيله بنقرة واحدة.
+                يمكنك الدخول إلى أي محادثة في لوحة التحكم والرد يدوياً بنقرة واحدة مع إيقاف البوت مؤقتاً لتلك المحادثة.
               </p>
             </div>
 
+            {/* Featured Card 5: Arrival Notification */}
             <div className="bento-card">
               <div className="bento-icon-box">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
                 </svg>
               </div>
-              <h3 className="bento-title">مؤشرات الأداء والتحليلات</h3>
+              <h3 className="bento-title">إشعار وصول الطلبية والاستلام</h3>
               <p className="bento-desc">
-                رصد دقيق لحجم المحادثات، عدد الطلبيات المؤكدة، ومعدلات التحويل عبر لوحة التحكم.
+                عند النقر على "وصلت الطلبية"، يرسل البوت إشعاراً فورياً للزبون بأن طرده جاهز للاستلام مع المبلغ والعنوان.
               </p>
             </div>
 
+            {/* Featured Card 6: Zero-Trust Security */}
             <div className="bento-card">
               <div className="bento-icon-box">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                 </svg>
               </div>
-              <h3 className="bento-title">بنية تحتية مشفرة ومحمية</h3>
+              <h3 className="bento-title">أمان Zero-Trust وعزل البيانات</h3>
               <p className="bento-desc">
-                حماية شاملة لكافة البيانات والمعاملات بالاعتماد على خوادم Google Cloud و Firebase الآمنة.
+                تحقق مشفر بالكامل من الهوية عبر Firebase Auth، وعزل تام لملفات وسجلات كل تاجر عن الآخرين.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ─── Pricing Section (Coming Soon) ─── */}
+      {/* ─── Interactive ROI Calculator ─── */}
+      <section className="landing-section roi-calc-section" id="roi-calculator">
+        <div className="landing-container">
+          <div className="roi-calculator-box">
+            <div className="roi-header">
+              <div className="section-pill">حاسبة العائد والتوفير</div>
+              <h2 className="roi-title">
+                اكتشف كم من الوقت والمبيعات ستكسب <span className="highlight-text-emerald">بأتمتة محادثاتك</span>
+              </h2>
+              <p className="roi-subtitle">
+                حرّك المؤشر بناءً على متوسط عدد الرسائل اليومية التي يتلقاها متجرك.
+              </p>
+            </div>
+
+            <div className="roi-interactive-grid">
+              <div className="roi-slider-block">
+                <div className="slider-label-row">
+                  <span>عدد رسائل الزبائن يومياً:</span>
+                  <span className="slider-value-badge">{dailyMessages} رسالة/يوم</span>
+                </div>
+                <input
+                  type="range"
+                  min="10"
+                  max="300"
+                  step="5"
+                  value={dailyMessages}
+                  onChange={e => setDailyMessages(Number(e.target.value))}
+                  className="roi-range-input"
+                />
+                <div className="slider-scale-row">
+                  <span>10 رسائل</span>
+                  <span>150 رسالة</span>
+                  <span>300+ رسالة</span>
+                </div>
+              </div>
+
+              <div className="roi-results-cards">
+                <div className="roi-result-card">
+                  <div className="res-num emerald-res">{hoursSavedPerDay} ساعة</div>
+                  <div className="res-lbl">وقت عمل موفّر يومياً لفريقك</div>
+                </div>
+                <div className="roi-result-card">
+                  <div className="res-num">+{extraMonthlyOrders} طلبية</div>
+                  <div className="res-lbl">مبيعات إضافية مسترجعة شهرياً</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Pricing Section (Early Access Launch) ─── */}
       <section className="landing-section" id="pricing">
         <div className="landing-container">
           <div className="section-header-center">
             <div className="section-pill">الخطط والاشتراكات</div>
             <h2 className="section-title">
-              خطط وباقات الأسعار <span className="highlight-text-emerald">تتوفر قريباً</span>
+              مجاني 100% خلال <span className="highlight-text-emerald">مرحلة الإطلاق الأولي</span>
             </h2>
             <p className="section-subtitle">
-              المنصة حالياً في مرحلة الإطلاق التجريبي — جميع الميزات والخدمات متاحة مجاناً 100% لجميع المستخدمين المسجلين!
+              جميع الميزات الاحترافية، الربط اللامحدود، وكتالوج الصور متاحة مجاناً لكافة التجار المسجلين الآن!
             </p>
           </div>
 
@@ -291,46 +355,15 @@ export default function Landing() {
                 <div className="plan-badge-soon">مجاني أثناء الإطلاق</div>
                 <h3 className="plan-name">الخطة الأساسية</h3>
                 <div className="plan-price">
-                  <span className="price-num coming-soon-text">Coming Soon</span>
+                  <span className="price-num">0 دج</span>
+                  <span className="price-period">/ مدى الحياة</span>
                 </div>
-                <p className="plan-desc">لتجربة النظام واختبار الاستجابة الآلية.</p>
+                <p className="plan-desc">لبدء تجربة الأتمتة واستقبال الاستفسارات وتأكيد المبيعات.</p>
               </div>
               <div className="plan-features">
                 <div className="p-feat">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  <span>بوت واحد (WhatsApp أو Telegram)</span>
-                </div>
-                <div className="p-feat">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  <span>رسائل واستفسارات غير محدودة</span>
-                </div>
-                <div className="p-feat">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  <span>تسجيل الطلبيات الأساسي</span>
-                </div>
-                <div className="p-feat">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  <span>الدعم الفني المباشر</span>
-                </div>
-              </div>
-              <Link to="/login" className="plan-btn primary">بدء الاستخدام مجاناً</Link>
-            </div>
-
-            {/* Pro (Featured) */}
-            <div className="pricing-card featured">
-              <div className="popular-badge">Coming Soon — قريباً</div>
-              <div className="pricing-header">
-                <div className="plan-badge-soon highlight">الأكثر طلباً</div>
-                <h3 className="plan-name">الخطة الاحترافية</h3>
-                <div className="plan-price">
-                  <span className="price-num coming-soon-text">Coming Soon</span>
-                </div>
-                <p className="plan-desc">للمتاجر والشركات المتنامية لزيادة حجم المبيعات.</p>
-              </div>
-              <div className="plan-features">
-                <div className="p-feat">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  <span>حتى 3 قنوات اتصال متزامنة</span>
+                  <span>بوت متصل (WhatsApp أو Telegram)</span>
                 </div>
                 <div className="p-feat">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
@@ -342,63 +375,96 @@ export default function Landing() {
                 </div>
                 <div className="p-feat">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  <span>خاصية التدخل المباشر (Takeover)</span>
-                </div>
-                <div className="p-feat">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  <span>أولوية الدعم الفني المباشر</span>
+                  <span>لوحة تحكم مركزية مع التدخل البشري</span>
                 </div>
               </div>
               <Link to="/login" className="plan-btn primary">بدء الاستخدام مجاناً</Link>
             </div>
 
-            {/* Enterprise */}
-            <div className="pricing-card">
+            {/* Pro (Featured) */}
+            <div className="pricing-card featured">
+              <div className="popular-badge">الأكثر طلباً للتجار</div>
               <div className="pricing-header">
-                <div className="plan-badge-soon">للشركات والمؤسسات</div>
-                <h3 className="plan-name">خطة الشركات</h3>
+                <div className="plan-badge-soon highlight">مجاني خلال الإطلاق</div>
+                <h3 className="plan-name">الخطة الاحترافية (Pro)</h3>
                 <div className="plan-price">
-                  <span className="price-num coming-soon-text">Coming Soon</span>
+                  <span className="price-num">0 دج</span>
+                  <span className="price-period">/ مرحلة الإطلاق</span>
                 </div>
-                <p className="plan-desc">للعمليات المؤسسية ذات التدفق العالي.</p>
+                <p className="plan-desc">للمتاجر والعلامات التجارية التي تسعى لمضاعفة مبيعاتها دون تأخير.</p>
               </div>
               <div className="plan-features">
                 <div className="p-feat">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  <span>عدد غير محدود من القنوات والبوتات</span>
+                  <span>قنوات متعددة متزامنة (WhatsApp + Telegram)</span>
                 </div>
                 <div className="p-feat">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  <span>خوادم مخصصة عالية السرعة</span>
+                  <span>كتالوج صور المنتجات مع ضغط WebP التلقائي</span>
                 </div>
                 <div className="p-feat">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  <span>تكامل برمجيات مخصصة مع نظامك</span>
+                  <span>إشعار "وصلت الطلبية جاهزة للاستلام" بنقرة واحدة</span>
                 </div>
                 <div className="p-feat">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  <span>مدير حساب مخصص على مدار الساعة</span>
+                  <span>فهم اللهجات الدارجة وإدارة الحالات الحرجة</span>
+                </div>
+                <div className="p-feat">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span>أولوية المعالجة والدعم الفني المباشر</span>
                 </div>
               </div>
-              <Link to="/login" className="plan-btn outline">طلب استشارة مجانية</Link>
+              <Link to="/login" className="plan-btn primary">تفعيل الباقة الاحترافية مجاناً</Link>
+            </div>
+
+            {/* Enterprise */}
+            <div className="pricing-card">
+              <div className="pricing-header">
+                <div className="plan-badge-soon">للمؤسسات والشركات</div>
+                <h3 className="plan-name">خطة الشركات والوكالات</h3>
+                <div className="plan-price">
+                  <span className="price-num">مخصص</span>
+                </div>
+                <p className="plan-desc">للشركات الكبرى ذات التدفق اليومي الهائل من المحادثات.</p>
+              </div>
+              <div className="plan-features">
+                <div className="p-feat">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span>عدد غير محدود من البوتات والقنوات</span>
+                </div>
+                <div className="p-feat">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span>خوادم معالجة مخصصة عالية السرعة</span>
+                </div>
+                <div className="p-feat">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span>ربط مخصص مع أنظمة ERP وإدارة المخزون</span>
+                </div>
+                <div className="p-feat">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span>مدير حساب وتقني مخصص على مدار 24 ساعة</span>
+                </div>
+              </div>
+              <Link to="/login" className="plan-btn outline">تواصل مع فريق الدعم</Link>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ─── Final CTA ─── */}
+      {/* ─── Final High-Impact CTA ─── */}
       <section className="landing-section cta-banner-section">
         <div className="landing-container">
           <div className="cta-banner-box">
             <h2 className="cta-banner-title">
-              جاهز لأتمتة خدمة عملائك ورفع كفاءة مبيعاتك؟
+              جاهز لأتمتة خدمة عملائك ومضاعفة مبيعاتك اليوم؟
             </h2>
             <p className="cta-banner-subtitle">
-              ابدأ الآن وأنشئ أول بوت ذكي لمتجرك في دقائق معدودة.
+              انضم إلى مئات التجار وأنشئ أول بوت ذكي لمتجرك خلال أقل من دقيقتين مجاناً.
             </p>
-            <div style={{ marginTop: '1.75rem' }}>
+            <div style={{ marginTop: '2rem' }}>
               <Link to="/login" className="hero-btn-primary">
-                <span>إنشاء البوت الأول مجاناً</span>
+                <span>إنشاء البوت الأول الآن مجاناً</span>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                   <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
                 </svg>
@@ -424,14 +490,15 @@ export default function Landing() {
                 <span className="landing-logo-text">BotForge</span>
               </div>
               <p className="footer-tagline">
-                منصة أتمتة خدمة العملاء وإدارة طلبات التجارة الإلكترونية بالذكاء الاصطناعي.
+                المنصة الرائدة لأتمتة خدمة العملاء وإدارة مبيعات التجارة الإلكترونية بالذكاء الاصطناعي.
               </p>
             </div>
 
             <div className="footer-links">
               <a href="#interactive-demo">المعاينة الحية</a>
               <a href="#how-it-works">آلية العمل</a>
-              <a href="#features">المواصفات</a>
+              <a href="#features">المواصفات التقنية</a>
+              <a href="#roi-calculator">حاسبة التوفير</a>
               <a href="#pricing">الاشتراكات</a>
               <Link to="/login">تسجيل الدخول</Link>
             </div>
@@ -439,7 +506,7 @@ export default function Landing() {
 
           <div className="footer-bottom">
             <span>© {new Date().getFullYear()} BotForge. جميع الحقوق محفوظة.</span>
-            <span>البنية التحتية المؤمنة لأنشطة التجارة الرقمية</span>
+            <span>بنية تحتية مشفرة ومصممة للتجارة الحديثة</span>
           </div>
         </div>
       </footer>

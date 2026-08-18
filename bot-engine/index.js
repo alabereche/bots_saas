@@ -13,6 +13,12 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { buildSystemPrompt } from './prompt-builder.js';
+import {
+  isTrackingIntent,
+  formatSingleOrderCard,
+  formatMultipleOrdersList,
+  formatNoOrdersFound
+} from './tracking-helper.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -32,7 +38,6 @@ function resolveInputMedia(mediaUrl) {
   }
   return mediaUrl;
 }
-
 
 const PORT = process.env.PORT || 3002;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
@@ -69,14 +74,15 @@ const MAX_HISTORY = 20;
 
 // ownerUserId is stamped on every document so the security rules can
 // authorize owner access without a per-document get()
-async function saveMessage(botId, ownerUserId, telegramUserId, userName, content, role) {
+async function saveMessage(botId, ownerUserId, telegramUserId, userName, content, role, platform = 'telegram') {
   try {
     await db.collection('conversations').add({
       botId,
-      platform: 'telegram',
+      platform,
       userId: ownerUserId || '',
       telegramUserId: String(telegramUserId),
-      userName: userName || 'زبون تيليغرام',
+      customerId: String(telegramUserId),
+      userName: userName || 'زبون',
       content,
       role, // 'user' | 'bot' | 'owner'
       createdAt: new Date().toISOString(),
@@ -605,6 +611,113 @@ function listenToBots() {
 const app = express();
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '1mb' }));
+
+// ─── Meta (Facebook Messenger & Instagram Direct) Webhook ───────
+// Verification Challenge from Meta
+app.get('/api/meta/webhook', (req, res) => {
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+  const expectedToken = process.env.META_VERIFY_TOKEN || 'botforge_meta_verify_2026';
+
+  if (mode === 'subscribe' && token === expectedToken) {
+    console.log('[Meta Webhook] ✅ Verified webhook challenge successfully');
+    return res.status(200).send(challenge);
+  }
+  return res.sendStatus(403);
+});
+
+// Incoming Events from Messenger & Instagram
+app.post('/api/meta/webhook', async (req, res) => {
+  res.status(200).send('EVENT_RECEIVED');
+
+  try {
+    const body = req.body;
+    if (body.object !== 'page' && body.object !== 'instagram') return;
+
+    for (const entry of body.entry || []) {
+      for (const event of entry.messaging || []) {
+        if (!event.message || event.message.is_echo) continue;
+
+        const senderId = event.sender?.id;
+        const recipientId = event.recipient?.id;
+        const text = event.message.text || '';
+        const platform = body.object === 'instagram' ? 'instagram' : 'facebook';
+
+        if (!senderId || !text) continue;
+
+        // Lookup bot by facebookPageId or instagramUserId
+        const fieldName = platform === 'instagram' ? 'instagramUserId' : 'facebookPageId';
+        const botQuery = await db.collection('bots')
+          .where(fieldName, '==', recipientId)
+          .limit(1)
+          .get();
+
+        if (botQuery.empty) {
+          console.warn(`[Meta Webhook] No bot found for recipient ID ${recipientId} on ${platform}`);
+          continue;
+        }
+
+        const botDoc = botQuery.docs[0];
+        const botConfig = { id: botDoc.id, ...botDoc.data() };
+        if (!botConfig.isActive) continue;
+
+        const pageToken = platform === 'instagram' ? botConfig.instagramToken : botConfig.facebookPageToken;
+        if (!pageToken) {
+          console.warn(`[Meta Webhook] No page token configured for bot ${botConfig.id}`);
+          continue;
+        }
+
+        // Save incoming user message
+        const senderName = `زبون ${platform === 'instagram' ? 'إنستغرام' : 'فيسبوك'}`;
+        await saveMessage(botConfig.id, botConfig.userId, senderId, senderName, text, 'user', platform);
+        await incrementMessageCount(botConfig.id);
+
+        // Check Fast-path tracking intent (0 LLM Calls)
+        let reply = '';
+        if (isTrackingIntent(text) && botConfig.features?.orderTracking !== false) {
+          const snap = await db.collection('orders').where('botId', '==', botConfig.id).get();
+          const allOrders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          const matched = allOrders.filter(o => o.customerId === senderId || (o.trackingCode && text.toUpperCase().includes(o.trackingCode)));
+          
+          if (matched.length === 1) {
+            reply = formatSingleOrderCard(matched[0]);
+          } else if (matched.length > 1) {
+            reply = formatMultipleOrdersList(matched);
+          } else {
+            reply = formatNoOrdersFound(botConfig.businessName);
+          }
+        } else {
+          // Generate AI reply with Gemini
+          const prompt = buildSystemPrompt(botConfig);
+          const history = [{ role: 'user', content: text }];
+          const messages = [{ role: 'system', content: prompt }, ...history];
+          const apiKey = botConfig.customApiKey || GEMINI_API_KEY;
+          const rawAiReply = await callGemini(apiKey, botConfig.aiModel || 'gemini-3.5-flash-lite', messages);
+          const processed = processOrderTag(rawAiReply, botConfig.id, botConfig.userId, senderId, senderName);
+          reply = processed.reply;
+        }
+
+        // Send reply via Meta Graph API
+        const graphUrl = `https://graph.facebook.com/v19.0/me/messages?access_token=${pageToken}`;
+        await fetch(graphUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            recipient: { id: senderId },
+            message: { text: reply }
+          })
+        }).catch(err => console.error('[Meta Webhook] Graph API send error:', err.message));
+
+        // Save bot reply
+        await saveMessage(botConfig.id, botConfig.userId, senderId, botConfig.botName, reply, 'bot', platform);
+        await incrementMessageCount(botConfig.id);
+      }
+    }
+  } catch (err) {
+    console.error('[Meta Webhook] Error processing event:', err.message);
+  }
+});
 
 // ─── Security: Firebase ID token verification ──────────────────
 // The dashboard signs in with Firebase Auth and sends its ID token;

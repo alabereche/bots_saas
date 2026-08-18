@@ -65,9 +65,12 @@ export default function ModernBackground() {
 
     // Check for reduced motion
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let isRunning = true;
 
     // Render loop
     const render = () => {
+      if (!isRunning) return;
+
       ctx.clearRect(0, 0, width, height);
 
       // Draw and update each node
@@ -123,17 +126,34 @@ export default function ModernBackground() {
         }
       }
 
-      if (!prefersReducedMotion) {
+      if (!prefersReducedMotion && isRunning) {
         animationFrameId = requestAnimationFrame(render);
       }
     };
 
+    // Pause animation when tab is not visible to eliminate background CPU/GPU burn
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        isRunning = false;
+        cancelAnimationFrame(animationFrameId);
+      } else {
+        if (!isRunning) {
+          isRunning = true;
+          render();
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     render();
 
     return () => {
+      isRunning = false;
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseleave', handleMouseLeave);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       cancelAnimationFrame(animationFrameId);
     };
   }, []);

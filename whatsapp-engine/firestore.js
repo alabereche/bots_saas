@@ -22,6 +22,14 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 const FieldValue = admin.firestore.FieldValue;
 
+// ─── In-Memory Bot Config Cache (TTL: 60s) ───────────────────
+const botConfigCache = new Map();
+const BOT_CACHE_TTL_MS = 60 * 1000;
+
+function invalidateBotCache(botId) {
+  if (botId) botConfigCache.delete(botId);
+}
+
 // Every conversation/order document carries its owner's userId so the
 // security rules can authorize reads/writes without a per-document get().
 async function resolveOwnerUserId(botId, provided) {
@@ -45,13 +53,27 @@ async function getActiveBots() {
   }
 }
 
-async function getBot(botId) {
+async function getBot(botId, forceRefresh = false) {
+  if (!botId) return null;
+  const now = Date.now();
+  const cached = botConfigCache.get(botId);
+
+  if (!forceRefresh && cached && now - cached.timestamp < BOT_CACHE_TTL_MS) {
+    return cached.data;
+  }
+
   try {
     const snap = await db.collection('bots').doc(botId).get();
-    return snap.exists ? { id: snap.id, ...snap.data() } : null;
+    if (snap.exists) {
+      const data = { id: snap.id, ...snap.data() };
+      botConfigCache.set(botId, { data, timestamp: now });
+      return data;
+    }
+    botConfigCache.delete(botId);
+    return null;
   } catch (e) {
     console.error(`[Firestore] Get bot ${botId} error:`, e.message);
-    return null;
+    return cached ? cached.data : null; // Graceful fallback on network glitch
   }
 }
 
@@ -195,6 +217,7 @@ module.exports = {
   db,
   getActiveBots,
   getBot,
+  invalidateBotCache,
   getBotsByOwner,
   updateBotStatus,
   logMessage,

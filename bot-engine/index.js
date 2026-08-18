@@ -36,7 +36,7 @@ function resolveInputMedia(mediaUrl) {
 
 const PORT = process.env.PORT || 3002;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-const AI_TIMEOUT_MS = 20000;
+const AI_TIMEOUT_MS = 9000;
 const MAX_HISTORY_KEYS = 5000;
 
 // ─── Firebase Initialization (Admin SDK — privileged server identity,
@@ -155,13 +155,9 @@ function extractAndSaveOrder(botId, ownerUserId, customerId, customerName, rawRe
 // ─── Google Gemini AI ─────────────────────────────────────────
 
 async function callGemini(apiKey, model, messages) {
-  const modelsToTry = [
-    model || 'gemini-3.5-flash-lite',
-    'gemini-2.5-flash-lite',
-    'gemini-2.5-flash',
-    'gemini-2.0-flash-lite',
-    'gemini-1.5-flash',
-  ];
+  const chosen = model || 'gemini-2.5-flash-lite';
+  const fallback = chosen === 'gemini-2.5-flash-lite' ? 'gemini-2.5-flash' : 'gemini-2.5-flash-lite';
+  const modelsToTry = [chosen, fallback];
 
   const systemInstruction = messages.find(m => m.role === 'system')?.content || '';
   const contents = messages

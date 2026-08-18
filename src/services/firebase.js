@@ -228,11 +228,7 @@ export function subscribeConversations(botId, callback) {
     const messages = snapshot.docs.map(d => ({
       id: d.id,
       ...d.data(),
-    })).sort((a, b) => {
-      const timeA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt || 0);
-      const timeB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || 0);
-      return timeA - timeB;
-    });
+    })).sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
     callback(messages);
   });
 }
@@ -291,11 +287,7 @@ export function subscribeOrders(botId, callback) {
     const orders = snapshot.docs.map(d => ({
       id: d.id,
       ...d.data(),
-    })).sort((a, b) => {
-      const timeA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt || 0);
-      const timeB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || 0);
-      return timeB - timeA; // Newest first
-    });
+    })).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')); // Newest first
     callback(orders);
   });
 }

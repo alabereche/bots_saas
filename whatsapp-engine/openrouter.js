@@ -9,21 +9,17 @@ const { buildSystemPrompt } = require('./promptGenerator');
 const conversationHistory = new Map();
 const MAX_HISTORY = 20;
 const MAX_HISTORY_KEYS = 5000;
-const AI_TIMEOUT_MS = 20000;
+const AI_TIMEOUT_MS = 9000;
 
 // Gemini API key from environment only — never from client-writable
 // bot documents
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 
-// --- Google Gemini ---
+// --- Google Gemini (Fast-Path Architecture) ---
 async function callGemini(apiKey, model, messages) {
-  const modelsToTry = [
-    model || 'gemini-3.5-flash-lite',
-    'gemini-2.5-flash-lite',
-    'gemini-2.5-flash',
-    'gemini-2.0-flash-lite',
-    'gemini-1.5-flash',
-  ];
+  const chosen = model || 'gemini-2.5-flash-lite';
+  const fallback = chosen === 'gemini-2.5-flash-lite' ? 'gemini-2.5-flash' : 'gemini-2.5-flash-lite';
+  const modelsToTry = [chosen, fallback];
 
   const systemInstruction = messages.find(m => m.role === 'system')?.content || '';
   const contents = messages

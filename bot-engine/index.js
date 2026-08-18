@@ -1073,7 +1073,7 @@ app.post('/api/meta/oauth/disconnect', async (req, res) => {
 });
 
 // Start Express and Firestore Listener
-app.listen(PORT, () => {
-  console.log(`[Engine] HTTP API running on port ${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`[Engine] HTTP API running on port ${PORT} (0.0.0.0)`);
   listenToBots();
 });

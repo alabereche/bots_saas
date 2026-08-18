@@ -26,7 +26,7 @@
   direction: rtl;
 }
 
-/* ─── Ambient Background & Radial Glows ─── */
+/* ─── Ambient Background & Neural Mesh Atmosphere ─── */
 .modern-bg-container {
   position: fixed;
   inset: 0;
@@ -34,48 +34,84 @@
   overflow: hidden;
   z-index: 0;
   user-select: none;
+  background: radial-gradient(circle at 50% 0%, #0c1527 0%, #060913 70%);
 }
 
+/* 1. Volumetric Optical Spotlight from top-center */
+.top-optic-spotlight {
+  position: absolute;
+  top: -120px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 900px;
+  height: 550px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(16, 185, 129, 0.18) 0%, rgba(14, 165, 233, 0.08) 45%, transparent 75%);
+  filter: blur(60px);
+  pointer-events: none;
+}
+
+/* 2. Structured Ambient Architectural Auroras */
 .ambient-radial-mesh {
   position: absolute;
   border-radius: 50%;
   filter: blur(140px);
-  opacity: 0.6;
+  opacity: 0.65;
+  pointer-events: none;
 }
 
-.mesh-emerald {
-  width: 650px;
-  height: 650px;
-  background: radial-gradient(circle, rgba(16, 185, 129, 0.12) 0%, transparent 70%);
-  top: -150px;
-  right: 15%;
+.mesh-emerald-focal {
+  width: 750px;
+  height: 750px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.13) 0%, transparent 70%);
+  top: 15%;
+  right: 8%;
 }
 
-.mesh-cyan {
-  width: 550px;
-  height: 550px;
-  background: radial-gradient(circle, rgba(14, 165, 233, 0.1) 0%, transparent 70%);
-  top: 35%;
-  left: 10%;
+.mesh-sapphire-focal {
+  width: 700px;
+  height: 700px;
+  background: radial-gradient(circle, rgba(14, 165, 233, 0.09) 0%, transparent 70%);
+  top: 55%;
+  left: 5%;
 }
 
-.mesh-purple {
-  width: 500px;
-  height: 500px;
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.08) 0%, transparent 70%);
-  bottom: 5%;
-  right: 25%;
-}
-
+/* 3. Subtle Cybernetic Data Grid Matrix */
 .modern-grid-overlay {
   position: absolute;
   inset: 0;
   background-image: 
-    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-  background-size: 60px 60px;
-  mask-image: radial-gradient(circle at 50% 30%, black 30%, transparent 80%);
-  -webkit-mask-image: radial-gradient(circle at 50% 30%, black 30%, transparent 80%);
+    linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(circle at 50% 35%, black 40%, transparent 85%);
+  -webkit-mask-image: radial-gradient(circle at 50% 35%, black 40%, transparent 85%);
+}
+
+/* 4. Real-Time Canvas Neural Mesh */
+.mesh-canvas-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+/* 5. Tactile Micro-Texture / Matte Film Grain */
+.noise-texture-overlay {
+  position: absolute;
+  inset: 0;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  pointer-events: none;
+}
+
+/* 6. Deep Atmospheric Vignette */
+.vignette-frame {
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 150px rgba(0, 0, 0, 0.85);
+  pointer-events: none;
 }
 
 /* ─── Top Floating Glass Capsule Navigation ─── */

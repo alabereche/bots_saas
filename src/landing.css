@@ -1497,15 +1497,17 @@
    Footer
    ═══════════════════════════════════════════════════════════════ */
 .landing-footer {
+  position: relative;
+  z-index: 10;
   background: #04060c;
-  padding: 4.5rem 0 2rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 5rem 0 2.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .footer-content {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 3rem;
+  margin-bottom: 3.5rem;
   flex-wrap: wrap;
   gap: 2.5rem;
 }

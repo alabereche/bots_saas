@@ -106,12 +106,7 @@ export default function InteractivePlayground() {
       let orderCreated = null;
       const lower = text.toLowerCase();
 
-      if (lower.includes('صور') || lower.includes('مواصفات') || lower.includes('ساعة') || lower.includes('حذاء') || lower.includes('عطر')) {
-        showProductCard = true;
-        botMsg = `هاوليك المنتج الأصلي مع كامل المواصفات:\n\n• ${niche.productName}\n• السعر: ${niche.productPrice}\n• الضمان: أصلي 100% مع إمكانية الفحص قبل الدفع.\n\nهل ترغب في تسجيل الطلبية الآن؟`;
-      } else if (lower.includes('توصيل') || lower.includes('شحال') || lower.includes('ولاية') || lower.includes('سطيف') || lower.includes('باتنة')) {
-        botMsg = `التوصيل متوفر وسريع لجميع ولايات الوطن (58 ولاية).\n• التوصيل للمنزل: 500 دج\n• التوصيل لمكتب الاستلام (Stop Desk): 350 دج\n• المدة: من 24 إلى 48 ساعة فقط والدفع عند الاستلام.`;
-      } else if (lower.includes('نعم') || lower.includes('أؤكد') || lower.includes('سجل') || lower.includes('طلب') || lower.includes('علاء') || lower.includes('كريم') || lower.includes('أمين')) {
+      if (lower.includes('نعم') || lower.includes('أؤكد') || lower.includes('سجل') || lower.includes('طلب') || lower.includes('علاء') || lower.includes('كريم') || lower.includes('أمين')) {
         botMsg = `تم تأكيد طلبيتك بنجاح يا عميلنا المحترم!\n\n📋 ملخص الطلبية المؤكدة:\n• المنتج: ${niche.productName}\n• السعر الإجمالي: ${niche.productPrice}\n• رقم الهاتف: 0777777777\n• جهة التوصيل: العنوان المحدد في طلبيتك\n\nسيتواصل معك فريق التوصيل قريباً لتسليم الطرد. شكراً لثقتك بنا!`;
         orderCreated = {
           id: `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -123,6 +118,11 @@ export default function InteractivePlayground() {
           time: 'الآن',
         };
         setRevenueTotal(prev => prev + parseInt(niche.productPrice.replace(/\D/g, '') || 5000, 10));
+      } else if (lower.includes('صور') || lower.includes('مواصفات') || lower.includes('رؤية') || lower.includes('ساعة') || lower.includes('حذاء') || lower.includes('عطر')) {
+        showProductCard = true;
+        botMsg = `هاوليك المنتج الأصلي مع كامل المواصفات:\n\n• ${niche.productName}\n• السعر: ${niche.productPrice}\n• الضمان: أصلي 100% مع إمكانية الفحص قبل الدفع.\n\nهل ترغب في تسجيل الطلبية الآن؟`;
+      } else if (lower.includes('توصيل') || lower.includes('شحال') || lower.includes('ولاية') || lower.includes('تكلفة')) {
+        botMsg = `التوصيل متوفر وسريع لجميع ولايات الوطن (58 ولاية).\n• التوصيل للمنزل: 500 دج\n• التوصيل لمكتب الاستلام (Stop Desk): 350 دج\n• المدة: من 24 إلى 48 ساعة فقط والدفع عند الاستلام.`;
       } else {
         botMsg = `أهلاً بك! نوفر لك تجربة تسوق سهلة وسريعة مع خدمة التوصيل السريع والدفع عند الاستلام. كيف يمكنني خدمتك؟`;
       }

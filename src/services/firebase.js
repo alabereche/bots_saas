@@ -30,6 +30,7 @@ import {
   onSnapshot,
   serverTimestamp,
   writeBatch,
+  arrayUnion,
 } from 'firebase/firestore';
 
 // ─── Firebase App Configuration ───────────────────────────────
@@ -309,6 +310,97 @@ export async function updateOrderStatus(orderId, status) {
   await updateDoc(orderRef, { status, updatedAt: serverTimestamp() });
 }
 
+// ─── Modular Commerce & Delivery Management ───────────────────
+
+export function sanitizeBotFeatures(features = {}) {
+  const f = {
+    catalog: features.catalog ?? true,
+    orders: features.orders ?? true,
+    orderTracking: features.orderTracking ?? false,
+    delivery: features.delivery ?? false,
+    notifications: features.notifications ?? false,
+    bookings: features.bookings ?? false,
+    webhooks: features.webhooks ?? false,
+    ...features,
+  };
+
+  // Enforce Dependency Rules:
+  if (!f.orders) {
+    f.orderTracking = false;
+    f.delivery = false;
+    f.notifications = false;
+  }
+  if (!f.orderTracking) {
+    f.notifications = false;
+  }
+
+  return f;
+}
+
+// Update delivery status and dispatch idempotent notification via Engine API
+export async function updateOrderDelivery(botId, orderId, platform = 'whatsapp', payload = {}) {
+  const {
+    deliveryStatus,
+    orderStatus,
+    provider = 'manual',
+    trackingNumber = '',
+    notifyCustomer = false,
+  } = payload;
+
+  const orderRef = doc(db, 'orders', orderId);
+  const now = new Date().toISOString();
+
+  const historyEntry = {
+    orderStatus: orderStatus || 'confirmed',
+    deliveryStatus: deliveryStatus || 'pending',
+    timestamp: now,
+    provider,
+    trackingNumber,
+    note: `تم تحديث حالة الشحن إلى: ${deliveryStatus}`,
+  };
+
+  const updateData = {
+    updatedAt: serverTimestamp(),
+  };
+
+  if (deliveryStatus) updateData.deliveryStatus = deliveryStatus;
+  if (orderStatus) updateData.orderStatus = orderStatus;
+  if (provider) updateData.deliveryProvider = provider;
+  if (trackingNumber !== undefined) updateData.deliveryTrackingNumber = trackingNumber;
+
+  // Direct Firestore update for immediate UI responsiveness
+  await updateDoc(orderRef, {
+    ...updateData,
+    statusHistory: arrayUnion(historyEntry),
+  });
+
+  // Call Engine API for customer dispatch if requested
+  if (notifyCustomer) {
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      const enginePort = platform === 'telegram' ? 3002 : 3001;
+      const apiHost = window.location.hostname === 'localhost' ? `http://localhost:${enginePort}` : '';
+      
+      await fetch(`${apiHost}/api/orders/${orderId}/delivery-status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          botId,
+          deliveryStatus,
+          provider,
+          trackingNumber,
+          notifyCustomer: true,
+        }),
+      });
+    } catch (err) {
+      console.warn('[Firebase Service] Delivery notification dispatch warning:', err.message);
+    }
+  }
+}
+
 // Delete single order
 export async function deleteOrder(orderId) {
   const orderRef = doc(db, 'orders', orderId);
@@ -330,3 +422,4 @@ export async function clearBotOrders(botId) {
   await batch.commit();
   await updateBot(botId, { ordersCount: 0 });
 }
+

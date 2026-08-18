@@ -2337,4 +2337,120 @@ h1, h2, h3, h4, h5, h6 {
   line-height: 1.55;
 }
 
+/* ─── Tracking & Modular Commerce Styles ─── */
+
+.tracking-code-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(14, 165, 233, 0.12);
+  color: #38bdf8;
+  border: 1px solid rgba(14, 165, 233, 0.3);
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.76rem;
+  font-weight: 700;
+  font-family: monospace;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tracking-code-pill:hover {
+  background: rgba(14, 165, 233, 0.22);
+  border-color: #38bdf8;
+  transform: translateY(-1px);
+}
+
+.delivery-control-box {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  margin-top: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.delivery-grid-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.timeline-container {
+  border-right: 2px solid var(--border-subtle);
+  padding-right: 1rem;
+  margin-right: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.timeline-step {
+  position: relative;
+  font-size: 0.8rem;
+}
+
+.timeline-step::before {
+  content: '';
+  position: absolute;
+  right: -1.35rem;
+  top: 4px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+}
+
+.capabilities-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.85rem;
+}
+
+.capability-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.15rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  transition: all 0.2s ease;
+}
+
+.capability-card.is-active {
+  border-color: rgba(52, 211, 153, 0.4);
+  background: rgba(52, 211, 153, 0.03);
+}
+
+.capability-card.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.capability-info {
+  flex: 1;
+}
+
+.capability-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.capability-desc {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+
 

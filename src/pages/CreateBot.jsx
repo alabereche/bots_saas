@@ -126,6 +126,15 @@ export default function CreateBot() {
         ordersCount: 0,
         autoOrdersTelegram: true,
         autoOrdersWhatsapp: true,
+        features: {
+          catalog: true,
+          orders: businessType === 'shop' || businessType === 'restaurant' || businessType === 'services',
+          orderTracking: businessType === 'shop',
+          delivery: businessType === 'shop',
+          notifications: businessType === 'shop',
+          bookings: businessType === 'booking' || businessType === 'clinic' || businessType === 'salon',
+          webhooks: true,
+        },
       };
 
       if (platform === 'telegram') {

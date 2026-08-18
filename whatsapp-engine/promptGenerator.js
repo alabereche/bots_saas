@@ -108,6 +108,13 @@ function buildSystemPrompt(config) {
     prompt += "[ORDER_CONFIRMED]{\"product\":\"اسم المنتج\",\"price\":\"السعر الإجمالي\",\"name\":\"الاسم\",\"phone\":\"الرقم\",\"address\":\"العنوان والولاية\"}\n";
   }
 
+  const trackingActive = config.features ? (config.features.orderTracking !== false && config.features.orders !== false) : (config.orderTrackingEnabled !== false);
+  if (trackingActive) {
+    prompt += "\n## نظام تتبع الطلبيات\n";
+    prompt += "إذا سألك الزبون عن حالة طلبيته أو سأل \"وين راه طلبي\"، أخبره بلطف أن يرسل كود التتبع الخاص به (مثل DZ-XXXXXX) أو يكتب كلمة \"تتبع\" ليظهر له النظام الآلي حالة طرده فوراً.\n";
+    prompt += "ملاحظة أمنية صارمة: لا تقم أبداً باختراع أو تخمين أرقام تتبع أو حالات شحن من عندك، فنظام التتبع البرمجي يتولى ذلك تلقائياً وبدقة.\n";
+  }
+
   return prompt;
 }
 

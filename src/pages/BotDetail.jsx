@@ -8,6 +8,8 @@ import {
   clearBotMessages,
   subscribeOrders,
   updateOrderStatus as fbUpdateOrderStatus,
+  updateOrderDelivery,
+  sanitizeBotFeatures,
   clearBotOrders,
 } from '../services/firebase';
 import { useToast } from '../context/ToastContext';
@@ -623,10 +625,15 @@ export default function BotDetail() {
       {/* ─── Tab 2: Orders Tab ─── */}
       {activeTab === 'orders' && (
         <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ffffff', margin: 0 }}>
-              الطلبيات والحجوزات المسجلة ({orders.length})
-            </h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '8px' }}>
+            <div>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ffffff', margin: 0 }}>
+                الطلبيات والتتبع ({orders.length})
+              </h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
+                إدارة حالات الشحن وتتبع الطرود وإرسال الإشعارات التلقائية للزبائن.
+              </p>
+            </div>
             {orders.length > 0 && (
               <button
                 className="btn btn-danger btn-sm"
@@ -639,64 +646,19 @@ export default function BotDetail() {
 
           {orders.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-tertiary)' }}>
-              <p style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>لا توجد طلبيات أو حجوزات بعد</p>
-              <p style={{ fontSize: '0.85rem' }}>يقوم الذكاء الاصطناعي باستخراج وتسجيل طلبات الشراء تلقائياً بمجرد تأكيد العميل للطلب ورقم هاتفه وعنوانه.</p>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📦</div>
+              <p style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>لا توجد طلبيات أو طرود مسجلة بعد</p>
+              <p style={{ fontSize: '0.85rem' }}>يقوم البوت بتسجيل الطلبيات وتوليد كود التتبع (#DZ-XXXXXX) تلقائياً بمجرد تأكيد المشتري في المحادثة.</p>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {orders.map(order => (
-                <div key={order.id} className="order-card">
-                  <div className="order-card-header">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <OrderStatusBadge status={order.status} />
-                      <span style={{ fontWeight: 700, color: '#ffffff' }}>{order.customerName}</span>
-                    </div>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>{formatTime(order.createdAt)}</span>
-                  </div>
-
-                  <div className="order-card-body">
-                    {order.product && (
-                      <div className="order-field" style={{ color: '#ffffff', fontWeight: 600 }}>
-                        <span>الطلب / المنتج: {order.product} {order.price ? `(${order.price} ${bot.currency || 'دج'})` : ''}</span>
-                      </div>
-                    )}
-                    {order.phone && (
-                      <div className="order-field">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                        <span dir="ltr">{order.phone}</span>
-                      </div>
-                    )}
-                    {order.address && (
-                      <div className="order-field">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                        <span>{order.address}</span>
-                      </div>
-                    )}
-                    {order.orderSummary && (
-                      <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', marginTop: '0.35rem' }}>
-                        {order.orderSummary}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="order-card-actions">
-                    {order.status === 'new' && (
-                      <>
-                        <button className="btn btn-sm btn-primary" onClick={() => updateOrderStatus(order, 'confirmed')}>
-                          تأكيد الطلبية
-                        </button>
-                        <button className="btn btn-sm btn-secondary" onClick={() => updateOrderStatus(order, 'cancelled')}>
-                          إلغاء
-                        </button>
-                      </>
-                    )}
-                    {order.status === 'confirmed' && (
-                      <button className="btn btn-sm btn-primary" onClick={() => updateOrderStatus(order, 'delivered')}>
-                        اكتمل التوصيل
-                      </button>
-                    )}
-                  </div>
-                </div>
+                <OrderDeliveryItem
+                  key={order.id}
+                  order={order}
+                  bot={bot}
+                  onUpdateDelivery={(orderId, payload) => updateOrderDelivery(bot.id, orderId, bot.platform || 'whatsapp', payload)}
+                />
               ))}
             </div>
           )}
@@ -716,7 +678,15 @@ export default function BotDetail() {
       {/* ─── Tab 4: Bot Info Tab ─── */}
       {activeTab === 'info' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {/* Card 1: Business Details */}
+          {/* Card 1: Modular Capabilities */}
+          <BotCapabilitiesManager
+            bot={bot}
+            onUpdateBot={async (data) => {
+              await updateBot(id, data);
+            }}
+          />
+
+          {/* Card 2: Business Details */}
           <div className="card">
             <div className="card-header-row">
               <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -750,7 +720,7 @@ export default function BotDetail() {
             )}
           </div>
 
-          {/* Card 2: AI Personality */}
+          {/* Card 3: AI Personality */}
           <div className="card">
             <div className="card-header-row">
               <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1010,6 +980,296 @@ function formatTime(dateStr) {
   const diffH = Math.floor(diffMin / 60);
   if (diffH < 24) return `${diffH} س`;
   return d.toLocaleDateString('ar');
+}
+
+const DELIVERY_STATUSES = {
+  pending: { label: 'قيد المراجعة والتأكيد', icon: '⏳', color: '#f59e0b', bg: '#33230a', border: '#543b12' },
+  preparing: { label: 'قيد التجهيز والتغليف', icon: '📦', color: '#38bdf8', bg: '#132b3d', border: '#1d4461' },
+  shipped: { label: 'تم تسليم الطرد لشركة الشحن', icon: '🚚', color: '#818cf8', bg: '#1e1b4b', border: '#312e81' },
+  out_for_delivery: { label: 'خرج للتوصيل (مع الموزع)', icon: '🛵', color: '#c084fc', bg: '#3b0764', border: '#581c87' },
+  delivered: { label: 'تم التسليم بنجاح', icon: '✅', color: '#34d399', bg: '#132d24', border: '#1c4b3c' },
+  returned: { label: 'تم إرجاع الطرد', icon: '↩️', color: '#f87171', bg: '#33161a', border: '#541c22' },
+  cancelled: { label: 'ملغى', icon: '❌', color: '#94a3b8', bg: '#1c263c', border: '#26334d' },
+};
+
+const DELIVERY_PROVIDERS = [
+  { key: 'manual', label: 'توصيل خاص بالمتجر' },
+  { key: 'yalidine', label: 'Yalidine Express' },
+  { key: 'zr_express', label: 'ZR Express' },
+  { key: 'maystro', label: 'Maystro Delivery' },
+  { key: 'kazitour', label: 'Kazi Tour' },
+  { key: 'ecotrack', label: 'EcoTrack Delivery' },
+  { key: 'other', label: 'شركة أخرى' },
+];
+
+function DeliveryStatusBadge({ status }) {
+  const c = DELIVERY_STATUSES[status] || DELIVERY_STATUSES.pending;
+  return (
+    <span style={{ fontSize: '0.74rem', fontWeight: 700, background: c.bg, color: c.color, border: `1px solid ${c.border}`, padding: '2px 8px', borderRadius: 'var(--radius-full)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+      <span>{c.icon}</span>
+      <span>{c.label}</span>
+    </span>
+  );
+}
+
+function OrderDeliveryItem({ order, bot, onUpdateDelivery }) {
+  const [deliveryStatus, setDeliveryStatus] = useState(order.deliveryStatus || 'pending');
+  const [provider, setProvider] = useState(order.deliveryProvider || 'manual');
+  const [trackingNumber, setTrackingNumber] = useState(order.deliveryTrackingNumber || '');
+  const [notifyCustomer, setNotifyCustomer] = useState(true);
+  const [showTimeline, setShowTimeline] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const toast = useToast();
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await onUpdateDelivery(order.id, {
+        deliveryStatus,
+        provider,
+        trackingNumber,
+        notifyCustomer,
+      });
+      toast.success(notifyCustomer ? 'تم تحديث حالة الشحن وإرسال إشعار للزبون بنجاح' : 'تم حفظ حالة الشحن');
+    } catch (e) {
+      toast.error('فشل تحديث حالة الشحن: ' + e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const copyCode = (e) => {
+    e.stopPropagation();
+    if (order.trackingCode) {
+      navigator.clipboard.writeText(order.trackingCode);
+      toast.success(`تم نسخ كود التتبع #${order.trackingCode}`);
+    }
+  };
+
+  return (
+    <div className="order-card" style={{ padding: '1.25rem' }}>
+      <div className="order-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '0.85rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <span style={{ fontWeight: 700, color: '#ffffff', fontSize: '0.98rem' }}>{order.customerName || 'زبون'}</span>
+          {order.trackingCode && (
+            <button className="tracking-code-pill" onClick={copyCode} title="انقر لنسخ كود التتبع">
+              <span>#{order.trackingCode}</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+          )}
+          <DeliveryStatusBadge status={order.deliveryStatus || 'pending'} />
+        </div>
+        <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>{formatTime(order.createdAt)}</span>
+      </div>
+
+      <div className="order-card-body" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.65rem', marginBottom: '0.85rem' }}>
+        {order.product && (
+          <div className="order-field" style={{ color: '#ffffff', fontWeight: 600 }}>
+            <span>المنتج: {order.product} {order.price ? `(${order.price} ${bot.currency || 'دج'})` : ''}</span>
+          </div>
+        )}
+        {order.phone && (
+          <div className="order-field">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            <span dir="ltr">{order.phone}</span>
+          </div>
+        )}
+        {order.address && (
+          <div className="order-field" style={{ gridColumn: '1 / -1' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <span>{order.address}</span>
+          </div>
+        )}
+        {order.orderSummary && (
+          <div style={{ gridColumn: '1 / -1', fontSize: '0.8rem', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.02)', padding: '0.4rem 0.6rem', borderRadius: 'var(--radius-sm)' }}>
+            {order.orderSummary}
+          </div>
+        )}
+      </div>
+
+      {/* Delivery Management Controls */}
+      <div className="delivery-control-box">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+          <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-primary)' }}>🚚 إدارة حالة الشحن والتوصيل</span>
+          {Array.isArray(order.statusHistory) && order.statusHistory.length > 0 && (
+            <button 
+              type="button" 
+              className="btn btn-secondary btn-sm" 
+              style={{ fontSize: '0.72rem', padding: '2px 8px' }}
+              onClick={() => setShowTimeline(!showTimeline)}
+            >
+              {showTimeline ? 'إخفاء سجل المراحل 🔼' : `سجل المراحل (${order.statusHistory.length}) 🔽`}
+            </button>
+          )}
+        </div>
+
+        <div className="delivery-grid-fields">
+          <div className="form-group" style={{ margin: 0 }}>
+            <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '2px' }}>حالة الشحن</label>
+            <select 
+              className="form-select" 
+              style={{ padding: '0.4rem 0.6rem', fontSize: '0.82rem' }}
+              value={deliveryStatus}
+              onChange={e => setDeliveryStatus(e.target.value)}
+            >
+              {Object.entries(DELIVERY_STATUSES).map(([k, v]) => (
+                <option key={k} value={k}>{v.icon} {v.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group" style={{ margin: 0 }}>
+            <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '2px' }}>شركة التوصيل</label>
+            <select 
+              className="form-select" 
+              style={{ padding: '0.4rem 0.6rem', fontSize: '0.82rem' }}
+              value={provider}
+              onChange={e => setProvider(e.target.value)}
+            >
+              {DELIVERY_PROVIDERS.map(p => (
+                <option key={p.key} value={p.key}>{p.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group" style={{ margin: 0 }}>
+            <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '2px' }}>رقم بوليصة الشحن (Tracking No)</label>
+            <input 
+              className="form-input" 
+              style={{ padding: '0.4rem 0.6rem', fontSize: '0.82rem' }}
+              placeholder="مثال: YAL-98765432"
+              value={trackingNumber}
+              onChange={e => setTrackingNumber(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', paddingTop: '4px' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+            <input 
+              type="checkbox" 
+              checked={notifyCustomer} 
+              onChange={e => setNotifyCustomer(e.target.checked)} 
+              disabled={!order.customerId}
+            />
+            <span>إرسال إشعار فوري وتلقائي للزبون عبر {bot.platform === 'telegram' ? 'تيليغرام' : 'واتساب'} 📢</span>
+          </label>
+
+          <button 
+            className="btn btn-primary btn-sm" 
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? <span className="spinner" /> : 'حفظ التحديث'}
+          </button>
+        </div>
+
+        {/* Timeline View */}
+        {showTimeline && Array.isArray(order.statusHistory) && (
+          <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-subtle)' }}>
+            <div className="timeline-container">
+              {order.statusHistory.map((step, idx) => {
+                const sConf = DELIVERY_STATUSES[step.deliveryStatus] || DELIVERY_STATUSES.pending;
+                return (
+                  <div key={idx} className="timeline-step">
+                    <div style={{ fontWeight: 600, color: '#ffffff' }}>
+                      {sConf.icon} {sConf.label} {step.provider && step.provider !== 'manual' ? `(${step.provider})` : ''}
+                    </div>
+                    {step.trackingNumber && (
+                      <div style={{ fontSize: '0.74rem', color: '#38bdf8' }}>بوليصة: {step.trackingNumber}</div>
+                    )}
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>{new Date(step.timestamp).toLocaleString('ar')}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function BotCapabilitiesManager({ bot, onUpdateBot }) {
+  const [saving, setSaving] = useState(false);
+  const toast = useToast();
+  const features = sanitizeBotFeatures(bot?.features || {});
+
+  const toggleFeature = async (key) => {
+    setSaving(true);
+    try {
+      const updated = sanitizeBotFeatures({
+        ...features,
+        [key]: !features[key],
+      });
+      await onUpdateBot({ features: updated });
+      toast.success('تم تحديث قدرات البوت بنجاح');
+    } catch (e) {
+      toast.error('فشل تحديث القدرات: ' + e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const capabilities = [
+    { key: 'catalog', title: 'كتالوج المنتجات والخدمات', desc: 'إرسال صور ومواصفات السلع والتفاصيل للزبون مباشرة داخل المحادثة.', icon: '🛍️' },
+    { key: 'orders', title: 'استقبال وتسجيل الطلبيات', desc: 'استخراج وتأكيد بيانات المشتري (الاسم، الهاتف، العنوان) تلقائياً.', icon: '📝' },
+    { key: 'orderTracking', title: 'نظام التتبع المباشر (#DZ-XXXXXX)', desc: 'تمكين الزبائن من معرفة حالة طرودهم فوراً وبدون استهلاك للذكاء الاصطناعي (0 LLM Calls).', icon: '⚡', req: 'orders' },
+    { key: 'delivery', title: 'إدارة شركات الشحن والتوصيل', desc: 'التكامل مع شركات التوصيل (Yalidine, ZR Express...) وإرفاق أرقام البوالص.', icon: '🚚', req: 'orders' },
+    { key: 'notifications', title: 'إشعارات الشحن التلقائية', desc: 'إرسال إشعار فوري للزبون فور تغيير حالة الطرد في لوحة التحكم.', icon: '📢', req: 'orderTracking' },
+    { key: 'bookings', title: 'حجز المواعيد والاستشارات', desc: 'تخصيص البوت لجدولة المواعيد للعيادات والمراكز والمكاتب المهنية.', icon: '📅' },
+  ];
+
+  return (
+    <div className="card">
+      <div className="card-header-row" style={{ marginBottom: '0.65rem' }}>
+        <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '1.25rem' }}>⚙️</span>
+          قدرات وموديولات البوت (Modular Commerce)
+        </h3>
+      </div>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.15rem', lineHeight: 1.5 }}>
+        قم بتفعيل الموديولات التي يحتاجها نشاطك التجاري. يتم ضبط الترابط البرمجي بين القدرات تلقائياً.
+      </p>
+
+      <div className="capabilities-grid">
+        {capabilities.map(cap => {
+          const isActive = !!features[cap.key];
+          const isReqMissing = cap.req && !features[cap.req];
+
+          return (
+            <div 
+              key={cap.key} 
+              className={`capability-card ${isActive ? 'is-active' : ''} ${isReqMissing ? 'is-disabled' : ''}`}
+            >
+              <div className="capability-info">
+                <div className="capability-title">
+                  <span>{cap.icon}</span>
+                  <span>{cap.title}</span>
+                </div>
+                <p className="capability-desc">{cap.desc}</p>
+                {isReqMissing && (
+                  <span style={{ fontSize: '0.72rem', color: '#f59e0b', display: 'block', marginTop: '4px' }}>
+                    ⚠️ يتطلب تفعيل موديول "{cap.req === 'orders' ? 'استقبال الطلبيات' : 'نظام التتبع'}" أولاً
+                  </span>
+                )}
+              </div>
+
+              <button
+                type="button"
+                className={`btn btn-sm ${isActive ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ minWidth: '70px', padding: '4px 10px', fontSize: '0.78rem' }}
+                disabled={saving || isReqMissing}
+                onClick={() => toggleFeature(cap.key)}
+              >
+                {isActive ? 'مفعل ✅' : 'معطل ⭕'}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function OrderStatusBadge({ status }) {

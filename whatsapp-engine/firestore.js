@@ -194,21 +194,131 @@ async function incrementMessageCount(botId) {
   }
 }
 
-// ─── Orders & Bookings ──────────────────────────────────────────
+// ─── Tracking Code Generator (Crockford Base32 High-Entropy) ───
+const TRACKING_CHARS = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+
+function generateTrackingCode() {
+  let code = 'DZ-';
+  for (let i = 0; i < 6; i++) {
+    const idx = Math.floor(Math.random() * TRACKING_CHARS.length);
+    code += TRACKING_CHARS[idx];
+  }
+  return code;
+}
+
+// ─── Orders & Tracking Engine ───────────────────────────────────
 
 async function saveOrder(orderData) {
   try {
     const userId = await resolveOwnerUserId(orderData.botId, orderData.ownerUserId);
-    await db.collection('orders').add({
+    const trackingCode = orderData.trackingCode || generateTrackingCode();
+    const now = new Date().toISOString();
+
+    const initialHistory = [{
+      orderStatus: 'confirmed',
+      deliveryStatus: 'pending',
+      timestamp: now,
+      note: 'تم تسجيل وتأكيد الطلبية بنجاح',
+    }];
+
+    const docRef = await db.collection('orders').add({
       ...orderData,
+      trackingCode,
       userId: userId || '',
-      status: 'new',
-      createdAt: new Date().toISOString(),
+      orderStatus: orderData.orderStatus || 'confirmed',
+      deliveryStatus: orderData.deliveryStatus || 'pending',
+      status: 'new', // backward compatibility
+      statusHistory: initialHistory,
+      deliveryProvider: orderData.deliveryProvider || 'manual',
+      deliveryTrackingNumber: orderData.deliveryTrackingNumber || '',
+      processedEvents: [],
+      createdAt: now,
       timestamp: FieldValue.serverTimestamp(),
     });
-    console.log(`[Firestore] 📦 WhatsApp Order saved: ${orderData.customerName} - ${orderData.product}`);
+
+    console.log(`[Firestore] 📦 WhatsApp Order saved: ${orderData.customerName} | Code: ${trackingCode} | Product: ${orderData.product}`);
+    return { id: docRef.id, trackingCode };
   } catch (e) {
     console.error('[Firestore] Save order error:', e.message);
+    return null;
+  }
+}
+
+// Zero-IDOR Scoped Tracking Lookup
+async function findOrdersForTracking(botId, customerId, specificCode = null) {
+  try {
+    if (specificCode) {
+      const cleanCode = specificCode.trim().toUpperCase().replace('#', '');
+      const snap = await db.collection('orders')
+        .where('botId', '==', botId)
+        .where('trackingCode', '==', cleanCode)
+        .limit(1)
+        .get();
+
+      if (!snap.empty) {
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      }
+    }
+
+    if (customerId) {
+      const snap = await db.collection('orders')
+        .where('botId', '==', botId)
+        .where('customerId', '==', String(customerId))
+        .get();
+
+      if (!snap.empty) {
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        return list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')).slice(0, 5);
+      }
+    }
+
+    return [];
+  } catch (e) {
+    console.error('[Firestore] Find orders error:', e.message);
+    return [];
+  }
+}
+
+// Idempotent Delivery Status Update
+async function updateOrderDeliveryStatus(orderId, newDeliveryStatus, providerInfo = {}, eventId = null) {
+  if (!orderId) return { success: false, reason: 'Missing orderId' };
+  try {
+    const orderRef = db.collection('orders').doc(orderId);
+    const snap = await orderRef.get();
+    if (!snap.exists) return { success: false, reason: 'Order not found' };
+
+    const data = snap.data();
+    const processedEvents = Array.isArray(data.processedEvents) ? data.processedEvents : [];
+
+    if (eventId && processedEvents.includes(eventId)) {
+      return { success: true, alreadyProcessed: true, order: { id: snap.id, ...data } };
+    }
+
+    const now = new Date().toISOString();
+    const historyEntry = {
+      orderStatus: data.orderStatus || 'confirmed',
+      deliveryStatus: newDeliveryStatus,
+      timestamp: now,
+      provider: providerInfo.provider || data.deliveryProvider || 'manual',
+      trackingNumber: providerInfo.trackingNumber || data.deliveryTrackingNumber || '',
+      note: providerInfo.note || `تم تحديث حالة الشحن إلى: ${newDeliveryStatus}`,
+    };
+
+    const updatePayload = {
+      deliveryStatus: newDeliveryStatus,
+      statusHistory: FieldValue.arrayUnion(historyEntry),
+      updatedAt: now,
+    };
+
+    if (providerInfo.provider) updatePayload.deliveryProvider = providerInfo.provider;
+    if (providerInfo.trackingNumber) updatePayload.deliveryTrackingNumber = providerInfo.trackingNumber;
+    if (eventId) updatePayload.processedEvents = FieldValue.arrayUnion(eventId);
+
+    await orderRef.update(updatePayload);
+    return { success: true, order: { id: snap.id, ...data, ...updatePayload } };
+  } catch (e) {
+    console.error(`[Firestore] Update delivery status error for order ${orderId}:`, e.message);
+    return { success: false, reason: e.message };
   }
 }
 
@@ -225,4 +335,7 @@ module.exports = {
   logOwnerMessage,
   incrementMessageCount,
   saveOrder,
+  generateTrackingCode,
+  findOrdersForTracking,
+  updateOrderDeliveryStatus,
 };

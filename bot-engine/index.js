@@ -98,18 +98,137 @@ async function incrementMessageCount(botId) {
   }
 }
 
+import {
+  isTrackingIntent,
+  extractTrackingCode,
+  formatSingleOrderCard,
+  formatMultipleOrdersList,
+  formatNoOrdersFound,
+  DELIVERY_STATUS_LABELS,
+  PROVIDER_NAMES,
+} from './tracking-helper.js';
+
+const TRACKING_CHARS = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+
+function generateTrackingCode() {
+  let code = 'DZ-';
+  for (let i = 0; i < 6; i++) {
+    const idx = Math.floor(Math.random() * TRACKING_CHARS.length);
+    code += TRACKING_CHARS[idx];
+  }
+  return code;
+}
+
 async function saveOrderToFirestore(orderData) {
   try {
-    await db.collection('orders').add({
+    const trackingCode = orderData.trackingCode || generateTrackingCode();
+    const now = new Date().toISOString();
+
+    const initialHistory = [{
+      orderStatus: 'confirmed',
+      deliveryStatus: 'pending',
+      timestamp: now,
+      note: 'تم تسجيل وتأكيد الطلبية بنجاح',
+    }];
+
+    const docRef = await db.collection('orders').add({
       ...orderData,
+      trackingCode,
       userId: orderData.ownerUserId || '',
-      status: 'new',
-      createdAt: new Date().toISOString(),
+      orderStatus: orderData.orderStatus || 'confirmed',
+      deliveryStatus: orderData.deliveryStatus || 'pending',
+      status: 'new', // backward compatibility
+      statusHistory: initialHistory,
+      deliveryProvider: orderData.deliveryProvider || 'manual',
+      deliveryTrackingNumber: orderData.deliveryTrackingNumber || '',
+      processedEvents: [],
+      createdAt: now,
       timestamp: FieldValue.serverTimestamp(),
     });
-    console.log(`[Engine] 📦 Order saved in Firestore: ${orderData.customerName} - ${orderData.product}`);
+
+    console.log(`[Engine] 📦 Order saved in Firestore: ${orderData.customerName} | Code: ${trackingCode} | Product: ${orderData.product}`);
+    return { id: docRef.id, trackingCode };
   } catch (e) {
     console.error('[Engine] Save order error:', e.message);
+    return null;
+  }
+}
+
+// Zero-IDOR Scoped Tracking Lookup
+async function findOrdersForTracking(botId, customerId, specificCode = null) {
+  try {
+    if (specificCode) {
+      const cleanCode = specificCode.trim().toUpperCase().replace('#', '');
+      const snap = await db.collection('orders')
+        .where('botId', '==', botId)
+        .where('trackingCode', '==', cleanCode)
+        .limit(1)
+        .get();
+
+      if (!snap.empty) {
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      }
+    }
+
+    if (customerId) {
+      const snap = await db.collection('orders')
+        .where('botId', '==', botId)
+        .where('customerId', '==', String(customerId))
+        .get();
+
+      if (!snap.empty) {
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        return list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')).slice(0, 5);
+      }
+    }
+
+    return [];
+  } catch (e) {
+    console.error('[Engine] Find orders error:', e.message);
+    return [];
+  }
+}
+
+// Idempotent Delivery Status Update
+async function updateOrderDeliveryStatus(orderId, newDeliveryStatus, providerInfo = {}, eventId = null) {
+  if (!orderId) return { success: false, reason: 'Missing orderId' };
+  try {
+    const orderRef = db.collection('orders').doc(orderId);
+    const snap = await orderRef.get();
+    if (!snap.exists) return { success: false, reason: 'Order not found' };
+
+    const data = snap.data();
+    const processedEvents = Array.isArray(data.processedEvents) ? data.processedEvents : [];
+
+    if (eventId && processedEvents.includes(eventId)) {
+      return { success: true, alreadyProcessed: true, order: { id: snap.id, ...data } };
+    }
+
+    const now = new Date().toISOString();
+    const historyEntry = {
+      orderStatus: data.orderStatus || 'confirmed',
+      deliveryStatus: newDeliveryStatus,
+      timestamp: now,
+      provider: providerInfo.provider || data.deliveryProvider || 'manual',
+      trackingNumber: providerInfo.trackingNumber || data.deliveryTrackingNumber || '',
+      note: providerInfo.note || `تم تحديث حالة الشحن إلى: ${newDeliveryStatus}`,
+    };
+
+    const updatePayload = {
+      deliveryStatus: newDeliveryStatus,
+      statusHistory: FieldValue.arrayUnion(historyEntry),
+      updatedAt: now,
+    };
+
+    if (providerInfo.provider) updatePayload.deliveryProvider = providerInfo.provider;
+    if (providerInfo.trackingNumber) updatePayload.deliveryTrackingNumber = providerInfo.trackingNumber;
+    if (eventId) updatePayload.processedEvents = FieldValue.arrayUnion(eventId);
+
+    await orderRef.update(updatePayload);
+    return { success: true, order: { id: snap.id, ...data, ...updatePayload } };
+  } catch (e) {
+    console.error(`[Engine] Update delivery status error for order ${orderId}:`, e.message);
+    return { success: false, reason: e.message };
   }
 }
 
@@ -340,6 +459,31 @@ async function startBot(config) {
       const liveEntry = activeBots.get(config.id);
       const currentConfig = (liveEntry && liveEntry.config) ? liveEntry.config : config;
 
+      // ─── Fast-Path Tracking Engine (0 LLM Calls) ────────────────
+      const trackingEnabled = currentConfig.features
+        ? currentConfig.features.orderTracking !== false && currentConfig.features.orders !== false
+        : (currentConfig.orderTrackingEnabled !== false);
+
+      if (trackingEnabled && isTrackingIntent(userMessage)) {
+        const explicitCode = extractTrackingCode(userMessage);
+        const orders = await findOrdersForTracking(currentConfig.id, userId, explicitCode);
+        let trackingReply = '';
+
+        if (orders.length === 1) {
+          trackingReply = formatSingleOrderCard(orders[0]);
+        } else if (orders.length > 1) {
+          trackingReply = formatMultipleOrdersList(orders);
+        } else {
+          trackingReply = formatNoOrdersFound(explicitCode);
+        }
+
+        await ctx.reply(trackingReply, { parse_mode: 'Markdown' }).catch(() => ctx.reply(trackingReply));
+        saveMessage(currentConfig.id, currentConfig.userId, userId, userName, trackingReply, 'bot');
+        incrementMessageCount(currentConfig.id);
+        console.log(`[Telegram Engine] ⚡ Fast-Path Tracking Reply sent to ${userName} (${userId}) — 0 LLM calls`);
+        return;
+      }
+
       try {
         await ctx.replyWithChatAction('typing');
 
@@ -537,6 +681,67 @@ app.post('/api/takeover', async (req, res) => {
   const key = `${botId}_${telegramUserId}`;
   humanTakeoverMap.set(key, !!enabled);
   res.json({ success: true, takeover: !!enabled });
+});
+
+// ─── Order Tracking & Delivery Management ─────────────────────
+
+// POST /api/orders/:id/delivery-status — Update delivery status and send idempotent notification
+app.post('/api/orders/:id/delivery-status', async (req, res) => {
+  const orderId = req.params.id;
+  const { botId, deliveryStatus, provider, trackingNumber, notifyCustomer } = req.body;
+
+  if (!orderId || !botId || !deliveryStatus) {
+    return res.status(400).json({ error: 'معطيات ناقصة (orderId, botId, deliveryStatus)' });
+  }
+
+  const entry = activeBots.get(botId);
+  if (!requireBotAccess(res, req.uid, entry)) return;
+
+  const eventId = `evt_${orderId}_${deliveryStatus}_${Date.now()}`;
+  const updateResult = await updateOrderDeliveryStatus(
+    orderId,
+    deliveryStatus,
+    { provider, trackingNumber },
+    eventId
+  );
+
+  if (!updateResult.success) {
+    return res.status(500).json({ error: updateResult.reason || 'فشل تحديث حالة الطلبية' });
+  }
+
+  const order = updateResult.order;
+  let notificationSent = false;
+
+  if (notifyCustomer && order && order.customerId && !updateResult.alreadyProcessed) {
+    try {
+      const statusLabel = DELIVERY_STATUS_LABELS[deliveryStatus] || deliveryStatus;
+      const providerName = PROVIDER_NAMES[provider] || provider || '';
+
+      let notifMsg = `📢 *تحديث حالة طلبيتك (كود التتبع: #${order.trackingCode || 'DZ-XXXXXX'})*\n\n`;
+      notifMsg += `أهلاً بك! تم تحديث حالة طردك إلى: ${statusLabel}\n`;
+      if (providerName && provider !== 'manual') {
+        notifMsg += `• *شركة الشحن:* ${providerName}\n`;
+      }
+      if (trackingNumber) {
+        notifMsg += `• *رقم بوليصة الشحن:* \`${trackingNumber}\`\n`;
+      }
+      notifMsg += `\nيمكنك كتابة "تتبع" في أي وقت لمعرفة آخر المستجدات مباشرة!`;
+
+      await entry.bot.api.sendMessage(order.customerId, notifMsg, { parse_mode: 'Markdown' });
+      notificationSent = true;
+
+      await saveMessage(botId, entry.config.userId, order.customerId, order.customerName || 'الزبون', notifMsg, 'bot');
+    } catch (sendErr) {
+      console.warn(`[Telegram API] Notification send failed for customer ${order.customerId}:`, sendErr.message);
+    }
+  }
+
+  res.json({
+    success: true,
+    order: updateResult.order,
+    notificationSent,
+    alreadyProcessed: !!updateResult.alreadyProcessed,
+  });
 });
 
 // Start Express and Firestore Listener

@@ -10,6 +10,7 @@ const { MessageMedia } = require('whatsapp-web.js');
 const { askOpenRouter } = require('./openrouter');
 const firestore = require('./firestore');
 const { isTakeoverActive } = require('./takeover');
+const trackingHelper = require('./tracking-helper');
 
 // ─── Smart Order & Booking Extraction ─────────────────────────
 const ORDER_TAG = '[ORDER_CONFIRMED]';
@@ -184,6 +185,39 @@ async function handleMessage(msg, config) {
         liveConfig = { ...config, ...freshBot };
       }
     } catch (e) {}
+
+    // ─── Fast-Path Tracking Engine (0 LLM Calls) ────────────────
+    const trackingEnabled = liveConfig.features
+      ? liveConfig.features.orderTracking !== false && liveConfig.features.orders !== false
+      : (liveConfig.orderTrackingEnabled !== false);
+
+    if (trackingEnabled && trackingHelper.isTrackingIntent(userMessage)) {
+      const explicitCode = trackingHelper.extractTrackingCode(userMessage);
+      const orders = await firestore.findOrdersForTracking(config.id, userId, explicitCode);
+      let trackingReply = '';
+
+      if (orders.length === 1) {
+        trackingReply = trackingHelper.formatSingleOrderCard(orders[0]);
+      } else if (orders.length > 1) {
+        trackingReply = trackingHelper.formatMultipleOrdersList(orders);
+      } else {
+        trackingReply = trackingHelper.formatNoOrdersFound(explicitCode);
+      }
+
+      await sendTextReply(msg, userId, trackingReply);
+
+      firestore.logBotMessage({
+        botId: config.id,
+        ownerUserId: config.userId,
+        to: userId,
+        userName,
+        message: trackingReply,
+      }).catch(() => {});
+
+      firestore.incrementMessageCount(config.id).catch(() => {});
+      console.log(`[Handler] ⚡ Fast-Path Tracking Reply sent to ${userName} (${userId}) — 0 LLM calls`);
+      return;
+    }
 
     // Build config with auto-orders flag
     const aiConfig = {

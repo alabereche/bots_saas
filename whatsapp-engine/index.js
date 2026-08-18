@@ -25,6 +25,7 @@ const {
 const firestore = require('./firestore');
 const { admin } = require('./firestore');
 const { setTakeover, getTakeoverMap } = require('./takeover');
+const trackingHelper = require('./tracking-helper');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -268,6 +269,77 @@ app.post('/api/takeover', async (req, res) => {
   setTakeover(botId, telegramUserId, !!enabled);
   console.log(`[API] ${enabled ? '🖐️' : '🤖'} Takeover ${enabled ? 'ON' : 'OFF'} (bot ${botId})`);
   res.json({ success: true, takeover: !!enabled });
+});
+
+// ─── Order Tracking & Delivery Management ─────────────────────
+
+// POST /api/orders/:id/delivery-status — Update delivery status and send idempotent notification
+app.post('/api/orders/:id/delivery-status', async (req, res) => {
+  const orderId = req.params.id;
+  const { botId, deliveryStatus, provider, trackingNumber, notifyCustomer } = req.body;
+
+  if (!orderId || !botId || !deliveryStatus) {
+    return res.status(400).json({ error: 'معطيات ناقصة (orderId, botId, deliveryStatus)' });
+  }
+
+  const bot = await requireBotAccess(res, req.uid, botId);
+  if (!bot) return;
+
+  const eventId = `evt_${orderId}_${deliveryStatus}_${Date.now()}`;
+  const updateResult = await firestore.updateOrderDeliveryStatus(
+    orderId,
+    deliveryStatus,
+    { provider, trackingNumber },
+    eventId
+  );
+
+  if (!updateResult.success) {
+    return res.status(500).json({ error: updateResult.reason || 'فشل تحديث حالة الطلبية' });
+  }
+
+  const order = updateResult.order;
+  let notificationSent = false;
+
+  // Send idempotent customer notification if requested and customerId is present
+  if (notifyCustomer && order && order.customerId && !updateResult.alreadyProcessed) {
+    const state = getBotState(botId);
+    if (state && state.status === 'connected' && state.client) {
+      try {
+        const statusLabel = trackingHelper.DELIVERY_STATUS_LABELS[deliveryStatus] || deliveryStatus;
+        const providerName = trackingHelper.PROVIDER_NAMES[provider] || provider || '';
+        
+        let notifMsg = `📢 تحديث حالة طلبيتك (كود التتبع: #${order.trackingCode || 'DZ-XXXXXX'}):\n\n`;
+        notifMsg += `أهلاً بك! تم تحديث حالة طردك إلى: ${statusLabel}\n`;
+        if (providerName && provider !== 'manual') {
+          notifMsg += `• شركة الشحن: ${providerName}\n`;
+        }
+        if (trackingNumber) {
+          notifMsg += `• رقم بوليصة الشحن: ${trackingNumber}\n`;
+        }
+        notifMsg += `\nيمكنك كتابة "تتبع" في أي وقت لمعرفة آخر المستجدات مباشرة!`;
+
+        await state.client.sendMessage(String(order.customerId), notifMsg);
+        notificationSent = true;
+
+        await firestore.logBotMessage({
+          botId,
+          ownerUserId: bot.userId,
+          to: order.customerId,
+          userName: order.customerName || 'الزبون',
+          message: notifMsg,
+        }).catch(() => {});
+      } catch (sendErr) {
+        console.warn(`[API] Notification send failed for customer ${order.customerId}:`, sendErr.message);
+      }
+    }
+  }
+
+  res.json({
+    success: true,
+    order: updateResult.order,
+    notificationSent,
+    alreadyProcessed: !!updateResult.alreadyProcessed,
+  });
 });
 
 // ─── Product Image Upload & Management ─────────────────────────

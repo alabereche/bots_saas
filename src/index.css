@@ -2452,5 +2452,269 @@ h1, h2, h3, h4, h5, h6 {
   line-height: 1.45;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   Omnichannel Channels Matrix Hub & Commerce-First Inbox
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Channels Matrix Grid */
+.channels-matrix-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.channel-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  padding: 1.35rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-card);
+}
+
+.channel-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 3px;
+  background: transparent;
+  transition: background 0.3s ease;
+}
+
+.channel-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-bright);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.channel-card--whatsapp.is-connected::before {
+  background: linear-gradient(90deg, #22c55e, #10b981);
+}
+.channel-card--telegram.is-connected::before {
+  background: linear-gradient(90deg, #0ea5e9, #38bdf8);
+}
+.channel-card--messenger.is-connected::before {
+  background: linear-gradient(90deg, #0084ff, #00c6ff);
+}
+.channel-card--instagram.is-connected::before {
+  background: linear-gradient(90deg, #833ab4, #fd1d1d, #fcb045);
+}
+
+.channel-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.channel-card-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.channel-icon-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.channel-icon-badge--whatsapp {
+  background: rgba(34, 197, 94, 0.12);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.channel-icon-badge--telegram {
+  background: rgba(14, 165, 233, 0.12);
+  color: #0ea5e9;
+  border: 1px solid rgba(14, 165, 233, 0.25);
+}
+
+.channel-icon-badge--messenger {
+  background: rgba(0, 132, 255, 0.12);
+  color: #0084ff;
+  border: 1px solid rgba(0, 132, 255, 0.25);
+}
+
+.channel-icon-badge--instagram {
+  background: rgba(225, 48, 108, 0.12);
+  color: #e1306c;
+  border: 1px solid rgba(225, 48, 108, 0.25);
+}
+
+.channel-card-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 2px;
+}
+
+.channel-card-desc {
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+}
+
+.channel-status-pill {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.channel-status-pill--online {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.channel-status-pill--offline {
+  background: rgba(148, 163, 184, 0.1);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.channel-status-pill--waiting {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+/* Commerce-First Inbox Toolbar */
+.inbox-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--bg-surface);
+}
+
+.inbox-search-box {
+  position: relative;
+  width: 100%;
+}
+
+.inbox-search-input {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 0.55rem 2.25rem 0.55rem 0.85rem;
+  color: #ffffff;
+  font-size: 0.84rem;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.inbox-search-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-subtle);
+}
+
+.inbox-search-icon {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.inbox-filters-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.inbox-filter-btn {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+}
+
+.inbox-filter-btn:hover {
+  background: var(--bg-card);
+  color: #ffffff;
+  border-color: var(--border-bright);
+}
+
+.inbox-filter-btn.is-active {
+  background: var(--color-primary-subtle);
+  color: var(--color-primary-light);
+  border-color: var(--color-primary-border);
+  font-weight: 700;
+}
+
+.inbox-count-badge {
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 0.68rem;
+  padding: 1px 5px;
+  border-radius: var(--radius-full);
+}
+
+/* Thread Item Metadata & Order Tag */
+.thread-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 3px;
+}
+
+.thread-channel-tag {
+  font-size: 0.7rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.thread-channel-tag--whatsapp { color: #22c55e; }
+.thread-channel-tag--telegram { color: #0ea5e9; }
+.thread-channel-tag--messenger { color: #0084ff; }
+.thread-channel-tag--instagram { color: #e1306c; }
+
+.thread-order-tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  font-family: monospace;
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  padding: 1px 6px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
 
 

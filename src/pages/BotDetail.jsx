@@ -17,7 +17,31 @@ import { COUNTRIES } from '../data/countries';
 import { BUSINESS_TYPES } from './CreateBot';
 import { auth } from '../services/firebase';
 import ProductCatalogManager from '../components/ProductCatalogManager';
+import ChannelsManager from '../components/ChannelsManager';
 
+function PlatformMiniIcon({ platform, size = 11 }) {
+  switch (platform) {
+    case 'whatsapp':
+      return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>;
+    case 'telegram':
+      return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>;
+    case 'messenger':
+    case 'facebook':
+      return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/><polyline points="8 13 11 9 13 13 16 10"/></svg>;
+    case 'instagram':
+      return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>;
+    default:
+      return null;
+  }
+}
+
+function platformLabel(p) {
+  if (p === 'whatsapp') return 'WhatsApp';
+  if (p === 'telegram') return 'Telegram';
+  if (p === 'instagram') return 'Instagram';
+  if (p === 'messenger' || p === 'facebook') return 'Messenger';
+  return 'محادثة';
+}
 
 // Engine endpoints — WhatsApp engine (3001) handles WhatsApp bots,
 // the Telegram engine (3002) handles everything else
@@ -80,6 +104,10 @@ export default function BotDetail() {
   const [showClearMessagesModal, setShowClearMessagesModal] = useState(false);
   const [showClearOrdersModal, setShowClearOrdersModal] = useState(false);
   const [clearing, setClearing] = useState(false);
+
+  // Commerce-First Inbox Filters & Search
+  const [inboxFilter, setInboxFilter] = useState('all'); // 'all' | 'unread' | 'orders' | 'customers'
+  const [inboxSearch, setInboxSearch] = useState('');
 
   // Edit form state
   const [editData, setEditData] = useState({
@@ -148,7 +176,13 @@ export default function BotDetail() {
       .catch(() => {});
   }, [id, bot?.platform]);
 
-  // Group messages by customer
+  // Group messages by customer and link to orders & channels
+  const customerOrdersMap = {};
+  (orders || []).forEach(o => {
+    if (o.customerId) customerOrdersMap[String(o.customerId)] = o;
+    if (o.phone) customerOrdersMap[String(o.phone)] = o;
+  });
+
   const customerThreads = {};
   (allMessages || []).forEach(m => {
     if (!m) return;
@@ -157,11 +191,13 @@ export default function BotDetail() {
       customerThreads[uid] = { 
         userId: uid, 
         userName: m.userName || 'مستخدم', 
+        platform: m.platform || bot?.platform || 'whatsapp',
         messages: [], 
         lastTime: m.createdAt || new Date().toISOString()
       };
     }
     customerThreads[uid].messages.push(m);
+    if (m.platform) customerThreads[uid].platform = m.platform;
     if (new Date(m.createdAt) > new Date(customerThreads[uid].lastTime)) {
       customerThreads[uid].lastTime = m.createdAt;
       if (m.role === 'user' && m.userName) customerThreads[uid].userName = m.userName;
@@ -170,6 +206,27 @@ export default function BotDetail() {
 
   const sortedCustomers = Object.values(customerThreads)
     .sort((a, b) => new Date(b.lastTime) - new Date(a.lastTime));
+
+  const filteredCustomers = sortedCustomers.filter(c => {
+    if (inboxSearch.trim()) {
+      const q = inboxSearch.toLowerCase().trim();
+      const matchName = (c.userName || '').toLowerCase().includes(q);
+      const matchMsg = c.messages.some(m => (m.content || '').toLowerCase().includes(q));
+      const order = customerOrdersMap[c.userId];
+      const matchCode = order && (order.trackingCode || '').toLowerCase().includes(q);
+      if (!matchName && !matchMsg && !matchCode) return false;
+    }
+    if (inboxFilter === 'orders') {
+      return !!customerOrdersMap[c.userId];
+    }
+    if (inboxFilter === 'unread') {
+      return !!takeoverMap[c.userId] || c.messages[c.messages.length - 1]?.role === 'user';
+    }
+    if (inboxFilter === 'customers') {
+      return c.messages.length >= 3 || !!customerOrdersMap[c.userId];
+    }
+    return true;
+  });
 
   const selectedThread = selectedUserId ? customerThreads[selectedUserId] : null;
 
@@ -451,13 +508,14 @@ export default function BotDetail() {
         </div>
       </div>
 
-      {/* Solid High-Contrast Tabs Bar (4 Grid Columns) */}
-      <div className="tabs-container" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+      {/* Solid High-Contrast Tabs Bar (5 Grid Columns) */}
+      <div className="tabs-container" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))' }}>
         {[
           { key: 'chat', label: 'المحادثات', count: sortedCustomers.length },
-          { key: 'orders', label: 'الطلبيات', count: newOrdersCount },
+          { key: 'orders', label: 'الطلبيات والتتبع', count: newOrdersCount },
           { key: 'catalog', label: 'الكتالوج والمنتجات', count: bot?.products?.length || null },
-          { key: 'info', label: 'الإعدادات', count: null },
+          { key: 'channels', label: 'قنوات الربط', count: null },
+          { key: 'info', label: 'الإعدادات والقدرات', count: null },
         ].map(tab => (
           <button
             key={tab.key}
@@ -474,13 +532,14 @@ export default function BotDetail() {
         ))}
       </div>
 
-      {/* ─── Tab 1: Chat Layout ─── */}
+      {/* ─── Tab 1: Commerce-First Chat Layout ─── */}
       {activeTab === 'chat' && (
         <div className={`chat-layout ${selectedUserId ? 'has-selected-user' : ''}`}>
           {/* Customer Sidebar (Right) */}
           <div className="chat-sidebar">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.85rem 1rem', borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-card)' }}>
-              <h4 style={{ margin: 0, fontSize: '0.88rem', fontWeight: 700, color: '#ffffff' }}>
+              <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2.2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                 المحادثات ({sortedCustomers.length})
               </h4>
               {allMessages.length > 0 && (
@@ -489,21 +548,59 @@ export default function BotDetail() {
                   onClick={() => setShowClearMessagesModal(true)}
                   style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem', minHeight: 'auto' }}
                 >
-                  مسح الكل
+                  مسح السجل
                 </button>
               )}
             </div>
 
-            {sortedCustomers.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>
-                لا توجد محادثات بعد. ستظهر هنا فور إرسال الزبائن لأي رسالة على البوت.
+            {/* Commerce-First Inbox Toolbar */}
+            <div className="inbox-toolbar">
+              <div className="inbox-search-box">
+                <input
+                  type="text"
+                  className="inbox-search-input"
+                  placeholder="بحث بالاسم أو المحادثة..."
+                  value={inboxSearch}
+                  onChange={e => setInboxSearch(e.target.value)}
+                />
+                <svg className="inbox-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+              </div>
+
+              <div className="inbox-filters-row">
+                {[
+                  { key: 'all', label: 'كل المحادثات', count: sortedCustomers.length },
+                  { key: 'unread', label: 'غير مقروءة', count: sortedCustomers.filter(c => takeoverMap[c.userId] || c.messages[c.messages.length - 1]?.role === 'user').length },
+                  { key: 'orders', label: 'طلبات 📦', count: Object.keys(customerOrdersMap).length },
+                  { key: 'customers', label: 'عملاء', count: sortedCustomers.filter(c => c.messages.length >= 3).length },
+                ].map(f => (
+                  <button
+                    key={f.key}
+                    type="button"
+                    className={`inbox-filter-btn ${inboxFilter === f.key ? 'is-active' : ''}`}
+                    onClick={() => setInboxFilter(f.key)}
+                  >
+                    <span>{f.label}</span>
+                    {f.count > 0 && <span className="inbox-count-badge">{f.count}</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {filteredCustomers.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>
+                <p style={{ fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>لا توجد محادثات تطابق هذا الفلتر</p>
+                <p style={{ fontSize: '0.78rem' }}>جرب اختيار "كل المحادثات" أو إفراغ خانة البحث.</p>
               </div>
             ) : (
               <div style={{ overflowY: 'auto', flex: 1 }}>
-                {sortedCustomers.map(c => {
+                {filteredCustomers.map(c => {
                   const lastMsg = c.messages[c.messages.length - 1];
                   const isActive = c.userId === selectedUserId;
                   const isTakeover = takeoverMap[c.userId];
+                  const activeOrder = customerOrdersMap[c.userId];
+                  const platform = c.platform || bot?.platform || 'whatsapp';
 
                   return (
                     <div
@@ -512,25 +609,37 @@ export default function BotDetail() {
                       onClick={() => setSelectedUserId(c.userId)}
                     >
                       <div style={{
-                        width: '34px', height: '34px', borderRadius: '50%',
+                        width: '36px', height: '36px', borderRadius: '50%',
                         background: '#18243b', color: 'var(--color-primary)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        flexShrink: 0, border: '1px solid var(--border-default)'
+                        flexShrink: 0, border: '1px solid var(--border-default)',
+                        position: 'relative'
                       }}>
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                        {isTakeover && (
+                          <span style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '9px', height: '9px', borderRadius: '50%', background: '#f59e0b', border: '2px solid #141c2c' }} title="وضع يدوي" />
+                        )}
                       </div>
+
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontWeight: 600, fontSize: '0.85rem', color: '#ffffff' }}>{c.userName}</span>
-                          <span style={{ fontSize: '0.68rem', color: 'var(--text-tertiary)' }}>{formatTime(c.lastTime)}</span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                          <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#ffffff' }}>{c.userName}</span>
+                          {activeOrder?.trackingCode && (
+                            <span className="thread-order-tag">#{activeOrder.trackingCode}</span>
+                          )}
                         </div>
+
+                        <div className="thread-meta-row">
+                          <span className={`thread-channel-tag thread-channel-tag--${platform}`}>
+                            <PlatformMiniIcon platform={platform} />
+                            <span>{platformLabel(platform)} · {formatTime(c.lastTime)}</span>
+                          </span>
+                        </div>
+
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '2px' }}>
                           {lastMsg?.role === 'owner' ? 'أنت: ' : lastMsg?.role === 'bot' ? 'البوت: ' : ''}{lastMsg?.content?.slice(0, 45) || '...'}
                         </div>
                       </div>
-                      {isTakeover && (
-                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b', flexShrink: 0 }} title="وضع يدوي" />
-                      )}
                     </div>
                   );
                 })}
@@ -672,7 +781,7 @@ export default function BotDetail() {
         </div>
       )}
 
-      {/* ─── Tab 3: Product Catalog Tab (Optional) ─── */}
+      {/* ─── Tab 3: Product Catalog Tab ─── */}
       {activeTab === 'catalog' && (
         <ProductCatalogManager
           bot={bot}
@@ -682,7 +791,17 @@ export default function BotDetail() {
         />
       )}
 
-      {/* ─── Tab 4: Bot Info Tab ─── */}
+      {/* ─── Tab 4: Channels Matrix Hub ─── */}
+      {activeTab === 'channels' && (
+        <ChannelsManager
+          bot={bot}
+          onUpdateBot={async (data) => {
+            await updateBot(id, data);
+          }}
+        />
+      )}
+
+      {/* ─── Tab 5: Bot Info & Capabilities Tab ─── */}
       {activeTab === 'info' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {/* Card 1: Modular Capabilities */}

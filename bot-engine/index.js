@@ -155,9 +155,8 @@ function extractAndSaveOrder(botId, ownerUserId, customerId, customerName, rawRe
 // ─── Google Gemini AI ─────────────────────────────────────────
 
 async function callGemini(apiKey, model, messages) {
-  const chosen = model || 'gemini-2.5-flash-lite';
-  const fallback = chosen === 'gemini-2.5-flash-lite' ? 'gemini-2.5-flash' : 'gemini-2.5-flash-lite';
-  const modelsToTry = [chosen, fallback];
+  const primary = (model && !model.includes('2.5') && !model.includes('3.5')) ? model : 'gemini-2.0-flash';
+  const modelsToTry = [primary, 'gemini-1.5-flash', 'gemini-2.0-flash-lite-preview-02-05'];
 
   const systemInstruction = messages.find(m => m.role === 'system')?.content || '';
   const contents = messages
@@ -203,9 +202,8 @@ async function callGemini(apiKey, model, messages) {
       } else {
         const err = await res.text();
         lastError = new Error(`Gemini ${geminiModel} ${res.status}: ${err}`);
-        // Fatal client errors (bad key, bad request) fail on every
-        // model — retrying only multiplies the latency
-        const retryable = res.status === 429 || res.status >= 500;
+        // 404 means wrong model name, 429 is rate limit, 500 is server error -> try fallback
+        const retryable = res.status === 404 || res.status === 429 || res.status >= 500;
         if (!retryable) break;
       }
     } catch (e) {

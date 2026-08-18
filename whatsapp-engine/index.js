@@ -301,10 +301,14 @@ app.post('/api/orders/:id/delivery-status', async (req, res) => {
   let notificationSent = false;
 
   // Send idempotent customer notification if requested and customerId is present
-  if (notifyCustomer && order && order.customerId && !updateResult.alreadyProcessed) {
+  const customerTarget = order?.customerId || order?.phone;
+  if (notifyCustomer && order && customerTarget && !updateResult.alreadyProcessed) {
     const state = getBotState(botId);
     if (state && state.status === 'connected' && state.client) {
       try {
+        const statusLabel = trackingHelper.DELIVERY_STATUS_LABELS[deliveryStatus] || deliveryStatus;
+        const providerName = trackingHelper.PROVIDER_NAMES[provider] || provider || '';
+
         let notifMsg = `تحديث حالة طلبيتك:\n\n`;
         notifMsg += `أهلاً بك! تم تحديث حالة طردك إلى:\n`;
         notifMsg += `• ${statusLabel}\n\n`;
@@ -321,19 +325,30 @@ app.post('/api/orders/:id/delivery-status', async (req, res) => {
         notifMsg += `${order.trackingCode || 'DZ-XXXXXX'}\n\n`;
         notifMsg += `يمكنك كتابة "تتبع" في أي وقت للاستعلام المباشر عن حالة الطرد.`;
 
-        await state.client.sendMessage(String(order.customerId), notifMsg);
+        let targetId = String(customerTarget).trim();
+        if (!targetId.includes('@')) {
+          let cleanPhone = targetId.replace(/[^0-9]/g, '');
+          if (cleanPhone.startsWith('0')) cleanPhone = '213' + cleanPhone.slice(1);
+          targetId = `${cleanPhone}@c.us`;
+        }
+
+        console.log(`[API] 📢 Dispatching WhatsApp delivery notification for order ${orderId} to ${targetId}...`);
+        await state.client.sendMessage(targetId, notifMsg);
         notificationSent = true;
+        console.log(`[API] ✅ WhatsApp notification sent successfully to ${targetId}`);
 
         await firestore.logBotMessage({
           botId,
           ownerUserId: bot.userId,
-          to: order.customerId,
+          to: targetId,
           userName: order.customerName || 'الزبون',
           message: notifMsg,
         }).catch(() => {});
       } catch (sendErr) {
-        console.warn(`[API] Notification send failed for customer ${order.customerId}:`, sendErr.message);
+        console.error(`[API] ❌ Notification send failed for customer ${customerTarget}:`, sendErr.message);
       }
+    } else {
+      console.warn(`[API] ⚠️ Bot ${botId} is not connected to WhatsApp, state:`, state ? state.status : 'null');
     }
   }
 

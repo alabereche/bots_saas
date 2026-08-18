@@ -337,6 +337,13 @@ export function sanitizeBotFeatures(features = {}) {
   return f;
 }
 
+const WHATSAPP_ENGINE_URL = import.meta.env.VITE_WHATSAPP_ENGINE_URL || 'http://162.62.233.152:3001';
+const TELEGRAM_ENGINE_URL = import.meta.env.VITE_ENGINE_URL || 'http://162.62.233.152:3002';
+
+function engineUrlFor(platform) {
+  return platform === 'telegram' ? TELEGRAM_ENGINE_URL : WHATSAPP_ENGINE_URL;
+}
+
 // Update delivery status and dispatch idempotent notification via Engine API
 export async function updateOrderDelivery(botId, orderId, platform = 'whatsapp', payload = {}) {
   const {
@@ -378,10 +385,9 @@ export async function updateOrderDelivery(botId, orderId, platform = 'whatsapp',
   if (notifyCustomer) {
     try {
       const idToken = await auth.currentUser?.getIdToken();
-      const enginePort = platform === 'telegram' ? 3002 : 3001;
-      const apiHost = window.location.hostname === 'localhost' ? `http://localhost:${enginePort}` : '';
+      const engineUrl = engineUrlFor(platform);
       
-      await fetch(`${apiHost}/api/orders/${orderId}/delivery-status`, {
+      const res = await fetch(`${engineUrl}/api/orders/${orderId}/delivery-status`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -395,8 +401,17 @@ export async function updateOrderDelivery(botId, orderId, platform = 'whatsapp',
           notifyCustomer: true,
         }),
       });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'تعذر إرسال الإشعار من محرك البوت');
+      }
+      if (data.notificationSent === false && !data.alreadyProcessed) {
+        console.warn('[Firebase Service] Notification was not sent (bot may not be connected)');
+      }
     } catch (err) {
       console.warn('[Firebase Service] Delivery notification dispatch warning:', err.message);
+      throw err;
     }
   }
 }

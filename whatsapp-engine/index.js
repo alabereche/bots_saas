@@ -305,18 +305,21 @@ app.post('/api/orders/:id/delivery-status', async (req, res) => {
     const state = getBotState(botId);
     if (state && state.status === 'connected' && state.client) {
       try {
-        const statusLabel = trackingHelper.DELIVERY_STATUS_LABELS[deliveryStatus] || deliveryStatus;
-        const providerName = trackingHelper.PROVIDER_NAMES[provider] || provider || '';
-        
-        let notifMsg = `📢 تحديث حالة طلبيتك (كود التتبع: #${order.trackingCode || 'DZ-XXXXXX'}):\n\n`;
-        notifMsg += `أهلاً بك! تم تحديث حالة طردك إلى: ${statusLabel}\n`;
+        let notifMsg = `تحديث حالة طلبيتك:\n\n`;
+        notifMsg += `أهلاً بك! تم تحديث حالة طردك إلى:\n`;
+        notifMsg += `• ${statusLabel}\n\n`;
+        if (order.product) {
+          notifMsg += `• المنتج: ${order.product}\n`;
+        }
         if (providerName && provider !== 'manual') {
           notifMsg += `• شركة الشحن: ${providerName}\n`;
         }
         if (trackingNumber) {
           notifMsg += `• رقم بوليصة الشحن: ${trackingNumber}\n`;
         }
-        notifMsg += `\nيمكنك كتابة "تتبع" في أي وقت لمعرفة آخر المستجدات مباشرة!`;
+        notifMsg += `\nكود التتبع الخاص بك (لنسخه واستخدامه مباشرة):\n`;
+        notifMsg += `${order.trackingCode || 'DZ-XXXXXX'}\n\n`;
+        notifMsg += `يمكنك كتابة "تتبع" في أي وقت للاستعلام المباشر عن حالة الطرد.`;
 
         await state.client.sendMessage(String(order.customerId), notifMsg);
         notificationSent = true;

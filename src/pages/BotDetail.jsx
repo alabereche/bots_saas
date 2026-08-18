@@ -646,7 +646,14 @@ export default function BotDetail() {
 
           {orders.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-tertiary)' }}>
-              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📦</div>
+              <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.2)', color: '#38bdf8', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.85rem' }}>
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="16.5" y1="9.4" x2="7.5" y2="4.21" />
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                  <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                  <line x1="12" y1="22.08" x2="12" y2="12" />
+                </svg>
+              </div>
               <p style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>لا توجد طلبيات أو طرود مسجلة بعد</p>
               <p style={{ fontSize: '0.85rem' }}>يقوم البوت بتسجيل الطلبيات وتوليد كود التتبع (#DZ-XXXXXX) تلقائياً بمجرد تأكيد المشتري في المحادثة.</p>
             </div>
@@ -982,14 +989,74 @@ function formatTime(dateStr) {
   return d.toLocaleDateString('ar');
 }
 
+function DeliveryStatusIcon({ status, size = 13 }) {
+  switch (status) {
+    case 'pending':
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 16 14" />
+        </svg>
+      );
+    case 'preparing':
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="16.5" y1="9.4" x2="7.5" y2="4.21" />
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+          <line x1="12" y1="22.08" x2="12" y2="12" />
+        </svg>
+      );
+    case 'shipped':
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="1" y="3" width="15" height="13" />
+          <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
+          <circle cx="5.5" cy="18.5" r="2.5" />
+          <circle cx="18.5" cy="18.5" r="2.5" />
+        </svg>
+      );
+    case 'out_for_delivery':
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="3 11 22 2 13 21 11 13 3 11" />
+        </svg>
+      );
+    case 'delivered':
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+          <polyline points="22 4 12 14.01 9 11.01" />
+        </svg>
+      );
+    case 'returned':
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="1 4 1 10 7 10" />
+          <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+        </svg>
+      );
+    case 'cancelled':
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="15" y1="9" x2="9" y2="15" />
+          <line x1="9" y1="9" x2="15" y2="15" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
 const DELIVERY_STATUSES = {
-  pending: { label: 'قيد المراجعة والتأكيد', icon: '⏳', color: '#f59e0b', bg: '#33230a', border: '#543b12' },
-  preparing: { label: 'قيد التجهيز والتغليف', icon: '📦', color: '#38bdf8', bg: '#132b3d', border: '#1d4461' },
-  shipped: { label: 'تم تسليم الطرد لشركة الشحن', icon: '🚚', color: '#818cf8', bg: '#1e1b4b', border: '#312e81' },
-  out_for_delivery: { label: 'خرج للتوصيل (مع الموزع)', icon: '🛵', color: '#c084fc', bg: '#3b0764', border: '#581c87' },
-  delivered: { label: 'تم التسليم بنجاح', icon: '✅', color: '#34d399', bg: '#132d24', border: '#1c4b3c' },
-  returned: { label: 'تم إرجاع الطرد', icon: '↩️', color: '#f87171', bg: '#33161a', border: '#541c22' },
-  cancelled: { label: 'ملغى', icon: '❌', color: '#94a3b8', bg: '#1c263c', border: '#26334d' },
+  pending: { label: 'قيد المراجعة والتأكيد', color: '#f59e0b', bg: '#33230a', border: '#543b12' },
+  preparing: { label: 'قيد التجهيز والتغليف', color: '#38bdf8', bg: '#132b3d', border: '#1d4461' },
+  shipped: { label: 'تم تسليم الطرد لشركة الشحن', color: '#818cf8', bg: '#1e1b4b', border: '#312e81' },
+  out_for_delivery: { label: 'خرج للتوصيل (مع الموزع)', color: '#c084fc', bg: '#3b0764', border: '#581c87' },
+  delivered: { label: 'تم التسليم بنجاح', color: '#34d399', bg: '#132d24', border: '#1c4b3c' },
+  returned: { label: 'تم إرجاع الطرد', color: '#f87171', bg: '#33161a', border: '#541c22' },
+  cancelled: { label: 'ملغى', color: '#94a3b8', bg: '#1c263c', border: '#26334d' },
 };
 
 const DELIVERY_PROVIDERS = [
@@ -1005,8 +1072,8 @@ const DELIVERY_PROVIDERS = [
 function DeliveryStatusBadge({ status }) {
   const c = DELIVERY_STATUSES[status] || DELIVERY_STATUSES.pending;
   return (
-    <span style={{ fontSize: '0.74rem', fontWeight: 700, background: c.bg, color: c.color, border: `1px solid ${c.border}`, padding: '2px 8px', borderRadius: 'var(--radius-full)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-      <span>{c.icon}</span>
+    <span style={{ fontSize: '0.74rem', fontWeight: 700, background: c.bg, color: c.color, border: `1px solid ${c.border}`, padding: '2px 8px', borderRadius: 'var(--radius-full)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+      <DeliveryStatusIcon status={status} size={13} />
       <span>{c.label}</span>
     </span>
   );
@@ -1090,15 +1157,19 @@ function OrderDeliveryItem({ order, bot, onUpdateDelivery }) {
       {/* Delivery Management Controls */}
       <div className="delivery-control-box">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-          <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-primary)' }}>🚚 إدارة حالة الشحن والتوصيل</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-primary)' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            <span>إدارة حالة الشحن والتوصيل</span>
+          </div>
           {Array.isArray(order.statusHistory) && order.statusHistory.length > 0 && (
             <button 
               type="button" 
               className="btn btn-secondary btn-sm" 
-              style={{ fontSize: '0.72rem', padding: '2px 8px' }}
+              style={{ fontSize: '0.72rem', padding: '2px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
               onClick={() => setShowTimeline(!showTimeline)}
             >
-              {showTimeline ? 'إخفاء سجل المراحل 🔼' : `سجل المراحل (${order.statusHistory.length}) 🔽`}
+              <span>سجل المراحل ({order.statusHistory.length})</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: showTimeline ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }}><polyline points="6 9 12 15 18 9"/></svg>
             </button>
           )}
         </div>
@@ -1113,7 +1184,7 @@ function OrderDeliveryItem({ order, bot, onUpdateDelivery }) {
               onChange={e => setDeliveryStatus(e.target.value)}
             >
               {Object.entries(DELIVERY_STATUSES).map(([k, v]) => (
-                <option key={k} value={k}>{v.icon} {v.label}</option>
+                <option key={k} value={k}>{v.label}</option>
               ))}
             </select>
           </div>
@@ -1152,7 +1223,10 @@ function OrderDeliveryItem({ order, bot, onUpdateDelivery }) {
               onChange={e => setNotifyCustomer(e.target.checked)} 
               disabled={!order.customerId}
             />
-            <span>إرسال إشعار فوري وتلقائي للزبون عبر {bot.platform === 'telegram' ? 'تيليغرام' : 'واتساب'} 📢</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              <span>إرسال إشعار فوري وتلقائي للزبون عبر {bot.platform === 'telegram' ? 'تيليغرام' : 'واتساب'}</span>
+            </span>
           </label>
 
           <button 
@@ -1172,13 +1246,14 @@ function OrderDeliveryItem({ order, bot, onUpdateDelivery }) {
                 const sConf = DELIVERY_STATUSES[step.deliveryStatus] || DELIVERY_STATUSES.pending;
                 return (
                   <div key={idx} className="timeline-step">
-                    <div style={{ fontWeight: 600, color: '#ffffff' }}>
-                      {sConf.icon} {sConf.label} {step.provider && step.provider !== 'manual' ? `(${step.provider})` : ''}
+                    <div style={{ fontWeight: 600, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <DeliveryStatusIcon status={step.deliveryStatus} size={14} />
+                      <span>{sConf.label} {step.provider && step.provider !== 'manual' ? `(${step.provider})` : ''}</span>
                     </div>
                     {step.trackingNumber && (
-                      <div style={{ fontSize: '0.74rem', color: '#38bdf8' }}>بوليصة: {step.trackingNumber}</div>
+                      <div style={{ fontSize: '0.74rem', color: '#38bdf8', marginTop: '2px' }}>بوليصة: {step.trackingNumber}</div>
                     )}
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>{new Date(step.timestamp).toLocaleString('ar')}</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>{new Date(step.timestamp).toLocaleString('ar')}</div>
                   </div>
                 );
               })}
@@ -1212,19 +1287,79 @@ function BotCapabilitiesManager({ bot, onUpdateBot }) {
   };
 
   const capabilities = [
-    { key: 'catalog', title: 'كتالوج المنتجات والخدمات', desc: 'إرسال صور ومواصفات السلع والتفاصيل للزبون مباشرة داخل المحادثة.', icon: '🛍️' },
-    { key: 'orders', title: 'استقبال وتسجيل الطلبيات', desc: 'استخراج وتأكيد بيانات المشتري (الاسم، الهاتف، العنوان) تلقائياً.', icon: '📝' },
-    { key: 'orderTracking', title: 'نظام التتبع المباشر (#DZ-XXXXXX)', desc: 'تمكين الزبائن من معرفة حالة طرودهم فوراً وبدون استهلاك للذكاء الاصطناعي (0 LLM Calls).', icon: '⚡', req: 'orders' },
-    { key: 'delivery', title: 'إدارة شركات الشحن والتوصيل', desc: 'التكامل مع شركات التوصيل (Yalidine, ZR Express...) وإرفاق أرقام البوالص.', icon: '🚚', req: 'orders' },
-    { key: 'notifications', title: 'إشعارات الشحن التلقائية', desc: 'إرسال إشعار فوري للزبون فور تغيير حالة الطرد في لوحة التحكم.', icon: '📢', req: 'orderTracking' },
-    { key: 'bookings', title: 'حجز المواعيد والاستشارات', desc: 'تخصيص البوت لجدولة المواعيد للعيادات والمراكز والمكاتب المهنية.', icon: '📅' },
+    {
+      key: 'catalog',
+      title: 'كتالوج المنتجات والخدمات',
+      desc: 'إرسال صور ومواصفات السلع والتفاصيل للزبون مباشرة داخل المحادثة.',
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>
+        </svg>
+      )
+    },
+    {
+      key: 'orders',
+      title: 'استقبال وتسجيل الطلبيات',
+      desc: 'استخراج وتأكيد بيانات المشتري (الاسم، الهاتف، العنوان) تلقائياً.',
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/>
+        </svg>
+      )
+    },
+    {
+      key: 'orderTracking',
+      title: 'نظام التتبع المباشر (#DZ-XXXXXX)',
+      desc: 'تمكين الزبائن من معرفة حالة طرودهم فوراً وبدون استهلاك للذكاء الاصطناعي (0 LLM Calls).',
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+      ),
+      req: 'orders'
+    },
+    {
+      key: 'delivery',
+      title: 'إدارة شركات الشحن والتوصيل',
+      desc: 'التكامل مع شركات التوصيل (Yalidine, ZR Express...) وإرفاق أرقام البوالص.',
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
+        </svg>
+      ),
+      req: 'orders'
+    },
+    {
+      key: 'notifications',
+      title: 'إشعارات الشحن التلقائية',
+      desc: 'إرسال إشعار فوري للزبون فور تغيير حالة الطرد في لوحة التحكم.',
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+      ),
+      req: 'orderTracking'
+    },
+    {
+      key: 'bookings',
+      title: 'حجز المواعيد والاستشارات',
+      desc: 'تخصيص البوت لجدولة المواعيد للعيادات والمراكز والمكاتب المهنية.',
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+      )
+    },
   ];
 
   return (
     <div className="card">
       <div className="card-header-row" style={{ marginBottom: '0.65rem' }}>
         <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '1.25rem' }}>⚙️</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
           قدرات وموديولات البوت (Modular Commerce)
         </h3>
       </div>
@@ -1243,26 +1378,37 @@ function BotCapabilitiesManager({ bot, onUpdateBot }) {
               className={`capability-card ${isActive ? 'is-active' : ''} ${isReqMissing ? 'is-disabled' : ''}`}
             >
               <div className="capability-info">
-                <div className="capability-title">
-                  <span>{cap.icon}</span>
+                <div className="capability-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ color: isActive ? 'var(--color-primary)' : 'var(--text-tertiary)' }}>{cap.icon}</span>
                   <span>{cap.title}</span>
                 </div>
                 <p className="capability-desc">{cap.desc}</p>
                 {isReqMissing && (
-                  <span style={{ fontSize: '0.72rem', color: '#f59e0b', display: 'block', marginTop: '4px' }}>
-                    ⚠️ يتطلب تفعيل موديول "{cap.req === 'orders' ? 'استقبال الطلبيات' : 'نظام التتبع'}" أولاً
-                  </span>
+                  <div style={{ fontSize: '0.72rem', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    <span>يتطلب تفعيل موديول "{cap.req === 'orders' ? 'استقبال الطلبيات' : 'نظام التتبع'}" أولاً</span>
+                  </div>
                 )}
               </div>
 
               <button
                 type="button"
                 className={`btn btn-sm ${isActive ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ minWidth: '70px', padding: '4px 10px', fontSize: '0.78rem' }}
+                style={{ minWidth: '80px', padding: '4px 10px', fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
                 disabled={saving || isReqMissing}
                 onClick={() => toggleFeature(cap.key)}
               >
-                {isActive ? 'مفعل ✅' : 'معطل ⭕'}
+                {isActive ? (
+                  <>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span>مفعل</span>
+                  </>
+                ) : (
+                  <>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'currentColor' }} />
+                    <span>معطل</span>
+                  </>
+                )}
               </button>
             </div>
           );

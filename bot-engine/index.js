@@ -628,6 +628,9 @@ app.get('/api/meta/webhook', (req, res) => {
     console.log('[Meta Webhook] ✅ Verified webhook challenge successfully');
     return res.status(200).send(challenge);
   }
+  return res.sendStatus(403);
+});
+
 async function sendMetaImage(pageToken, recipientId, mediaUrl) {
   try {
     if (!mediaUrl) return;

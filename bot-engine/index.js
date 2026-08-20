@@ -355,14 +355,14 @@ async function askAI(config, userId, userMessage) {
 
   const systemPrompt = buildSystemPrompt(config);
   const messages = [{ role: 'system', content: systemPrompt }, ...history];
-  const model = config.aiModel || 'gemini-2.5-flash';
+  const model = config.aiModel || 'gemini-3.5-flash-lite';
+  const apiKey = config.customApiKey || config.geminiApiKey || config.apiKey || GEMINI_API_KEY;
 
   let reply;
   try {
-    reply = await callGemini(GEMINI_API_KEY, model, messages);
+    reply = await callGemini(apiKey, model, messages);
   } catch (err) {
-    // The attempt failed: drop the user message so a retry doesn't
-    // carry a phantom turn
+    // The attempt failed: drop the user message so a retry doesn't carry a phantom turn
     history.pop();
     throw err;
   }
@@ -689,32 +689,37 @@ app.post('/api/meta/webhook', async (req, res) => {
             reply = formatNoOrdersFound(botConfig.businessName);
           }
         } else {
-          // Fetch previous conversation history for context
-          let history = [];
+          // Generate AI reply with askAI (manages conversational memory and retries)
+          let rawAiReply = '';
           try {
-            const historySnap = await db.collection('messages')
-              .where('botId', '==', botConfig.id)
-              .where('customerId', '==', String(senderId))
-              .orderBy('timestamp', 'desc')
-              .limit(6)
-              .get();
-            history = historySnap.docs.reverse().map(d => ({
-              role: d.data().sender === 'user' ? 'user' : 'assistant',
-              content: d.data().text || ''
-            }));
-          } catch (histErr) {
-            console.warn('[Meta Webhook] History fetch warning:', histErr.message);
+            rawAiReply = await askAI(botConfig, senderId, text);
+          } catch (aiErr) {
+            console.error('[Meta Webhook] ⚠️ AI call failed:', aiErr.message);
+            rawAiReply = `مرحباً بك في ${botConfig.businessName || botConfig.botName || 'متجرنا'}! كيف يمكنني مساعدتك اليوم؟`;
           }
 
-          history.push({ role: 'user', content: text });
-
-          // Generate AI reply with Gemini
-          const prompt = buildSystemPrompt(botConfig);
-          const messages = [{ role: 'system', content: prompt }, ...history];
-          const apiKey = botConfig.customApiKey || GEMINI_API_KEY;
-          const rawAiReply = await callGemini(apiKey, botConfig.aiModel || 'gemini-3.5-flash-lite', messages);
           const processed = extractAndSaveOrder(botConfig.id, botConfig.userId, senderId, senderName, rawAiReply, platform);
-          reply = processed.reply;
+          const { cleanReply: finalReplyText, mediaToSend } = extractProductMedia(processed.reply, botConfig.products);
+          reply = finalReplyText || processed.reply;
+
+          // If products had media attached, send images over Graph API
+          if (mediaToSend && mediaToSend.length > 0) {
+            for (const mediaUrl of mediaToSend) {
+              await fetch(`https://graph.facebook.com/v19.0/me/messages?access_token=${pageToken}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  recipient: { id: senderId },
+                  message: {
+                    attachment: {
+                      type: 'image',
+                      payload: { url: mediaUrl, is_reusable: true }
+                    }
+                  }
+                })
+              }).catch(e => console.warn('[Meta Webhook] Image send error:', e.message));
+            }
+          }
         }
 
         // Clean formatting for Messenger

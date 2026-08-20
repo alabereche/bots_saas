@@ -376,35 +376,44 @@ const SHOW_PRODUCT_TAG = '[SHOW_PRODUCT:';
 const SHOW_GALLERY_TAG = '[SHOW_PRODUCT_GALLERY:';
 
 function extractProductMedia(rawReply, productsList = []) {
-  let cleanReply = rawReply;
+  let cleanReply = rawReply || '';
   let singleProductId = null;
   let galleryProductId = null;
 
-  const singleIdx = cleanReply.indexOf(SHOW_PRODUCT_TAG);
-  if (singleIdx !== -1) {
-    const endIdx = cleanReply.indexOf(']', singleIdx);
-    if (endIdx !== -1) {
-      singleProductId = cleanReply.slice(singleIdx + SHOW_PRODUCT_TAG.length, endIdx).trim();
-      cleanReply = cleanReply.slice(0, singleIdx) + cleanReply.slice(endIdx + 1);
-    }
+  // 1. Check for [SHOW_PRODUCT_GALLERY: xyz]
+  const galleryMatch = cleanReply.match(/\[(?:SHOW_PRODUCT_GALLERY|GALLERY)\s*:\s*([^\]]+)\]/i);
+  if (galleryMatch) {
+    galleryProductId = galleryMatch[1].trim();
+    cleanReply = cleanReply.replace(galleryMatch[0], '');
   }
 
-  const galleryIdx = cleanReply.indexOf(SHOW_GALLERY_TAG);
-  if (galleryIdx !== -1) {
-    const endIdx = cleanReply.indexOf(']', galleryIdx);
-    if (endIdx !== -1) {
-      galleryProductId = cleanReply.slice(galleryIdx + SHOW_GALLERY_TAG.length, endIdx).trim();
-      cleanReply = cleanReply.slice(0, galleryIdx) + cleanReply.slice(endIdx + 1);
-    }
+  // 2. Check for [SHOW_PRODUCT: xyz] or [PRODUCT: xyz]
+  const singleMatch = cleanReply.match(/\[(?:SHOW_PRODUCT|PRODUCT)\s*:\s*([^\]]+)\]/i);
+  if (singleMatch) {
+    singleProductId = singleMatch[1].trim();
+    cleanReply = cleanReply.replace(singleMatch[0], '');
   }
 
-  cleanReply = cleanReply.trim();
+  // 3. Fallback: Check for direct [prod_xxx] tags
+  const directMatch = cleanReply.match(/\[(prod_[a-zA-Z0-9_-]+)\]/i);
+  if (directMatch) {
+    singleProductId = directMatch[1].trim();
+    cleanReply = cleanReply.replace(directMatch[0], '');
+  }
+
+  // Clean any stray bracket tags
+  cleanReply = cleanReply.replace(/\[prod_[^\]]*\]/gi, '').trim();
 
   let mediaToSend = [];
   const targetId = galleryProductId || singleProductId;
 
   if (targetId && Array.isArray(productsList)) {
-    const product = productsList.find(p => p && String(p.id).trim() === targetId);
+    const product = productsList.find(p => p && (
+      String(p.id).trim() === targetId ||
+      String(p.id).trim() === `prod_${targetId}` ||
+      targetId.includes(String(p.id))
+    ));
+
     if (product) {
       if (galleryProductId) {
         const allImages = [];
@@ -415,7 +424,7 @@ function extractProductMedia(rawReply, productsList = []) {
           allImages.push(...product.images.filter(Boolean));
         }
         mediaToSend = allImages.slice(0, 5);
-      } else if (singleProductId) {
+      } else {
         const mainImg = product.primaryImage || (Array.isArray(product.images) ? product.images[0] : null);
         if (mainImg) mediaToSend = [mainImg];
       }

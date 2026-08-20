@@ -27,20 +27,57 @@ import { encrypt, decrypt } from './encryption.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+function isSafePublicHttpUrl(urlStr) {
+  try {
+    const parsed = new URL(urlStr);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
+    const hostname = parsed.hostname.toLowerCase();
+    // Block loopback, private RFC1918, link-local, and cloud metadata IPs
+    if (
+      hostname === 'localhost' ||
+      hostname.endsWith('.localhost') ||
+      hostname === '127.0.0.1' ||
+      hostname === '::1' ||
+      hostname.startsWith('10.') ||
+      hostname.startsWith('192.168.') ||
+      hostname.startsWith('169.254.') ||
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname)
+    ) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function resolveInputMedia(mediaUrl) {
   try {
     if (typeof mediaUrl === 'string') {
-      const filename = path.basename(new URL(mediaUrl).pathname);
-      const localPath = path.resolve(__dirname, '../whatsapp-engine/uploads', filename);
-      if (fs.existsSync(localPath)) {
-        return new InputFile(localPath);
+      if (mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://')) {
+        const parsed = new URL(mediaUrl);
+        const filename = path.basename(parsed.pathname);
+        const localPath = path.resolve(__dirname, '../whatsapp-engine/uploads', filename);
+        if (fs.existsSync(localPath)) {
+          return new InputFile(localPath);
+        }
+        if (!isSafePublicHttpUrl(mediaUrl)) {
+          console.warn('[Telegram Engine] ⚠️ Blocked unsafe media URL (SSRF defense):', mediaUrl);
+          return null;
+        }
+        return new InputFile(new URL(mediaUrl));
+      } else if (!mediaUrl.includes('://')) {
+        const safeName = path.basename(mediaUrl);
+        const localPath = path.resolve(__dirname, '../whatsapp-engine/uploads', safeName);
+        if (fs.existsSync(localPath)) {
+          return new InputFile(localPath);
+        }
       }
-      return new InputFile(new URL(mediaUrl));
     }
   } catch (e) {
     console.warn('[Telegram Engine] resolveInputMedia warning:', e.message);
   }
-  return mediaUrl;
+  return null;
 }
 
 const PORT = process.env.PORT || 3002;
@@ -190,8 +227,8 @@ async function findOrdersForTracking(botId, customerId, specificCode = null) {
   }
 }
 
-// Idempotent Delivery Status Update
-async function updateOrderDeliveryStatus(orderId, newDeliveryStatus, providerInfo = {}, eventId = null) {
+// Idempotent Delivery Status Update with IDOR Protection (F02)
+async function updateOrderDeliveryStatus(orderId, newDeliveryStatus, providerInfo = {}, eventId = null, expectedBotId = null, expectedUserId = null) {
   if (!orderId) return { success: false, reason: 'Missing orderId' };
   try {
     const orderRef = db.collection('orders').doc(orderId);
@@ -199,6 +236,16 @@ async function updateOrderDeliveryStatus(orderId, newDeliveryStatus, providerInf
     if (!snap.exists) return { success: false, reason: 'Order not found' };
 
     const data = snap.data();
+
+    // Security Check: Enforce tenant ownership (F02 IDOR Defense)
+    if (expectedBotId && data.botId && data.botId !== expectedBotId) {
+      return { success: false, reason: 'غير مصرح: الطلبية لا تنتمي لهذا المتجر' };
+    }
+    const orderOwner = data.ownerUserId || data.userId;
+    if (expectedUserId && orderOwner && orderOwner !== expectedUserId) {
+      return { success: false, reason: 'غير مصرح: الطلبية لا تخص هذا المستخدم' };
+    }
+
     const processedEvents = Array.isArray(data.processedEvents) ? data.processedEvents : [];
 
     if (eventId && processedEvents.includes(eventId)) {
@@ -236,7 +283,7 @@ async function updateOrderDeliveryStatus(orderId, newDeliveryStatus, providerInf
 // ─── Smart Order Extraction ──────────────────────────────────
 const ORDER_TAG = '[ORDER_CONFIRMED]';
 
-function extractAndSaveOrder(botId, ownerUserId, customerId, customerName, rawReply, platform = 'telegram') {
+function extractAndSaveOrder(botId, ownerUserId, customerId, customerName, rawReply, platform = 'telegram', catalogProducts = []) {
   const tagIndex = rawReply.indexOf(ORDER_TAG);
   if (tagIndex === -1) return { reply: rawReply, orderFound: false };
 
@@ -250,6 +297,19 @@ function extractAndSaveOrder(botId, ownerUserId, customerId, customerName, rawRe
     const str = v => (typeof v === 'string' ? v.trim().slice(0, 300) : '');
     const phone = str(orderData?.phone);
     const product = str(orderData?.product);
+
+    // Validate price against official product catalog (F13 Prompt Injection Defense)
+    let validatedPrice = str(orderData?.price);
+    if (Array.isArray(catalogProducts) && catalogProducts.length > 0 && product) {
+      const matchedProd = catalogProducts.find(p => p && (
+        (p.name && p.name.toLowerCase().includes(product.toLowerCase())) ||
+        (product && product.toLowerCase().includes(p.name?.toLowerCase()))
+      ));
+      if (matchedProd && matchedProd.price) {
+        validatedPrice = String(matchedProd.price);
+      }
+    }
+
     if (product || phone) {
       saveOrderToFirestore({
         botId,
@@ -260,7 +320,7 @@ function extractAndSaveOrder(botId, ownerUserId, customerId, customerName, rawRe
         phone,
         address: str(orderData?.address),
         product,
-        price: str(orderData?.price),
+        price: validatedPrice,
         orderSummary: cleanReply.slice(-500),
       });
       return { reply: cleanReply, orderFound: true };
@@ -506,7 +566,15 @@ async function startBot(config) {
         };
 
         const rawReply = await askAI(aiConfig, userId, userMessage);
-        const { reply: replyWithoutOrder, orderFound } = extractAndSaveOrder(currentConfig.id, currentConfig.userId, userId, userName, rawReply);
+        const { reply: replyWithoutOrder, orderFound } = extractAndSaveOrder(
+          currentConfig.id,
+          currentConfig.userId,
+          userId,
+          userName,
+          rawReply,
+          'telegram',
+          currentConfig.products
+        );
         const { cleanReply: finalReplyText, mediaToSend } = extractProductMedia(replyWithoutOrder, currentConfig.products);
         const reply = finalReplyText || replyWithoutOrder;
 
@@ -579,9 +647,9 @@ async function stopBot(botId) {
 // ─── Realtime Firestore Sync ──────────────────────────────────
 
 function listenToBots() {
-  console.log('[Engine] Subscribing to Firestore "bots" collection in realtime...');
+  console.log('[Engine] Subscribing to Firestore "bots" collection (platform: telegram) in realtime...');
 
-  db.collection('bots').onSnapshot((snapshot) => {
+  db.collection('bots').where('platform', '==', 'telegram').onSnapshot((snapshot) => {
     const currentBotIds = new Set();
 
     snapshot.docs.forEach((docSnap) => {
@@ -615,9 +683,47 @@ function listenToBots() {
 
 // ─── Express API Server ───────────────────────────────────────
 
+// ─── Express API Server ───────────────────────────────────────
+
 const app = express();
 app.use(cors({ origin: '*' }));
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({
+  limit: '1mb',
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
+
+// ─── Rate limiting (sliding window per-user / per-IP) ────────
+// Safe eviction prunes only expired records when map grows (F11)
+function rateLimit({ windowMs = 60000, max = 120 } = {}) {
+  const buckets = new Map();
+  return (req, res, next) => {
+    const key = req.uid || req.ip || 'unknown';
+    const now = Date.now();
+    let bucket = buckets.get(key);
+    if (!bucket || now - bucket.start > windowMs) {
+      bucket = { start: now, count: 0 };
+      buckets.set(key, bucket);
+    }
+
+    // Safely prune expired entries without wiping active rate limits
+    if (buckets.size > 5000) {
+      for (const [k, b] of buckets.entries()) {
+        if (now - b.start > windowMs) {
+          buckets.delete(k);
+        }
+      }
+    }
+
+    if (++bucket.count > max) {
+      return res.status(429).json({ error: 'عدد كبير من الطلبات — يرجى المحاولة لاحقاً' });
+    }
+    next();
+  };
+}
+
+app.use('/api', rateLimit({ windowMs: 60000, max: 120 }));
 
 // ─── Meta (Facebook Messenger & Instagram Direct) Webhook ───────
 // Verification Challenge from Meta
@@ -685,8 +791,8 @@ async function sendMetaImage(pageToken, recipientId, mediaUrl) {
       return;
     }
 
-    if (mediaUrl.startsWith('https://')) {
-      // Public HTTPS URL
+    if (mediaUrl.startsWith('https://') && isSafePublicHttpUrl(mediaUrl)) {
+      // Public HTTPS URL (SSRF protected)
       const res = await fetch(`https://graph.facebook.com/v19.0/me/messages?access_token=${pageToken}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -710,6 +816,26 @@ async function sendMetaImage(pageToken, recipientId, mediaUrl) {
 
 // Incoming Events from Messenger & Instagram
 app.post('/api/meta/webhook', async (req, res) => {
+  // ─── 0. Verify Meta HMAC-SHA256 Signature (F01 Security Defense) ──
+  const metaAppSecret = process.env.META_APP_SECRET;
+  if (metaAppSecret) {
+    const signature = req.headers['x-hub-signature-256'];
+    if (!signature) {
+      console.warn('[Meta Webhook] ❌ Missing X-Hub-Signature-256 header');
+      return res.status(401).send('Signature required');
+    }
+    const rawBodyBuffer = req.rawBody || Buffer.from(JSON.stringify(req.body));
+    const hmac = crypto.createHmac('sha256', metaAppSecret);
+    const digest = 'sha256=' + hmac.update(rawBodyBuffer).digest('hex');
+
+    const sigBuf = Buffer.from(signature);
+    const digBuf = Buffer.from(digest);
+    if (sigBuf.length !== digBuf.length || !crypto.timingSafeEqual(sigBuf, digBuf)) {
+      console.warn('[Meta Webhook] ❌ Invalid X-Hub-Signature-256 signature');
+      return res.status(403).send('Invalid signature');
+    }
+  }
+
   res.status(200).send('EVENT_RECEIVED');
 
   try {
@@ -813,10 +939,29 @@ app.post('/api/meta/webhook', async (req, res) => {
             } catch (e) {}
           }
         } else if (isTrackingIntent(text) && botConfig.features?.orderTracking !== false) {
-          // ─── 2. Fast-Path Order Tracking (0 LLM Calls) ────────────────
-          const snap = await db.collection('orders').where('botId', '==', botConfig.id).get();
-          const allOrders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          const matched = allOrders.filter(o => o.customerId === senderId || (o.trackingCode && text.toUpperCase().includes(o.trackingCode)));
+          // ─── 2. Fast-Path Order Tracking (0 LLM Calls & Indexed Queries - F08) ───
+          let matched = [];
+          const customerOrdersSnap = await db.collection('orders')
+            .where('botId', '==', botConfig.id)
+            .where('customerId', '==', String(senderId))
+            .limit(5)
+            .get();
+
+          if (!customerOrdersSnap.empty) {
+            matched = customerOrdersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+          } else {
+            const trackingCodeMatch = text.toUpperCase().match(/DZ-[A-Z0-9]{4,10}/);
+            if (trackingCodeMatch) {
+              const codeSnap = await db.collection('orders')
+                .where('botId', '==', botConfig.id)
+                .where('trackingCode', '==', trackingCodeMatch[0])
+                .limit(1)
+                .get();
+              if (!codeSnap.empty) {
+                matched = codeSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+              }
+            }
+          }
           
           if (matched.length === 1) {
             reply = formatSingleOrderCard(matched[0]);
@@ -835,7 +980,15 @@ app.post('/api/meta/webhook', async (req, res) => {
             rawAiReply = `مرحباً بك في ${botConfig.businessName || botConfig.botName || 'متجرنا'}! كيف يمكنني مساعدتك اليوم؟`;
           }
 
-          const processed = extractAndSaveOrder(botConfig.id, botConfig.userId, senderId, senderName, rawAiReply, platform);
+          const processed = extractAndSaveOrder(
+            botConfig.id,
+            botConfig.userId,
+            senderId,
+            senderName,
+            rawAiReply,
+            platform,
+            botConfig.products
+          );
           const extracted = extractProductMedia(processed.reply, botConfig.products);
           reply = extracted.cleanReply || processed.reply;
           mediaToSend = extracted.mediaToSend || [];
@@ -939,17 +1092,24 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Ownership guard: the authenticated user must own this bot
-function requireBotAccess(res, uid, entry) {
-  if (!entry) {
-    res.status(404).json({ error: 'البوت غير مشغل حالياً' });
-    return false;
+// Ownership guard: the authenticated user must own this bot (F14 Fix)
+async function requireBotAccess(res, uid, botId) {
+  try {
+    const botDoc = await db.collection('bots').doc(botId).get();
+    if (!botDoc.exists) {
+      res.status(404).json({ error: 'البوت غير موجود' });
+      return null;
+    }
+    const config = { id: botDoc.id, ...botDoc.data() };
+    if (config.userId !== uid) {
+      res.status(403).json({ error: 'لا تملك صلاحية الوصول إلى هذا البوت' });
+      return null;
+    }
+    return config;
+  } catch (err) {
+    res.status(500).json({ error: 'فشل التحقق من صلاحيات البوت' });
+    return null;
   }
-  if (!entry.config.userId || entry.config.userId !== uid) {
-    res.status(403).json({ error: 'لا تملك صلاحية الوصول إلى هذا البوت' });
-    return false;
-  }
-  return true;
 }
 
 // ─── Universal Omnichannel Manual Reply (Messenger, IG, Telegram, WhatsApp) ───
@@ -961,17 +1121,10 @@ app.post('/api/reply', async (req, res) => {
     return res.status(400).json({ error: 'معطيات ناقصة (botId, customerId, message)' });
   }
 
+  const botConfig = await requireBotAccess(res, req.uid, botId);
+  if (!botConfig) return;
+
   try {
-    const botDoc = await db.collection('bots').doc(botId).get();
-    if (!botDoc.exists) {
-      return res.status(404).json({ error: 'البوت غير موجود' });
-    }
-
-    const botConfig = { id: botDoc.id, ...botDoc.data() };
-    if (botConfig.userId !== req.uid) {
-      return res.status(403).json({ error: 'لا تملك صلاحية الوصول إلى هذا البوت' });
-    }
-
     const targetPlatform = platform || (botConfig.platform === 'telegram' ? 'telegram' : 'facebook');
 
     // Activate Human Takeover
@@ -1020,22 +1173,25 @@ app.post('/api/reply', async (req, res) => {
   }
 });
 
-// Human takeover toggle
+// Human takeover toggle (supports all platforms - F14)
 app.post('/api/takeover', async (req, res) => {
-  const { botId, telegramUserId, enabled } = req.body;
-  if (!botId || !telegramUserId) {
-    return res.status(400).json({ error: 'معطيات ناقصة (botId, telegramUserId)' });
+  const { botId, customerId, telegramUserId, enabled } = req.body;
+  const targetId = customerId || telegramUserId;
+  if (!botId || !targetId) {
+    return res.status(400).json({ error: 'معطيات ناقصة (botId, customerId)' });
   }
-  const entry = activeBots.get(botId);
-  if (!requireBotAccess(res, req.uid, entry)) return;
-  const key = `${botId}_${telegramUserId}`;
+
+  const botConfig = await requireBotAccess(res, req.uid, botId);
+  if (!botConfig) return;
+
+  const key = `${botId}_${targetId}`;
   humanTakeoverMap.set(key, !!enabled);
   res.json({ success: true, takeover: !!enabled });
 });
 
 // ─── Order Tracking & Delivery Management ─────────────────────
 
-// POST /api/orders/:id/delivery-status — Update delivery status and send idempotent notification
+// POST /api/orders/:id/delivery-status — Update delivery status with IDOR protection (F02)
 app.post('/api/orders/:id/delivery-status', async (req, res) => {
   const orderId = req.params.id;
   const { botId, deliveryStatus, provider, trackingNumber, notifyCustomer } = req.body;
@@ -1044,15 +1200,17 @@ app.post('/api/orders/:id/delivery-status', async (req, res) => {
     return res.status(400).json({ error: 'معطيات ناقصة (orderId, botId, deliveryStatus)' });
   }
 
-  const entry = activeBots.get(botId);
-  if (!requireBotAccess(res, req.uid, entry)) return;
+  const botConfig = await requireBotAccess(res, req.uid, botId);
+  if (!botConfig) return;
 
   const eventId = `evt_${orderId}_${deliveryStatus}_${Date.now()}`;
   const updateResult = await updateOrderDeliveryStatus(
     orderId,
     deliveryStatus,
     { provider, trackingNumber },
-    eventId
+    eventId,
+    botId,
+    req.uid
   );
 
   if (!updateResult.success) {
@@ -1079,16 +1237,40 @@ app.post('/api/orders/:id/delivery-status', async (req, res) => {
       if (trackingNumber) {
         notifMsg += `• *رقم بوليصة الشحن:* \`${trackingNumber}\`\n`;
       }
-      notifMsg += `\n*كود التتبع الخاص بك (لنسخه واستخدامه مباشرة):*\n`;
-      notifMsg += `\`${order.trackingCode || 'DZ-XXXXXX'}\`\n\n`;
+      if (order.trackingCode) {
+        notifMsg += `\n*كود التتبع الخاص بك (لنسخه واستخدامه مباشرة):*\n`;
+        notifMsg += `\`${order.trackingCode || 'DZ-XXXXXX'}\`\n\n`;
+      }
       notifMsg += `يمكنك كتابة "تتبع" في أي وقت للاستعلام المباشر عن حالة الطرد.`;
 
-      await entry.bot.api.sendMessage(order.customerId, notifMsg, { parse_mode: 'Markdown' });
-      notificationSent = true;
+      // Dispatch based on platform
+      const targetPlatform = order.platform || botConfig.platform || 'telegram';
+      if (targetPlatform === 'facebook' || targetPlatform === 'instagram' || targetPlatform === 'messenger') {
+        const rawToken = targetPlatform === 'instagram' ? botConfig.instagramToken : botConfig.facebookPageToken;
+        const pageToken = decrypt(rawToken) || rawToken;
+        if (pageToken) {
+          const graphUrl = `https://graph.facebook.com/v19.0/me/messages?access_token=${pageToken}`;
+          await fetch(graphUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              recipient: { id: order.customerId },
+              message: { text: notifMsg.replace(/\*/g, '') }
+            })
+          });
+          notificationSent = true;
+        }
+      } else {
+        const entry = activeBots.get(botId);
+        if (entry && entry.bot) {
+          await entry.bot.api.sendMessage(order.customerId, notifMsg, { parse_mode: 'Markdown' });
+          notificationSent = true;
+        }
+      }
 
-      await saveMessage(botId, entry.config.userId, order.customerId, order.customerName || 'الزبون', notifMsg, 'bot');
+      await saveMessage(botId, botConfig.userId, order.customerId, order.customerName || 'الزبون', notifMsg, 'bot', targetPlatform);
     } catch (sendErr) {
-      console.warn(`[Telegram API] Notification send failed for customer ${order.customerId}:`, sendErr.message);
+      console.warn(`[Delivery Notif] Notification send failed for customer ${order.customerId}:`, sendErr.message);
     }
   }
 
@@ -1105,22 +1287,21 @@ app.post('/api/orders/:id/delivery-status', async (req, res) => {
 const META_APP_ID = process.env.META_APP_ID || '111222333444555';
 const META_APP_SECRET = process.env.META_APP_SECRET || '';
 
-// 1. Generate secure OAuth Authorization URL with CSRF protection
+// 1. Generate secure OAuth Authorization URL with HMAC-signed CSRF protection (F04)
 app.get('/api/meta/oauth/url', async (req, res) => {
   const { botId, redirectUri } = req.query;
   if (!botId || !redirectUri) {
     return res.status(400).json({ error: 'معطيات ناقصة (botId, redirectUri)' });
   }
 
-  // Verify ownership
-  const botDoc = await db.collection('bots').doc(botId).get();
-  if (!botDoc.exists || botDoc.data().userId !== req.uid) {
-    return res.status(403).json({ error: 'لا تملك صلاحية الوصول إلى هذا المتجر' });
-  }
+  const botConfig = await requireBotAccess(res, req.uid, botId);
+  if (!botConfig) return;
 
-  // State encodes uid, botId, timestamp, and signature to prevent CSRF
-  const statePayload = { uid: req.uid, botId, ts: Date.now() };
-  const state = Buffer.from(JSON.stringify(statePayload)).toString('base64url');
+  // State encodes uid, botId, timestamp, and cryptographic HMAC signature
+  const stateData = { uid: req.uid, botId, ts: Date.now() };
+  const stateJson = JSON.stringify(stateData);
+  const stateSig = crypto.createHmac('sha256', META_APP_SECRET || 'botforge_oauth_secret').update(stateJson).digest('hex');
+  const state = Buffer.from(JSON.stringify({ data: stateJson, sig: stateSig })).toString('base64url');
 
   const scope = [
     'pages_show_list',
@@ -1137,23 +1318,33 @@ app.get('/api/meta/oauth/url', async (req, res) => {
   res.json({ oauthUrl, state });
 });
 
-// 2. Exchange OAuth Code for Long-Lived Token & Fetch Merchant's Pages
+// 2. Exchange OAuth Code for Long-Lived Token & Fetch Merchant's Pages with Strict CSRF Check (F04)
 app.post('/api/meta/oauth/exchange', async (req, res) => {
   const { code, redirectUri, botId, state } = req.body;
   if (!code || !redirectUri || !botId) {
     return res.status(400).json({ error: 'معطيات ناقصة (code, redirectUri, botId)' });
   }
 
+  // Mandatory CSRF state verification (F04)
+  if (!state) {
+    return res.status(400).json({ error: 'معامل الأمان (CSRF state) مطلوب للتحقق من المصادقة' });
+  }
+
   try {
-    // Verify CSRF state
-    if (state) {
-      const decodedState = JSON.parse(Buffer.from(state, 'base64url').toString('utf8'));
-      if (decodedState.uid !== req.uid || decodedState.botId !== botId) {
-        return res.status(403).json({ error: 'فشل التحقق الأمني من الـ CSRF State' });
-      }
+    const parsedStateWrapper = JSON.parse(Buffer.from(state, 'base64url').toString('utf8'));
+    const expectedSig = crypto.createHmac('sha256', META_APP_SECRET || 'botforge_oauth_secret').update(parsedStateWrapper.data || '').digest('hex');
+
+    const sigBuf = Buffer.from(parsedStateWrapper.sig || '');
+    const expBuf = Buffer.from(expectedSig);
+    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+      return res.status(403).json({ error: 'فشل التحقق من التوقيع الرقمي للـ CSRF State' });
     }
 
-    // Verify ownership
+    const decodedState = JSON.parse(parsedStateWrapper.data);
+    if (decodedState.uid !== req.uid || decodedState.botId !== botId || (Date.now() - decodedState.ts > 600000)) {
+      return res.status(403).json({ error: 'جلسة الربط منتهية الصلاحية أو غير مصرح بها' });
+    }
+
     const botDoc = await db.collection('bots').doc(botId).get();
     if (!botDoc.exists || botDoc.data().userId !== req.uid) {
       return res.status(403).json({ error: 'لا تملك صلاحية الوصول إلى هذا المتجر' });

@@ -50,7 +50,6 @@ async function createWhatsAppBot(botId, config, phoneNumber = null) {
         '--disable-dev-shm-usage',
         '--disable-gpu',
         '--no-first-run',
-        '--no-zygote',
         '--disable-extensions',
         '--disable-default-apps',
         '--disable-translate',
@@ -59,8 +58,7 @@ async function createWhatsAppBot(botId, config, phoneNumber = null) {
       timeout: 60000,
     },
     webVersionCache: {
-      type: 'remote',
-      remotePath: 'https://raw.githubusercontent.com/nicorm02/nicorm-web.js/main/AltPedidos/AltPedidos.json',
+      type: 'local',
     },
   });
 

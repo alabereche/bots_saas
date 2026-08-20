@@ -5,8 +5,14 @@
 
 const crypto = require('crypto');
 
-const secretSeed = process.env.ENCRYPTION_KEY || process.env.API_KEY || 'botforge_static_salt_secure_2026';
-const KEY = crypto.createHash('sha256').update(secretSeed).digest();
+const secretSeed = process.env.ENCRYPTION_KEY || process.env.API_KEY;
+if (!secretSeed) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('CRITICAL SECURITY ERROR: ENCRYPTION_KEY environment variable is required in production!');
+  }
+  console.warn('[SECURITY WARNING] ENCRYPTION_KEY is not set. Using dev fallback key.');
+}
+const KEY = crypto.createHash('sha256').update(secretSeed || 'botforge_dev_fallback_salt_2026').digest();
 
 function encrypt(text) {
   if (!text) return '';

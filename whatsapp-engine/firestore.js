@@ -279,8 +279,8 @@ async function findOrdersForTracking(botId, customerId, specificCode = null) {
   }
 }
 
-// Idempotent Delivery Status Update
-async function updateOrderDeliveryStatus(orderId, newDeliveryStatus, providerInfo = {}, eventId = null) {
+// Idempotent Delivery Status Update with IDOR Protection
+async function updateOrderDeliveryStatus(orderId, newDeliveryStatus, providerInfo = {}, eventId = null, expectedBotId = null, expectedUserId = null) {
   if (!orderId) return { success: false, reason: 'Missing orderId' };
   try {
     const orderRef = db.collection('orders').doc(orderId);
@@ -288,6 +288,16 @@ async function updateOrderDeliveryStatus(orderId, newDeliveryStatus, providerInf
     if (!snap.exists) return { success: false, reason: 'Order not found' };
 
     const data = snap.data();
+
+    // Security Check: Enforce tenant ownership (F02 IDOR Defense)
+    if (expectedBotId && data.botId && data.botId !== expectedBotId) {
+      return { success: false, reason: 'غير مصرح: الطلبية لا تنتمي لهذا المتجر' };
+    }
+    const orderOwner = data.ownerUserId || data.userId;
+    if (expectedUserId && orderOwner && orderOwner !== expectedUserId) {
+      return { success: false, reason: 'غير مصرح: الطلبية لا تخص هذا المستخدم' };
+    }
+
     const processedEvents = Array.isArray(data.processedEvents) ? data.processedEvents : [];
 
     if (eventId && processedEvents.includes(eventId)) {

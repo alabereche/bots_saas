@@ -87,8 +87,8 @@ app.use('/api', async (req, res, next) => {
 
 // ─── Security: rate limiting (fixed window, in-memory, per user) ──
 // Each limiter keeps its OWN buckets, keyed by the verified user id
-// (auth runs first) — keying by IP would collapse every tenant into
-// one bucket behind a reverse proxy.
+// ─── Rate limiting (sliding window per-user / per-IP) ────────
+// Safe eviction prunes only expired records when map grows (F11)
 function rateLimit({ windowMs = 60000, max = 120 } = {}) {
   const buckets = new Map();
   return (req, res, next) => {
@@ -98,8 +98,17 @@ function rateLimit({ windowMs = 60000, max = 120 } = {}) {
     if (!bucket || now - bucket.start > windowMs) {
       bucket = { start: now, count: 0 };
       buckets.set(key, bucket);
-      if (buckets.size > 10000) buckets.clear();
     }
+
+    // Safely prune expired entries without wiping active rate limits
+    if (buckets.size > 5000) {
+      for (const [k, b] of buckets.entries()) {
+        if (now - b.start > windowMs) {
+          buckets.delete(k);
+        }
+      }
+    }
+
     if (++bucket.count > max) {
       return res.status(429).json({ error: 'عدد كبير من الطلبات — يرجى المحاولة لاحقاً' });
     }
@@ -290,7 +299,9 @@ app.post('/api/orders/:id/delivery-status', async (req, res) => {
     orderId,
     deliveryStatus,
     { provider, trackingNumber },
-    eventId
+    eventId,
+    botId,
+    req.uid
   );
 
   if (!updateResult.success) {
@@ -387,8 +398,12 @@ app.post('/api/upload', (req, res, next) => {
 
   try {
     const uploadedUrls = [];
-    const host = req.get('host') || `162.62.233.152:${PORT}`;
+    const publicUrl = process.env.PUBLIC_API_URL || process.env.VITE_WHATSAPP_ENGINE_URL;
     const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
+    const rawHost = req.get('host');
+    const validHostPattern = /^[a-zA-Z0-9.\-_:]+$/;
+    const safeHost = (rawHost && validHostPattern.test(rawHost)) ? rawHost : `162.62.233.152:${PORT}`;
+    const baseUrl = publicUrl ? publicUrl.replace(/\/$/, '') : `${protocol}://${safeHost}`;
 
     for (const file of files) {
       const filename = `prod_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.webp`;
@@ -400,7 +415,7 @@ app.post('/api/upload', (req, res, next) => {
         .webp({ quality: 80, effort: 4 })
         .toFile(outputPath);
 
-      const url = `${protocol}://${host}/uploads/${filename}`;
+      const url = `${baseUrl}/uploads/${filename}`;
       uploadedUrls.push({
         filename,
         url,
@@ -453,10 +468,23 @@ app.post('/api/upload/delete', async (req, res) => {
     return res.status(403).json({ error: 'مسار غير مصرح به' });
   }
 
+  // Security check: ensure image belongs to this bot's product catalog before deleting (F03 IDOR defense)
+  const isImageInBot = Array.isArray(bot.products) && bot.products.some(p => {
+    if (!p) return false;
+    if (p.primaryImage && p.primaryImage.includes(safeFilename)) return true;
+    if (Array.isArray(p.secondaryImages) && p.secondaryImages.some(img => img && img.includes(safeFilename))) return true;
+    if (Array.isArray(p.images) && p.images.some(img => img && img.includes(safeFilename))) return true;
+    return false;
+  });
+
+  if (!isImageInBot && fs.existsSync(targetPath)) {
+    return res.status(403).json({ error: 'غير مصرح: هذه الصورة لا تخص منتجات هذا البوت' });
+  }
+
   try {
     if (fs.existsSync(targetPath)) {
       fs.unlinkSync(targetPath);
-      console.log(`[Upload] Deleted image file: ${safeFilename}`);
+      console.log(`[Upload] Deleted image file: ${safeFilename} for bot ${botId}`);
     }
     res.json({ success: true, message: 'تم حذف الصورة بنجاح' });
   } catch (err) {

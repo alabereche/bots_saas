@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { auth } from '../services/firebase';
 import { useToast } from '../context/ToastContext';
 
-const API_BASE = 'http://162.62.233.152:3001';
+const API_BASE = import.meta.env.VITE_WHATSAPP_ENGINE_URL || 'http://162.62.233.152:3001';
 
 export default function ProductCatalogManager({ bot, onUpdateBot }) {
   const toast = useToast();

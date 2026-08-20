@@ -36,11 +36,13 @@ service cloud.firestore {
     }
 
     // ─── User Profiles (users collection) ─────────────────────────
-    // Protects against Privilege Escalation (preventing users from changing their plan to 'pro'/'enterprise' directly)
+    // Protects against Privilege Escalation (preventing users from injecting admin roles or upgrading plans directly)
     match /users/{userId} {
       allow read: if isOwner(userId);
-      allow create: if isOwner(userId) && (!('plan' in request.resource.data) || request.resource.data.plan == 'free');
-      allow update: if isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['plan', 'role', 'isAdmin']);
+      allow create: if isOwner(userId)
+        && (!('plan' in request.resource.data) || request.resource.data.plan == 'free')
+        && !request.resource.data.keys().hasAny(['role', 'isAdmin', 'superAdmin', 'permissions']);
+      allow update: if isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['plan', 'role', 'isAdmin', 'superAdmin', 'permissions']);
       allow delete: if false;
     }
 

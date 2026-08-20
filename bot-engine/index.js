@@ -236,7 +236,7 @@ async function updateOrderDeliveryStatus(orderId, newDeliveryStatus, providerInf
 // ─── Smart Order Extraction ──────────────────────────────────
 const ORDER_TAG = '[ORDER_CONFIRMED]';
 
-function extractAndSaveOrder(botId, ownerUserId, customerId, customerName, rawReply) {
+function extractAndSaveOrder(botId, ownerUserId, customerId, customerName, rawReply, platform = 'telegram') {
   const tagIndex = rawReply.indexOf(ORDER_TAG);
   if (tagIndex === -1) return { reply: rawReply, orderFound: false };
 
@@ -254,7 +254,7 @@ function extractAndSaveOrder(botId, ownerUserId, customerId, customerName, rawRe
       saveOrderToFirestore({
         botId,
         ownerUserId,
-        platform: 'telegram',
+        platform,
         customerId: String(customerId),
         customerName: customerName || 'زبون',
         phone,
@@ -689,15 +689,39 @@ app.post('/api/meta/webhook', async (req, res) => {
             reply = formatNoOrdersFound(botConfig.businessName);
           }
         } else {
+          // Fetch previous conversation history for context
+          let history = [];
+          try {
+            const historySnap = await db.collection('messages')
+              .where('botId', '==', botConfig.id)
+              .where('customerId', '==', String(senderId))
+              .orderBy('timestamp', 'desc')
+              .limit(6)
+              .get();
+            history = historySnap.docs.reverse().map(d => ({
+              role: d.data().sender === 'user' ? 'user' : 'assistant',
+              content: d.data().text || ''
+            }));
+          } catch (histErr) {
+            console.warn('[Meta Webhook] History fetch warning:', histErr.message);
+          }
+
+          history.push({ role: 'user', content: text });
+
           // Generate AI reply with Gemini
           const prompt = buildSystemPrompt(botConfig);
-          const history = [{ role: 'user', content: text }];
           const messages = [{ role: 'system', content: prompt }, ...history];
           const apiKey = botConfig.customApiKey || GEMINI_API_KEY;
           const rawAiReply = await callGemini(apiKey, botConfig.aiModel || 'gemini-3.5-flash-lite', messages);
-          const processed = processOrderTag(rawAiReply, botConfig.id, botConfig.userId, senderId, senderName);
+          const processed = extractAndSaveOrder(botConfig.id, botConfig.userId, senderId, senderName, rawAiReply, platform);
           reply = processed.reply;
         }
+
+        // Clean formatting for Messenger
+        const cleanSendReply = (reply || '')
+          .replace(/`([^`]+)`/g, '$1')
+          .replace(/#([A-Za-z0-9_-]+)/g, '$1')
+          .trim();
 
         // Send reply via Meta Graph API
         const graphUrl = `https://graph.facebook.com/v19.0/me/messages?access_token=${pageToken}`;
@@ -706,7 +730,7 @@ app.post('/api/meta/webhook', async (req, res) => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             recipient: { id: senderId },
-            message: { text: reply }
+            message: { text: cleanSendReply || 'أهلاً بك! كيف يمكنني مساعدتك؟' }
           })
         });
 
@@ -714,7 +738,7 @@ app.post('/api/meta/webhook', async (req, res) => {
         console.log(`[Meta Webhook] 📤 Graph API reply sent (status: ${sendRes.status}):`, sendData);
 
         // Save bot reply
-        await saveMessage(botConfig.id, botConfig.userId, senderId, botConfig.botName, reply, 'bot', platform);
+        await saveMessage(botConfig.id, botConfig.userId, senderId, botConfig.botName, cleanSendReply, 'bot', platform);
         await incrementMessageCount(botConfig.id);
       }
     }

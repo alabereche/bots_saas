@@ -380,29 +380,31 @@ function extractProductMedia(rawReply, productsList = []) {
   let singleProductId = null;
   let galleryProductId = null;
 
-  // 1. Check for [SHOW_PRODUCT_GALLERY: xyz]
+  // 1. Check for [SHOW_PRODUCT_GALLERY: xyz] (supports newlines and spaces)
   const galleryMatch = cleanReply.match(/\[(?:SHOW_PRODUCT_GALLERY|GALLERY)\s*:\s*([^\]]+)\]/i);
   if (galleryMatch) {
-    galleryProductId = galleryMatch[1].trim();
+    galleryProductId = galleryMatch[1].replace(/\s+/g, '').trim();
     cleanReply = cleanReply.replace(galleryMatch[0], '');
   }
 
   // 2. Check for [SHOW_PRODUCT: xyz] or [PRODUCT: xyz]
   const singleMatch = cleanReply.match(/\[(?:SHOW_PRODUCT|PRODUCT)\s*:\s*([^\]]+)\]/i);
   if (singleMatch) {
-    singleProductId = singleMatch[1].trim();
+    singleProductId = singleMatch[1].replace(/\s+/g, '').trim();
     cleanReply = cleanReply.replace(singleMatch[0], '');
   }
 
   // 3. Fallback: Check for direct [prod_xxx] tags
-  const directMatch = cleanReply.match(/\[(prod_[a-zA-Z0-9_-]+)\]/i);
+  const directMatch = cleanReply.match(/\[(prod_[a-zA-Z0-9_\-\s]+)\]/i);
   if (directMatch) {
-    singleProductId = directMatch[1].trim();
+    singleProductId = directMatch[1].replace(/\s+/g, '').trim();
     cleanReply = cleanReply.replace(directMatch[0], '');
   }
 
-  // Clean any stray bracket tags
-  cleanReply = cleanReply.replace(/\[prod_[^\]]*\]/gi, '').trim();
+  // Clean any remaining bracket tags
+  cleanReply = cleanReply
+    .replace(/\[(?:SHOW_PRODUCT|SHOW_PRODUCT_GALLERY|PRODUCT|prod)[^\]]*\]/gis, '')
+    .trim();
 
   let mediaToSend = [];
   const targetId = galleryProductId || singleProductId;
@@ -411,7 +413,8 @@ function extractProductMedia(rawReply, productsList = []) {
     const product = productsList.find(p => p && (
       String(p.id).trim() === targetId ||
       String(p.id).trim() === `prod_${targetId}` ||
-      targetId.includes(String(p.id))
+      targetId.includes(String(p.id)) ||
+      String(p.id).includes(targetId)
     ));
 
     if (product) {
@@ -635,14 +638,39 @@ async function sendMetaImage(pageToken, recipientId, mediaUrl) {
   try {
     if (!mediaUrl) return;
 
-    if (mediaUrl.startsWith('data:')) {
-      // Base64 data URL: upload via multipart FormData
-      const match = mediaUrl.match(/^data:([A-Za-z0-9\/+.-]+);base64,(.+)$/);
-      if (!match) return;
-      const mimeType = match[1] || 'image/jpeg';
-      const buffer = Buffer.from(match[2], 'base64');
-      const blob = new Blob([buffer], { type: mimeType });
+    let buffer = null;
+    let mimeType = 'image/jpeg';
 
+    if (mediaUrl.startsWith('data:')) {
+      const match = mediaUrl.match(/^data:([A-Za-z0-9\/+.-]+);base64,(.+)$/);
+      if (match) {
+        mimeType = match[1] || 'image/jpeg';
+        buffer = Buffer.from(match[2], 'base64');
+      }
+    } else if (typeof mediaUrl === 'string') {
+      try {
+        const urlObj = new URL(mediaUrl);
+        const filename = path.basename(urlObj.pathname);
+        const possiblePaths = [
+          path.resolve(__dirname, '../whatsapp-engine/uploads', filename),
+          path.resolve(__dirname, 'uploads', filename),
+          path.resolve(__dirname, '../uploads', filename)
+        ];
+        for (const p of possiblePaths) {
+          if (fs.existsSync(p)) {
+            buffer = await fs.promises.readFile(p);
+            mimeType = filename.endsWith('.webp') ? 'image/webp' : (filename.endsWith('.png') ? 'image/png' : 'image/jpeg');
+            break;
+          }
+        }
+      } catch (e) {
+        // Not a standard URL
+      }
+    }
+
+    if (buffer) {
+      // Local file / Base64 upload via FormData to Meta Graph API
+      const blob = new Blob([buffer], { type: mimeType });
       const form = new FormData();
       form.append('recipient', JSON.stringify({ id: recipientId }));
       form.append('message', JSON.stringify({ attachment: { type: 'image', payload: {} } }));
@@ -653,8 +681,11 @@ async function sendMetaImage(pageToken, recipientId, mediaUrl) {
         body: form
       });
       const data = await res.json();
-      console.log(`[Meta Webhook] 🖼️ Base64 image sent (status ${res.status}):`, data);
-    } else if (mediaUrl.startsWith('http')) {
+      console.log(`[Meta Webhook] 🖼️ Local image uploaded to Meta (status ${res.status}):`, data);
+      return;
+    }
+
+    if (mediaUrl.startsWith('https://')) {
       // Public HTTPS URL
       const res = await fetch(`https://graph.facebook.com/v19.0/me/messages?access_token=${pageToken}`, {
         method: 'POST',
@@ -670,7 +701,7 @@ async function sendMetaImage(pageToken, recipientId, mediaUrl) {
         })
       });
       const data = await res.json();
-      console.log(`[Meta Webhook] 🖼️ URL image sent (status ${res.status}):`, data);
+      console.log(`[Meta Webhook] 🖼️ HTTPS image sent to Meta (status ${res.status}):`, data);
     }
   } catch (err) {
     console.error('[Meta Webhook] ❌ sendMetaImage error:', err.message);

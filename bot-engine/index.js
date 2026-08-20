@@ -628,8 +628,51 @@ app.get('/api/meta/webhook', (req, res) => {
     console.log('[Meta Webhook] ✅ Verified webhook challenge successfully');
     return res.status(200).send(challenge);
   }
-  return res.sendStatus(403);
-});
+async function sendMetaImage(pageToken, recipientId, mediaUrl) {
+  try {
+    if (!mediaUrl) return;
+
+    if (mediaUrl.startsWith('data:')) {
+      // Base64 data URL: upload via multipart FormData
+      const match = mediaUrl.match(/^data:([A-Za-z0-9\/+.-]+);base64,(.+)$/);
+      if (!match) return;
+      const mimeType = match[1] || 'image/jpeg';
+      const buffer = Buffer.from(match[2], 'base64');
+      const blob = new Blob([buffer], { type: mimeType });
+
+      const form = new FormData();
+      form.append('recipient', JSON.stringify({ id: recipientId }));
+      form.append('message', JSON.stringify({ attachment: { type: 'image', payload: {} } }));
+      form.append('filedata', blob, 'product.jpg');
+
+      const res = await fetch(`https://graph.facebook.com/v19.0/me/messages?access_token=${pageToken}`, {
+        method: 'POST',
+        body: form
+      });
+      const data = await res.json();
+      console.log(`[Meta Webhook] 🖼️ Base64 image sent (status ${res.status}):`, data);
+    } else if (mediaUrl.startsWith('http')) {
+      // Public HTTPS URL
+      const res = await fetch(`https://graph.facebook.com/v19.0/me/messages?access_token=${pageToken}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipient: { id: recipientId },
+          message: {
+            attachment: {
+              type: 'image',
+              payload: { url: mediaUrl, is_reusable: true }
+            }
+          }
+        })
+      });
+      const data = await res.json();
+      console.log(`[Meta Webhook] 🖼️ URL image sent (status ${res.status}):`, data);
+    }
+  } catch (err) {
+    console.error('[Meta Webhook] ❌ sendMetaImage error:', err.message);
+  }
+}
 
 // Incoming Events from Messenger & Instagram
 app.post('/api/meta/webhook', async (req, res) => {
@@ -714,19 +757,7 @@ app.post('/api/meta/webhook', async (req, res) => {
           // If products had media attached, send images over Graph API
           if (mediaToSend && mediaToSend.length > 0) {
             for (const mediaUrl of mediaToSend) {
-              await fetch(`https://graph.facebook.com/v19.0/me/messages?access_token=${pageToken}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  recipient: { id: senderId },
-                  message: {
-                    attachment: {
-                      type: 'image',
-                      payload: { url: mediaUrl, is_reusable: true }
-                    }
-                  }
-                })
-              }).catch(e => console.warn('[Meta Webhook] Image send error:', e.message));
+              await sendMetaImage(pageToken, senderId, mediaUrl);
             }
           }
         }

@@ -639,7 +639,7 @@ app.post('/api/meta/webhook', async (req, res) => {
         const text = event.message.text || '';
         const platform = body.object === 'instagram' ? 'instagram' : 'facebook';
 
-        if (!senderId || !text) continue;
+        console.log(`[Meta Webhook] 📩 Received ${platform} message from sender ${senderId} to page/account ${recipientId}: "${text}"`);
 
         // Lookup bot by facebookPageId or instagramUserId
         const fieldName = platform === 'instagram' ? 'instagramUserId' : 'facebookPageId';
@@ -649,19 +649,25 @@ app.post('/api/meta/webhook', async (req, res) => {
           .get();
 
         if (botQuery.empty) {
-          console.warn(`[Meta Webhook] No bot found for recipient ID ${recipientId} on ${platform}`);
+          console.warn(`[Meta Webhook] ⚠️ No bot found with ${fieldName} == ${recipientId}`);
           continue;
         }
 
         const botDoc = botQuery.docs[0];
         const botConfig = { id: botDoc.id, ...botDoc.data() };
-        if (!botConfig.isActive) continue;
+        if (!botConfig.isActive) {
+          console.warn(`[Meta Webhook] Bot ${botConfig.id} is inactive`);
+          continue;
+        }
 
-        const pageToken = platform === 'instagram' ? botConfig.instagramToken : botConfig.facebookPageToken;
-        if (!pageToken) {
+        const rawToken = platform === 'instagram' ? botConfig.instagramToken : botConfig.facebookPageToken;
+        if (!rawToken) {
           console.warn(`[Meta Webhook] No page token configured for bot ${botConfig.id}`);
           continue;
         }
+
+        // Support both encrypted and plain tokens
+        const pageToken = decrypt(rawToken) || rawToken;
 
         // Save incoming user message
         const senderName = `زبون ${platform === 'instagram' ? 'إنستغرام' : 'فيسبوك'}`;
@@ -695,14 +701,17 @@ app.post('/api/meta/webhook', async (req, res) => {
 
         // Send reply via Meta Graph API
         const graphUrl = `https://graph.facebook.com/v19.0/me/messages?access_token=${pageToken}`;
-        await fetch(graphUrl, {
+        const sendRes = await fetch(graphUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             recipient: { id: senderId },
             message: { text: reply }
           })
-        }).catch(err => console.error('[Meta Webhook] Graph API send error:', err.message));
+        });
+
+        const sendData = await sendRes.json();
+        console.log(`[Meta Webhook] 📤 Graph API reply sent (status: ${sendRes.status}):`, sendData);
 
         // Save bot reply
         await saveMessage(botConfig.id, botConfig.userId, senderId, botConfig.botName, reply, 'bot', platform);

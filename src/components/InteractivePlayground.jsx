@@ -240,7 +240,7 @@ export default function InteractivePlayground() {
 
                   <div className="terminal-bubble-text">{msg.text}</div>
                   <div className="terminal-bubble-meta">
-                    <span>{msg.sender === 'bot' ? 'BotForge AI' : 'الزبون'}</span>
+                    <span>{msg.sender === 'bot' ? 'AuraBot AI' : 'الزبون'}</span>
                     <span>{msg.time}</span>
                   </div>
                 </div>

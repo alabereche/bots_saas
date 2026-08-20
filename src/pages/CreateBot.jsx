@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createBot } from '../services/firebase';
 import { useAuth } from '../context/AuthContext';
@@ -81,6 +81,84 @@ const CHANNELS_CONFIG = [
     ),
   },
 ];
+
+function NeumorphicSelect({ value, onChange, options, renderSelected, renderOption }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selectedOpt = options.find(o => o.value === value || o.code === value) || options[0];
+
+  return (
+    <div className="neumorphic-select-wrapper" ref={ref}>
+      <div 
+        className={`neumorphic-select-trigger ${open ? 'is-open' : ''}`}
+        onClick={() => setOpen(prev => !prev)}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden', minWidth: 0 }}>
+          {renderSelected ? renderSelected(selectedOpt) : (
+            <span style={{ fontWeight: 600, color: '#ffffff' }}>{selectedOpt.label || selectedOpt.name}</span>
+          )}
+        </div>
+        <svg 
+          width="16" 
+          height="16" 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="2.5" 
+          strokeLinecap="round" 
+          strokeLinejoin="round"
+          style={{ 
+            color: open ? '#10b981' : '#94a3b8', 
+            transition: 'transform 0.2s ease', 
+            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+            flexShrink: 0 
+          }}
+        >
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </div>
+
+      {open && (
+        <div className="neumorphic-dropdown-menu">
+          {options.map((opt) => {
+            const optVal = opt.value || opt.code;
+            const isSelected = optVal === value;
+            return (
+              <div
+                key={optVal}
+                className={`neumorphic-dropdown-item ${isSelected ? 'is-selected' : ''}`}
+                onClick={() => {
+                  onChange(optVal);
+                  setOpen(false);
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                  {renderOption ? renderOption(opt, isSelected) : (
+                    <span>{opt.label || opt.name}</span>
+                  )}
+                </div>
+                {isSelected && (
+                  <span style={{ color: '#10b981', fontWeight: 800, fontSize: '0.9rem' }}>✓</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function CreateBot() {
   const navigate = useNavigate();
@@ -250,7 +328,7 @@ export default function CreateBot() {
         }}>
           <span style={{ fontSize: '1rem' }}>⚡</span> عقل ذكي موحد لكل القنوات (Omnichannel)
         </div>
-        <h1 style={{ fontSize: '1.95rem', fontWeight: 800, color: '#ffffff', marginBottom: '0.4rem', letterSpacing: '-0.02em' }}>
+        <h1 className="page-title-responsive">
           إنشاء مساعد ذكي لمتجرك
         </h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.94rem', maxWidth: '580px', margin: '0 auto' }}>
@@ -283,12 +361,12 @@ export default function CreateBot() {
         </div>
       </div>
 
-      <div className="card" style={{ padding: '2rem', border: '1px solid rgba(255, 255, 255, 0.08)', background: 'linear-gradient(180deg, rgba(20, 26, 40, 0.95) 0%, rgba(13, 17, 26, 0.95) 100%)' }}>
+      <div className="card wizard-card-box">
         
         {step === 1 && (
           <div>
             <div className="form-group" style={{ marginBottom: '2rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '6px' }}>
                 <label className="form-label" style={{ margin: 0 }}>
                   قنوات التواصل المستهدفة للربط <span className="required">*</span>
                 </label>
@@ -297,7 +375,7 @@ export default function CreateBot() {
                 </span>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.85rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: '0.85rem' }}>
                 {CHANNELS_CONFIG.map(ch => {
                   const isSelected = selectedChannels.includes(ch.id);
                   return (
@@ -365,21 +443,33 @@ export default function CreateBot() {
 
             <div className="form-group">
               <label className="form-label">دولة النشاط والعملة <span className="required">*</span></label>
-              <select 
-                className="form-input form-select" 
-                value={selectedCountry} 
-                onChange={e => {
-                  setSelectedCountry(e.target.value);
-                  if (e.target.value === 'DZ') setLanguage('arabic_algerian');
+              <NeumorphicSelect
+                value={selectedCountry}
+                onChange={val => {
+                  setSelectedCountry(val);
+                  if (val === 'DZ') setLanguage('arabic_algerian');
                   else setLanguage('arabic_formal');
                 }}
-              >
-                {COUNTRIES.map(c => (
-                  <option key={c.code} value={c.code}>
-                    {c.flag} {c.name} — العملة: {c.currency} ({c.currencyName})
-                  </option>
-                ))}
-              </select>
+                options={COUNTRIES}
+                renderSelected={c => (
+                  <>
+                    <span style={{ fontSize: '1.25rem' }}>{c.flag}</span>
+                    <span style={{ fontWeight: 700, color: '#ffffff', fontSize: '0.95rem' }}>{c.name}</span>
+                    <span style={{ fontSize: '0.78rem', color: '#38bdf8', background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.25)', padding: '2px 8px', borderRadius: '6px', fontWeight: 600 }}>
+                      {c.currency} ({c.currencyName})
+                    </span>
+                  </>
+                )}
+                renderOption={(c, isSelected) => (
+                  <>
+                    <span style={{ fontSize: '1.25rem' }}>{c.flag}</span>
+                    <span style={{ fontWeight: isSelected ? 700 : 500, color: isSelected ? '#34d399' : '#e2e8f0', fontSize: '0.93rem' }}>{c.name}</span>
+                    <span style={{ fontSize: '0.74rem', color: isSelected ? '#34d399' : '#94a3b8', background: isSelected ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.05)', padding: '2px 7px', borderRadius: '4px', fontWeight: 600 }}>
+                      {c.currency} ({c.currencyName})
+                    </span>
+                  </>
+                )}
+              />
             </div>
 
             <div className="form-grid-2">
@@ -395,11 +485,27 @@ export default function CreateBot() {
 
             <div className="form-group">
               <label className="form-label">نوع ومجال النشاط <span className="required">*</span></label>
-              <select className="form-input form-select" value={businessType} onChange={e => setBusinessType(e.target.value)}>
-                {BUSINESS_TYPES.map(b => (
-                  <option key={b.value} value={b.value}>{b.label}</option>
-                ))}
-              </select>
+              <NeumorphicSelect
+                value={businessType}
+                onChange={val => setBusinessType(val)}
+                options={BUSINESS_TYPES}
+                renderSelected={b => (
+                  <>
+                    <span style={{ color: '#10b981', fontSize: '1.05rem' }}>
+                      {b.value === 'shop' ? '🛍️' : b.value === 'restaurant' ? '🍔' : b.value === 'clinic' ? '🩺' : b.value === 'realestate' ? '🏢' : b.value === 'booking' ? '📅' : b.value === 'education' ? '🎓' : '💼'}
+                    </span>
+                    <span style={{ fontWeight: 700, color: '#ffffff', fontSize: '0.95rem' }}>{b.label}</span>
+                  </>
+                )}
+                renderOption={(b, isSelected) => (
+                  <>
+                    <span style={{ fontSize: '1.05rem' }}>
+                      {b.value === 'shop' ? '🛍️' : b.value === 'restaurant' ? '🍔' : b.value === 'clinic' ? '🩺' : b.value === 'realestate' ? '🏢' : b.value === 'booking' ? '📅' : b.value === 'education' ? '🎓' : '💼'}
+                    </span>
+                    <span style={{ fontWeight: isSelected ? 700 : 500, color: isSelected ? '#34d399' : '#e2e8f0', fontSize: '0.93rem' }}>{b.label}</span>
+                  </>
+                )}
+              />
             </div>
 
             {businessType === 'custom' && (
@@ -537,7 +643,7 @@ export default function CreateBot() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                 <span style={{ color: '#a78bfa' }}>✨</span>
                 <span style={{ fontWeight: 700, color: '#a78bfa', fontSize: '0.95rem' }}>
-                  محرك الذكاء الاصطناعي (Google Gemini 3.5 Flash-Lite)
+                  محرك الذكاء الاصطناعي الذاتي المتطور
                 </span>
               </div>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>

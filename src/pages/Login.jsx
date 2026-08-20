@@ -85,15 +85,24 @@ export default function Login() {
             
             {/* Logo & Brand */}
             <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
-              <div className="brand-icon-box">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                  <path d="M2 17l10 5 10-5"/>
-                  <path d="M2 12l10 5 10-5"/>
+              <div className="brand-icon-box" style={{ width: '56px', height: '56px', borderRadius: '18px', margin: '0 auto 1rem', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(6, 182, 212, 0.1) 100%)', border: '1px solid rgba(52, 211, 153, 0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(16, 185, 129, 0.25)' }}>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="9" stroke="url(#auraRingGradLogin)" strokeWidth="1.8" strokeDasharray="2.5 2.5"/>
+                  <path d="M12 4.5L14.2 9.8L19.5 12L14.2 14.2L12 19.5L9.8 14.2L4.5 12L9.8 9.8L12 4.5Z" fill="url(#auraSparkGradLogin)"/>
+                  <defs>
+                    <linearGradient id="auraRingGradLogin" x1="0" y1="0" x2="24" y2="24">
+                      <stop offset="0%" stopColor="#34d399"/>
+                      <stop offset="100%" stopColor="#06b6d4"/>
+                    </linearGradient>
+                    <linearGradient id="auraSparkGradLogin" x1="4" y1="4" x2="20" y2="20">
+                      <stop offset="0%" stopColor="#6ee7b7"/>
+                      <stop offset="100%" stopColor="#10b981"/>
+                    </linearGradient>
+                  </defs>
                 </svg>
               </div>
               <h1 style={{ fontSize: '1.85rem', fontWeight: 800, marginBottom: '0.35rem', color: '#ffffff' }}>
-                BotForge
+                Aura<span style={{ color: '#10b981' }}>Bot</span>
               </h1>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
                 سجّل دخولك للبدء في إدارة وأتمتة بوتاتك

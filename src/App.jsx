@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Sidebar from './components/Sidebar';
+import AmbientBackground from './components/AmbientBackground';
 
 // Lazy-loaded routes for optimal bundle code-splitting
 const Landing = lazy(() => import('./pages/Landing'));
@@ -55,6 +56,7 @@ function AppLayout() {
             element={
               <ProtectedRoute>
                 <div className="app-layout">
+                  <AmbientBackground />
                   <Sidebar />
                   <main className="app-main">
                     <Suspense fallback={<PageLoader />}>

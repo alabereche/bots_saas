@@ -21,14 +21,23 @@ export default function Landing() {
       <header className="landing-navbar-wrapper">
         <nav className="landing-navbar">
           <Link to="/" className="landing-logo">
-            <div className="landing-logo-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                <path d="M2 17l10 5 10-5"/>
-                <path d="M2 12l10 5 10-5"/>
+            <div className="landing-logo-icon" style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(6, 182, 212, 0.1) 100%)', border: '1px solid rgba(52, 211, 153, 0.35)', borderRadius: '12px', width: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.25)' }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="9" stroke="url(#auraRingGradNav)" strokeWidth="1.8" strokeDasharray="2.5 2.5"/>
+                <path d="M12 4.5L14.2 9.8L19.5 12L14.2 14.2L12 19.5L9.8 14.2L4.5 12L9.8 9.8L12 4.5Z" fill="url(#auraSparkGradNav)"/>
+                <defs>
+                  <linearGradient id="auraRingGradNav" x1="0" y1="0" x2="24" y2="24">
+                    <stop offset="0%" stopColor="#34d399"/>
+                    <stop offset="100%" stopColor="#06b6d4"/>
+                  </linearGradient>
+                  <linearGradient id="auraSparkGradNav" x1="4" y1="4" x2="20" y2="20">
+                    <stop offset="0%" stopColor="#6ee7b7"/>
+                    <stop offset="100%" stopColor="#10b981"/>
+                  </linearGradient>
+                </defs>
               </svg>
             </div>
-            <span className="landing-logo-text">BotForge</span>
+            <span className="landing-logo-text">Aura<span style={{ color: '#10b981' }}>Bot</span></span>
           </Link>
 
           <div className="landing-nav-links">
@@ -480,14 +489,23 @@ export default function Landing() {
           <div className="footer-content">
             <div className="footer-brand">
               <div className="landing-logo">
-                <div className="landing-logo-icon">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                    <path d="M2 17l10 5 10-5"/>
-                    <path d="M2 12l10 5 10-5"/>
+                <div className="landing-logo-icon" style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(6, 182, 212, 0.1) 100%)', border: '1px solid rgba(52, 211, 153, 0.35)', borderRadius: '10px', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="9" stroke="url(#auraRingGradFoot)" strokeWidth="1.8" strokeDasharray="2.5 2.5"/>
+                    <path d="M12 4.5L14.2 9.8L19.5 12L14.2 14.2L12 19.5L9.8 14.2L4.5 12L9.8 9.8L12 4.5Z" fill="url(#auraSparkGradFoot)"/>
+                    <defs>
+                      <linearGradient id="auraRingGradFoot" x1="0" y1="0" x2="24" y2="24">
+                        <stop offset="0%" stopColor="#34d399"/>
+                        <stop offset="100%" stopColor="#06b6d4"/>
+                      </linearGradient>
+                      <linearGradient id="auraSparkGradFoot" x1="4" y1="4" x2="20" y2="20">
+                        <stop offset="0%" stopColor="#6ee7b7"/>
+                        <stop offset="100%" stopColor="#10b981"/>
+                      </linearGradient>
+                    </defs>
                   </svg>
                 </div>
-                <span className="landing-logo-text">BotForge</span>
+                <span className="landing-logo-text">Aura<span style={{ color: '#10b981' }}>Bot</span></span>
               </div>
               <p className="footer-tagline">
                 المنصة الرائدة لأتمتة خدمة العملاء وإدارة مبيعات التجارة الإلكترونية بالذكاء الاصطناعي.
@@ -505,7 +523,7 @@ export default function Landing() {
           </div>
 
           <div className="footer-bottom">
-            <span>© {new Date().getFullYear()} BotForge. جميع الحقوق محفوظة.</span>
+            <span>© {new Date().getFullYear()} AuraBot. جميع الحقوق محفوظة.</span>
             <span>بنية تحتية مشفرة ومصممة للتجارة الحديثة</span>
           </div>
         </div>

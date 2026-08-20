@@ -57,6 +57,7 @@ export default function Dashboard() {
         <button 
           className="btn btn-primary" 
           onClick={() => navigate('/create-bot')}
+          style={{ borderRadius: '999px', padding: '0.65rem 1.4rem' }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"/>
@@ -142,17 +143,18 @@ export default function Dashboard() {
         ) : bots.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: '3.5rem 1.5rem' }}>
             <div style={{
-              width: '54px', height: '54px',
-              borderRadius: 'var(--radius-md)',
-              background: '#18243b',
-              color: 'var(--color-primary)',
+              width: '58px', height: '58px',
+              borderRadius: '18px',
+              background: 'rgba(24, 36, 59, 0.7)',
+              color: '#34d399',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               margin: '0 auto 1.25rem',
-              border: '1px solid var(--border-default)'
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              boxShadow: '0 4px 16px rgba(16, 185, 129, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
             }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
               </svg>
             </div>
@@ -162,7 +164,7 @@ export default function Dashboard() {
             <p style={{ color: 'var(--text-secondary)', maxWidth: '440px', fontSize: '0.92rem', margin: '0 auto 1.5rem', lineHeight: 1.7 }}>
               ابدأ الآن بإنشاء أول بوت لمشروعك ودعه يتولى الرد الفوري على عملائك عبر WhatsApp و Telegram وتسجيل طلبياتهم بدقة!
             </p>
-            <button className="btn btn-primary" onClick={() => navigate('/create-bot')}>
+            <button className="btn btn-primary" onClick={() => navigate('/create-bot')} style={{ borderRadius: '999px', padding: '0.75rem 1.75rem' }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
               </svg>

@@ -187,7 +187,7 @@ export default function ShowcaseJourney() {
                 {/* Bot Response */}
                 <div className="mock-chat-bubble bot">
                   <div className="bubble-header">
-                    <span style={{ color: '#34d399', fontWeight: 700 }}>BotForge AI</span>
+                    <span style={{ color: '#34d399', fontWeight: 700 }}>AuraBot AI</span>
                     <span className="speed-pill">⚡ 0.8 ثانية</span>
                   </div>
                   <div className="bubble-text">

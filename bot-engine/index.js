@@ -718,14 +718,20 @@ app.post('/api/meta/webhook', async (req, res) => {
 
     for (const entry of body.entry || []) {
       for (const event of entry.messaging || []) {
-        if (!event.message || event.message.is_echo) continue;
+        if (event.message?.is_echo) continue;
 
         const senderId = event.sender?.id;
         const recipientId = event.recipient?.id;
-        const text = event.message.text || '';
         const platform = body.object === 'instagram' ? 'instagram' : 'facebook';
 
-        console.log(`[Meta Webhook] 📩 Received ${platform} message from sender ${senderId} to page/account ${recipientId}: "${text}"`);
+        if (!senderId) continue;
+
+        const quickReplyPayload = event.message?.quick_reply?.payload;
+        const postbackPayload = event.postback?.payload;
+        const actionPayload = quickReplyPayload || postbackPayload;
+        const text = event.message?.text || event.postback?.title || '';
+
+        console.log(`[Meta Webhook] 📩 Event (${platform}) from ${senderId} -> ${recipientId}: "${text}" (payload: ${actionPayload || 'none'})`);
 
         // Lookup bot by facebookPageId or instagramUserId
         const fieldName = platform === 'instagram' ? 'instagramUserId' : 'facebookPageId';
@@ -754,15 +760,60 @@ app.post('/api/meta/webhook', async (req, res) => {
 
         // Support both encrypted and plain tokens
         const pageToken = decrypt(rawToken) || rawToken;
+        const senderName = `زبون ${platform === 'instagram' ? 'إنستغرام' : 'فيسبوك'}`;
 
         // Save incoming user message
-        const senderName = `زبون ${platform === 'instagram' ? 'إنستغرام' : 'فيسبوك'}`;
-        await saveMessage(botConfig.id, botConfig.userId, senderId, senderName, text, 'user', platform);
-        await incrementMessageCount(botConfig.id);
+        if (text) {
+          await saveMessage(botConfig.id, botConfig.userId, senderId, senderName, text, 'user', platform);
+          await incrementMessageCount(botConfig.id);
+        }
 
-        // Check Fast-path tracking intent (0 LLM Calls)
+        // Check if Human Takeover is active
+        const takeoverKey = `${botConfig.id}_${senderId}`;
+        if (humanTakeoverMap.get(takeoverKey)) {
+          console.log(`[Meta Webhook] ⏸️ Human takeover active for ${senderId} — skipping AI response`);
+          continue;
+        }
+
         let reply = '';
-        if (isTrackingIntent(text) && botConfig.features?.orderTracking !== false) {
+        let mediaToSend = [];
+        let matchedProduct = null;
+
+        // ─── 1. Handle Quick Action Button Clicks ───────────────────────
+        if (actionPayload) {
+          if (actionPayload.startsWith('BUY_')) {
+            const pId = actionPayload.replace('BUY_', '');
+            matchedProduct = (botConfig.products || []).find(p => p && (String(p.id) === pId || pId.includes(String(p.id))));
+            const pName = matchedProduct ? matchedProduct.name : 'المنتج';
+            const pPrice = matchedProduct?.price ? `بسعر ${matchedProduct.price} دج` : '';
+            reply = `اختيار رائع خويا! 🌟\nلتأكيد وحجز (${pName}) ${pPrice}، يرجى تزويدي بالمعلومات التالية:\n1. الاسم الكامل\n2. الولاية والبلدية (العنوان بالتفصيل)\n3. رقم الهاتف الشغال\nوسنقوم بتجهيز الشحن فوراً وتأكيد الطلبية معكم!`;
+          } else if (actionPayload.startsWith('GALLERY_')) {
+            const pId = actionPayload.replace('GALLERY_', '');
+            matchedProduct = (botConfig.products || []).find(p => p && (String(p.id) === pId || pId.includes(String(p.id))));
+            if (matchedProduct) {
+              const allImages = [];
+              if (matchedProduct.primaryImage) allImages.push(matchedProduct.primaryImage);
+              if (Array.isArray(matchedProduct.secondaryImages)) allImages.push(...matchedProduct.secondaryImages.filter(Boolean));
+              else if (Array.isArray(matchedProduct.images)) allImages.push(...matchedProduct.images.filter(Boolean));
+              mediaToSend = allImages.slice(0, 5);
+              reply = `تفضل خويا، ها هي كامل صور (${matchedProduct.name}) المتوفرة عندنا في المحل 📸`;
+            } else {
+              reply = `تفضل خويا، ها هي صور المنتج.`;
+            }
+          } else if (actionPayload === 'TRACK_ORDER') {
+            reply = `📦 مرحباً بك في خدمة التتبع المباشر لمتجر (${botConfig.businessName || botConfig.botName})!\nيرجى كتابة رقم هاتفك أو كود التتبع (#DZ-XXXXXX) المسجل للبحث عن طلبيتك فوراً.`;
+          } else if (actionPayload === 'HUMAN_SUPPORT') {
+            reply = `💬 تم إشعار مسؤول المتجر! سيتواصل معك أحد ممثلينا في أقرب وقت. يمكنك ترك استفسارك وسؤالك هنا في الشات وسنرد عليك مباشرة.`;
+            try {
+              await db.collection('bots').doc(botConfig.id).collection('conversations').doc(String(senderId)).set({
+                needsHumanSupport: true,
+                lastSupportRequest: new Date().toISOString(),
+                platform
+              }, { merge: true });
+            } catch (e) {}
+          }
+        } else if (isTrackingIntent(text) && botConfig.features?.orderTracking !== false) {
+          // ─── 2. Fast-Path Order Tracking (0 LLM Calls) ────────────────
           const snap = await db.collection('orders').where('botId', '==', botConfig.id).get();
           const allOrders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
           const matched = allOrders.filter(o => o.customerId === senderId || (o.trackingCode && text.toUpperCase().includes(o.trackingCode)));
@@ -775,7 +826,7 @@ app.post('/api/meta/webhook', async (req, res) => {
             reply = formatNoOrdersFound(botConfig.businessName);
           }
         } else {
-          // Generate AI reply with askAI (manages conversational memory and retries)
+          // ─── 3. Gemini AI Conversational Engine ───────────────────────
           let rawAiReply = '';
           try {
             rawAiReply = await askAI(botConfig, senderId, text);
@@ -785,14 +836,20 @@ app.post('/api/meta/webhook', async (req, res) => {
           }
 
           const processed = extractAndSaveOrder(botConfig.id, botConfig.userId, senderId, senderName, rawAiReply, platform);
-          const { cleanReply: finalReplyText, mediaToSend } = extractProductMedia(processed.reply, botConfig.products);
-          reply = finalReplyText || processed.reply;
+          const extracted = extractProductMedia(processed.reply, botConfig.products);
+          reply = extracted.cleanReply || processed.reply;
+          mediaToSend = extracted.mediaToSend || [];
 
-          // If products had media attached, send images over Graph API
-          if (mediaToSend && mediaToSend.length > 0) {
-            for (const mediaUrl of mediaToSend) {
-              await sendMetaImage(pageToken, senderId, mediaUrl);
-            }
+          // Find if any product was referenced
+          if (Array.isArray(botConfig.products) && botConfig.products.length > 0) {
+            matchedProduct = botConfig.products.find(p => p && reply.includes(p.name));
+          }
+        }
+
+        // Send Product Media (Binary upload from local disk or URL)
+        if (mediaToSend && mediaToSend.length > 0) {
+          for (const mediaUrl of mediaToSend) {
+            await sendMetaImage(pageToken, senderId, mediaUrl);
           }
         }
 
@@ -802,14 +859,45 @@ app.post('/api/meta/webhook', async (req, res) => {
           .replace(/#([A-Za-z0-9_-]+)/g, '$1')
           .trim();
 
-        // Send reply via Meta Graph API
+        // Build Native Quick Action Chips (Interactive Buttons)
+        const quickReplies = [];
+        if (matchedProduct) {
+          quickReplies.push({
+            content_type: 'text',
+            title: '🛒 حجز وشراء الآن',
+            payload: `BUY_${matchedProduct.id}`
+          });
+          const hasMoreImgs = (matchedProduct.secondaryImages?.length || 0) > 0 || (matchedProduct.images?.length || 0) > 1;
+          if (hasMoreImgs) {
+            quickReplies.push({
+              content_type: 'text',
+              title: '📸 صور إضافية',
+              payload: `GALLERY_${matchedProduct.id}`
+            });
+          }
+        }
+        quickReplies.push({
+          content_type: 'text',
+          title: '📦 تتبع طلبي',
+          payload: 'TRACK_ORDER'
+        });
+        quickReplies.push({
+          content_type: 'text',
+          title: '💬 التحدث مع مسؤول',
+          payload: 'HUMAN_SUPPORT'
+        });
+
+        // Send reply via Meta Graph API with interactive quick replies
         const graphUrl = `https://graph.facebook.com/v19.0/me/messages?access_token=${pageToken}`;
         const sendRes = await fetch(graphUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             recipient: { id: senderId },
-            message: { text: cleanSendReply || 'أهلاً بك! كيف يمكنني مساعدتك؟' }
+            message: {
+              text: cleanSendReply || 'أهلاً بك! كيف يمكنني مساعدتك؟',
+              quick_replies: quickReplies.slice(0, 5)
+            }
           })
         });
 
@@ -827,8 +915,6 @@ app.post('/api/meta/webhook', async (req, res) => {
 });
 
 // ─── Security: Firebase ID token verification ──────────────────
-// The dashboard signs in with Firebase Auth and sends its ID token;
-// the engine verifies the token and checks the caller owns the bot.
 app.use('/api', async (req, res, next) => {
   const header = req.headers.authorization || '';
   if (!header.startsWith('Bearer ')) {
@@ -847,13 +933,13 @@ app.use('/api', async (req, res, next) => {
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
-    engine: 'telegram',
+    engine: 'telegram_and_meta',
     activeBots: activeBots.size,
     uptime: process.uptime(),
   });
 });
 
-// Ownership guard: the authenticated user must own this running bot
+// Ownership guard: the authenticated user must own this bot
 function requireBotAccess(res, uid, entry) {
   if (!entry) {
     res.status(404).json({ error: 'البوت غير مشغل حالياً' });
@@ -866,27 +952,71 @@ function requireBotAccess(res, uid, entry) {
   return true;
 }
 
-// Owner manual reply via dashboard
+// ─── Universal Omnichannel Manual Reply (Messenger, IG, Telegram, WhatsApp) ───
 app.post('/api/reply', async (req, res) => {
-  const { botId, telegramUserId, message } = req.body;
-  if (!botId || !telegramUserId || !message) {
-    return res.status(400).json({ error: 'معطيات ناقصة (botId, telegramUserId, message)' });
+  const { botId, customerId, telegramUserId, message, platform } = req.body;
+  const targetUserId = customerId || telegramUserId;
+
+  if (!botId || !targetUserId || !message) {
+    return res.status(400).json({ error: 'معطيات ناقصة (botId, customerId, message)' });
   }
 
-  const entry = activeBots.get(botId);
-  if (!requireBotAccess(res, req.uid, entry)) return;
-
   try {
-    const takeoverKey = `${botId}_${telegramUserId}`;
+    const botDoc = await db.collection('bots').doc(botId).get();
+    if (!botDoc.exists) {
+      return res.status(404).json({ error: 'البوت غير موجود' });
+    }
+
+    const botConfig = { id: botDoc.id, ...botDoc.data() };
+    if (botConfig.userId !== req.uid) {
+      return res.status(403).json({ error: 'لا تملك صلاحية الوصول إلى هذا البوت' });
+    }
+
+    const targetPlatform = platform || (botConfig.platform === 'telegram' ? 'telegram' : 'facebook');
+
+    // Activate Human Takeover
+    const takeoverKey = `${botId}_${targetUserId}`;
     humanTakeoverMap.set(takeoverKey, true);
 
-    await entry.bot.api.sendMessage(telegramUserId, message);
-    await saveMessage(botId, entry.config.userId, telegramUserId, 'المالك', message, 'owner');
+    if (targetPlatform === 'facebook' || targetPlatform === 'instagram' || targetPlatform === 'messenger') {
+      const rawToken = targetPlatform === 'instagram' ? botConfig.instagramToken : botConfig.facebookPageToken;
+      const pageToken = decrypt(rawToken) || rawToken;
+      if (!pageToken) {
+        return res.status(400).json({ error: 'لا يوجد رمز وصول مفعل لقناة فيسبوك/إنستغرام' });
+      }
+
+      const graphUrl = `https://graph.facebook.com/v19.0/me/messages?access_token=${pageToken}`;
+      const graphRes = await fetch(graphUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipient: { id: targetUserId },
+          message: { text: message }
+        })
+      });
+      const graphData = await graphRes.json();
+      if (!graphRes.ok || graphData.error) {
+        throw new Error(graphData.error?.message || 'فشل الإرسال عبر فيسبوك Graph API');
+      }
+    } else if (targetPlatform === 'telegram') {
+      const entry = activeBots.get(botId);
+      if (entry && entry.bot) {
+        await entry.bot.api.sendMessage(targetUserId, message);
+      } else if (botConfig.telegramToken) {
+        const tempBot = new Bot(botConfig.telegramToken);
+        await tempBot.api.sendMessage(targetUserId, message);
+      } else {
+        throw new Error('قناة تيليغرام غير مهيأة');
+      }
+    }
+
+    // Save message to Firestore
+    await saveMessage(botId, botConfig.userId, targetUserId, 'المالك', message, 'owner', targetPlatform);
 
     res.json({ success: true, takeover: true });
   } catch (err) {
-    console.error('[API] Reply error:', err.message);
-    res.status(500).json({ error: 'فشل إرسال الرسالة — يرجى المحاولة لاحقاً' });
+    console.error('[API] Universal reply error:', err.message);
+    res.status(500).json({ error: err.message || 'فشل إرسال الرد' });
   }
 });
 

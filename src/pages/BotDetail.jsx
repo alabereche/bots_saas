@@ -326,19 +326,24 @@ export default function BotDetail() {
     if (!replyText.trim() || !selectedUserId || sending) return;
     setSending(true);
     try {
-      const res = await fetch(`${engineUrlFor(bot?.platform)}/api/reply`, {
+      const threadPlatform = selectedThread?.platform || bot?.platform || 'whatsapp';
+      const engineUrl = threadPlatform === 'whatsapp' ? WHATSAPP_ENGINE_URL : TELEGRAM_ENGINE_URL;
+
+      const res = await fetch(`${engineUrl}/api/reply`, {
         method: 'POST',
         headers: await engineHeaders(),
         body: JSON.stringify({
           botId: id,
+          customerId: selectedUserId,
           telegramUserId: selectedUserId,
+          platform: threadPlatform,
           message: replyText.trim(),
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.success) {
         setReplyText('');
-        toast.success('تم إرسال الرد بنجاح');
+        toast.success('تم إرسال الرد المباشر بنجاح للزبون');
         setTakeoverMap(prev => ({ ...prev, [selectedUserId]: true }));
       } else {
         toast.error(data.error || 'فشل الإرسال');

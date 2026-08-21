@@ -1,8 +1,47 @@
 import React, { useState, useRef } from 'react';
-import { auth } from '../services/firebase';
+import { uploadProductImage, deleteProductImage } from '../services/firebase';
 import { useToast } from '../context/ToastContext';
 
-const API_BASE = import.meta.env.VITE_WHATSAPP_ENGINE_URL || 'http://162.62.233.152:3001';
+export function getSafeImageUrl(url) {
+  if (!url) return '';
+  // Old legacy VPS uploads are unreachable on the HTTPS domain — fallback cleanly
+  if (url.includes('162.62.233.152') || url.includes('localhost')) {
+    return '';
+  }
+  if (url.startsWith('https://') || url.startsWith('data:')) return url;
+  if (url.startsWith('http://')) {
+    const raw = url.replace(/^https?:\/\//, '');
+    return `https://wsrv.nl/?url=${encodeURIComponent(raw)}`;
+  }
+  return url;
+}
+
+function ProductCoverImage({ src, name }) {
+  const [error, setError] = useState(false);
+  const safeSrc = getSafeImageUrl(src);
+
+  if (!safeSrc || error) {
+    return (
+      <div className="item-no-image">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <polyline points="21 15 16 10 5 21"/>
+        </svg>
+        <span>بدون صورة</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={safeSrc}
+      alt={name}
+      className="item-cover-img"
+      onError={() => setError(true)}
+    />
+  );
+}
 
 export default function ProductCatalogManager({ bot, onUpdateBot }) {
   const toast = useToast();
@@ -24,68 +63,69 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
   const primaryInputRef = useRef(null);
   const secondaryInputRef = useRef(null);
 
-  // Get Auth Token for Secure API Calls
-  const getAuthToken = async () => {
-    const user = auth.currentUser;
-    if (!user) throw new Error('يجب تسجيل الدخول أولاً');
-    return await user.getIdToken();
+  // Instant client-side WebP/JPEG compression helper
+  const compressFileToDataUrl = (file) => {
+    return new Promise((resolve) => {
+      if (!file) return resolve('');
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const maxDim = 800;
+            let width = img.width;
+            let height = img.height;
+            if (width > maxDim || height > maxDim) {
+              if (width > height) {
+                height = Math.round((height * maxDim) / width);
+                width = maxDim;
+              } else {
+                width = Math.round((width * maxDim) / height);
+                height = maxDim;
+              }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+
+            let dataUrl = canvas.toDataURL('image/webp', 0.8);
+            if (!dataUrl.startsWith('data:image/webp')) {
+              dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+            }
+            resolve(dataUrl);
+          } catch (err) {
+            resolve(e.target.result);
+          }
+        };
+        img.onerror = () => resolve(e.target.result);
+        img.src = e.target.result;
+      };
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(file);
+    });
   };
 
-  // Upload Images Helper (Multer + Sharp on VPS)
+  // Upload Images Helper (Instant WebP compression)
   const uploadFiles = async (files) => {
     if (!files || files.length === 0) return [];
     setUploading(true);
     try {
-      const token = await getAuthToken();
-      const body = new FormData();
-      body.append('botId', bot.id);
-      for (let i = 0; i < files.length; i++) {
-        body.append('images', files[i]);
-      }
-
-      const res = await fetch(`${API_BASE}/api/upload`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body,
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'فشل رفع الصور');
-      }
-
-      return data.images.map((img) => img.url);
+      const uploadPromises = files.map(compressFileToDataUrl);
+      const urls = await Promise.all(uploadPromises);
+      return urls.filter(Boolean);
     } catch (err) {
       console.error('Upload error:', err);
-      toast.error(err.message || 'خطأ أثناء رفع الصور إلى السيرفر');
+      toast.error('حدث خطأ أثناء معالجة الصورة');
       return [];
     } finally {
       setUploading(false);
     }
   };
 
-  // Delete Image from VPS Disk (Garbage Collection)
-  const deleteImageFile = async (url) => {
-    if (!url || !url.includes('/uploads/')) return;
-    try {
-      const token = await getAuthToken();
-      await fetch(`${API_BASE}/api/upload/delete`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          botId: bot.id,
-          url,
-        }),
-      });
-    } catch (err) {
-      console.warn('Failed to delete image file from server:', err.message);
-    }
-  };
+  // Delete Image Helper
+  const deleteImageFile = () => {};
 
   // Handle Primary Image Upload
   const handlePrimaryUpload = async (e) => {
@@ -235,12 +275,17 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
   // Start Editing
   const startEdit = (product) => {
     setEditingId(product.id);
+    const validPrimary = getSafeImageUrl(product.primaryImage);
+    const validSecondary = (product.secondaryImages || product.images?.slice(1) || [])
+      .map(getSafeImageUrl)
+      .filter(Boolean);
+
     setFormData({
       name: product.name || '',
       price: product.price || '',
       description: product.description || '',
-      primaryImage: product.primaryImage || '',
-      secondaryImages: product.secondaryImages || product.images?.slice(1) || [],
+      primaryImage: validPrimary,
+      secondaryImages: validSecondary,
     });
     setIsAdding(true);
   };
@@ -375,11 +420,11 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
                 )}
               </div>
 
-              {formData.primaryImage ? (
+              {getSafeImageUrl(formData.primaryImage) ? (
                 <div className="preview-primary-box">
-                  <img src={formData.primaryImage} alt="الرئيسية" />
+                  <img src={getSafeImageUrl(formData.primaryImage)} alt="الرئيسية" />
                   <div className="webp-pill-badge">
-                    <span>WebP</span>
+                    <span>جاهزة</span>
                   </div>
                 </div>
               ) : (
@@ -400,7 +445,7 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
                     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                   </div>
                   <div className="dropzone-text">
-                    {uploading ? 'جاري الضغط والرفع...' : 'اضغط لرفع الصورة الأساسية'}
+                    {uploading ? 'جاري المعالجة...' : 'اضغط لاختيار صورة أساسية'}
                   </div>
                   <div className="dropzone-hint">JPG, PNG, WebP</div>
                 </div>
@@ -422,7 +467,7 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
               <div className="secondary-slots-grid">
                 {(formData.secondaryImages || []).map((imgUrl, i) => (
                   <div key={i} className="preview-secondary-slot">
-                    <img src={imgUrl} alt={`زاوية ${i + 1}`} />
+                    <img src={getSafeImageUrl(imgUrl)} alt={`زاوية ${i + 1}`} />
                     <div className="slot-actions-overlay">
                       <button
                         type="button"
@@ -516,22 +561,15 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
       ) : (
         <div className="catalog-items-grid">
           {products.map((p) => {
-            const hasImages = !!p.primaryImage || (p.secondaryImages && p.secondaryImages.length > 0);
-            const totalImgs = (p.primaryImage ? 1 : 0) + (p.secondaryImages?.length || 0);
+            const validPrimary = getSafeImageUrl(p.primaryImage);
+            const validSecondary = (p.secondaryImages || []).map(getSafeImageUrl).filter(Boolean);
+            const totalImgs = (validPrimary ? 1 : 0) + validSecondary.length;
 
             return (
               <div key={p.id} className="catalog-item-card">
                 {/* Image Cover */}
                 <div className="item-cover-wrapper">
-                  {p.primaryImage ? (
-                    <img src={p.primaryImage} alt={p.name} className="item-cover-img" />
-                  ) : (
-                    <div className="item-no-image">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                      <span>بدون صورة</span>
-                    </div>
-                  )}
-
+                  <ProductCoverImage src={p.primaryImage} name={p.name} />
                   <div className="item-cover-gradient" />
 
                   {totalImgs > 0 && (

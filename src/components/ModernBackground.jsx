@@ -4,32 +4,41 @@ export default function ModernBackground() {
   const canvasRef = useRef(null);
 
   useEffect(() => {
+    // ⚡ Performance Rule: Skip canvas animation completely on mobile / low-power devices
+    const isMobile = window.innerWidth <= 768;
+    if (isMobile) return;
+
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { alpha: true });
     if (!ctx) return;
 
     let animationFrameId;
     let width = (canvas.width = window.innerWidth);
     let height = (canvas.height = window.innerHeight);
 
-    // Responsive resize handler
+    // Responsive resize handler (debounced)
+    let resizeTimer;
     const handleResize = () => {
-      if (!canvas) return;
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-      initNodes();
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        if (!canvas) return;
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+        initNodes();
+      }, 150);
     };
 
-    window.addEventListener('resize', handleResize);
+    window.addEventListener('resize', handleResize, { passive: true });
 
-    // Node & Beam Configuration for Conversational Commerce Mesh
-    const NODE_COUNT = Math.min(48, Math.floor(width / 35));
-    const CONNECTION_DIST = 140;
+    // Lightweight Node & Beam Configuration
+    const NODE_COUNT = Math.min(26, Math.floor(width / 50));
+    const CONNECTION_DIST = 120;
+    const CONNECTION_DIST_SQ = CONNECTION_DIST * CONNECTION_DIST;
     let nodes = [];
 
     // Track mouse for subtle interactive reactive field
-    let mouse = { x: -1000, y: -1000, radius: 180 };
+    let mouse = { x: -1000, y: -1000, radius: 150, radiusSq: 22500 };
 
     const handleMouseMove = (e) => {
       mouse.x = e.clientX;
@@ -41,8 +50,8 @@ export default function ModernBackground() {
       mouse.y = -1000;
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseleave', handleMouseLeave);
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    window.addEventListener('mouseleave', handleMouseLeave, { passive: true });
 
     const initNodes = () => {
       nodes = [];
@@ -51,11 +60,11 @@ export default function ModernBackground() {
         nodes.push({
           x: Math.random() * width,
           y: Math.random() * height,
-          vx: (Math.random() - 0.5) * 0.4,
-          vy: (Math.random() - 0.5) * 0.4,
-          radius: Math.random() * 1.8 + 1,
+          vx: (Math.random() - 0.5) * 0.35,
+          vy: (Math.random() - 0.5) * 0.35,
+          radius: Math.random() * 1.5 + 0.8,
           color: isEmerald ? 'rgba(52, 211, 153, ' : 'rgba(56, 189, 248, ',
-          pulseSpeed: 0.02 + Math.random() * 0.03,
+          pulseSpeed: 0.02 + Math.random() * 0.02,
           pulseVal: Math.random() * Math.PI,
         });
       }
@@ -67,13 +76,12 @@ export default function ModernBackground() {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let isRunning = true;
 
-    // Render loop
+    // Fast, optimized 60fps render loop with zero square root overhead in inner loops
     const render = () => {
       if (!isRunning) return;
 
       ctx.clearRect(0, 0, width, height);
 
-      // Draw and update each node
       for (let i = 0; i < nodes.length; i++) {
         const node = nodes[i];
 
@@ -82,24 +90,24 @@ export default function ModernBackground() {
           node.y += node.vy;
           node.pulseVal += node.pulseSpeed;
 
-          // Boundary wrap
           if (node.x < 0) node.x = width;
           if (node.x > width) node.x = 0;
           if (node.y < 0) node.y = height;
           if (node.y > height) node.y = 0;
 
-          // Mouse proximity slight repulsion/attraction
+          // Proximity interaction using squared distance (0 Math.sqrt calls)
           const dx = mouse.x - node.x;
           const dy = mouse.y - node.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < mouse.radius) {
+          const distSq = dx * dx + dy * dy;
+          if (distSq < mouse.radiusSq && distSq > 0) {
+            const dist = Math.sqrt(distSq);
             const force = (mouse.radius - dist) / mouse.radius;
-            node.x -= (dx / dist) * force * 0.8;
-            node.y -= (dy / dist) * force * 0.8;
+            node.x -= (dx / dist) * force * 0.6;
+            node.y -= (dy / dist) * force * 0.6;
           }
         }
 
-        const opacity = 0.35 + Math.sin(node.pulseVal) * 0.2;
+        const opacity = 0.3 + Math.sin(node.pulseVal) * 0.15;
 
         // Draw node
         ctx.beginPath();
@@ -107,20 +115,21 @@ export default function ModernBackground() {
         ctx.fillStyle = `${node.color}${opacity})`;
         ctx.fill();
 
-        // Connect nearby nodes with subtle data threads
+        // Connect nearby nodes with fast distance check
         for (let j = i + 1; j < nodes.length; j++) {
           const other = nodes[j];
           const cdx = node.x - other.x;
           const cdy = node.y - other.y;
-          const cdist = Math.sqrt(cdx * cdx + cdy * cdy);
+          const cdistSq = cdx * cdx + cdy * cdy;
 
-          if (cdist < CONNECTION_DIST) {
-            const lineOpacity = (1 - cdist / CONNECTION_DIST) * 0.18;
+          if (cdistSq < CONNECTION_DIST_SQ) {
+            const cdist = Math.sqrt(cdistSq);
+            const lineOpacity = (1 - cdist / CONNECTION_DIST) * 0.15;
             ctx.beginPath();
             ctx.moveTo(node.x, node.y);
             ctx.lineTo(other.x, other.y);
             ctx.strokeStyle = `rgba(52, 211, 153, ${lineOpacity})`;
-            ctx.lineWidth = 0.85;
+            ctx.lineWidth = 0.75;
             ctx.stroke();
           }
         }
@@ -131,7 +140,7 @@ export default function ModernBackground() {
       }
     };
 
-    // Pause animation when tab is not visible to eliminate background CPU/GPU burn
+    // Pause when tab is invisible
     const handleVisibilityChange = () => {
       if (document.hidden) {
         isRunning = false;
@@ -145,11 +154,11 @@ export default function ModernBackground() {
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-
     render();
 
     return () => {
       isRunning = false;
+      clearTimeout(resizeTimer);
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseleave', handleMouseLeave);
@@ -160,7 +169,7 @@ export default function ModernBackground() {
 
   return (
     <div className="modern-bg-container" aria-hidden="true">
-      {/* 1. Volumetric Optical Spotlight from top-center */}
+      {/* 1. Volumetric Optical Spotlight */}
       <div className="top-optic-spotlight" />
 
       {/* 2. Structured Ambient Architectural Aurora */}
@@ -170,13 +179,10 @@ export default function ModernBackground() {
       {/* 3. Subtle Cybernetic Data Grid Matrix */}
       <div className="modern-grid-overlay" />
 
-      {/* 4. Real-Time Conversational Signal Mesh (Canvas) */}
+      {/* 4. Real-Time Conversational Signal Mesh (Desktop only) */}
       <canvas ref={canvasRef} className="mesh-canvas-layer" />
 
-      {/* 5. Tactile Micro-Texture / Film Grain Overlay */}
-      <div className="noise-texture-overlay" />
-
-      {/* 6. Deep Vignette Frame */}
+      {/* 5. Deep Vignette Frame */}
       <div className="vignette-frame" />
     </div>
   );

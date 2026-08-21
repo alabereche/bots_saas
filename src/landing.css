@@ -1554,7 +1554,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   Responsive Design
+   Responsive Design & Mobile Performance Optimizations
    ═══════════════════════════════════════════════════════════════ */
 @media (max-width: 960px) {
   .landing-nav-links { display: none; }
@@ -1567,6 +1567,67 @@
   .pricing-card.featured { transform: none; }
   .pricing-card.featured:hover { transform: translateY(-4px); }
   .hero-title { font-size: 2.6rem; }
+}
+
+@media (max-width: 768px) {
+  /* 1. Eliminate heavy off-screen blur filters on mobile */
+  .ambient-radial-mesh {
+    filter: blur(35px) !important;
+    opacity: 0.35;
+    width: 300px !important;
+    height: 300px !important;
+  }
+
+  .top-optic-spotlight {
+    filter: blur(25px) !important;
+    width: 100% !important;
+    height: 260px !important;
+  }
+
+  .mesh-canvas-layer {
+    display: none !important;
+  }
+
+  .noise-texture-overlay {
+    display: none !important;
+  }
+
+  /* 2. Replace costly backdrop-filter on mobile with fast opaque composites */
+  .landing-navbar {
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    background: rgba(8, 12, 22, 0.96) !important;
+  }
+
+  .glass-card,
+  .metric-box,
+  .feature-bento-card,
+  .step-card,
+  .pricing-card,
+  .calc-card,
+  .calc-results-card {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: #0e1526 !important;
+    transform: translateZ(0);
+  }
+
+  /* 3. Virtualize below-the-fold layout with content-visibility (Huge scroll boost) */
+  .how-it-works-section,
+  .features-bento-section,
+  .roi-calculator-section,
+  .pricing-section,
+  .cta-banner-section {
+    content-visibility: auto;
+    contain-intrinsic-size: 600px;
+  }
+
+  /* 4. Optimize shadows on mobile */
+  .hero-mockup-card,
+  .interactive-demo-card,
+  .cta-banner-box {
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4) !important;
+  }
 }
 
 @media (max-width: 640px) {

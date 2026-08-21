@@ -54,6 +54,15 @@ function isSafePublicHttpUrl(urlStr) {
 function resolveInputMedia(mediaUrl) {
   try {
     if (typeof mediaUrl === 'string') {
+      // Direct support for compressed base64 data URLs
+      if (mediaUrl.startsWith('data:')) {
+        const parts = mediaUrl.split(',');
+        if (parts.length === 2) {
+          const buffer = Buffer.from(parts[1], 'base64');
+          return new InputFile(buffer, 'product.jpg');
+        }
+      }
+
       if (mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://')) {
         const parsed = new URL(mediaUrl);
         const filename = path.basename(parsed.pathname);

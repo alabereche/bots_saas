@@ -121,7 +121,21 @@ const fs = require('fs');
 
 async function resolveWhatsAppMedia(mediaUrl) {
   try {
-    if (typeof mediaUrl === 'string') {
+    if (!mediaUrl || typeof mediaUrl !== 'string') return null;
+
+    // Direct support for compressed base64 data URLs
+    if (mediaUrl.startsWith('data:')) {
+      const parts = mediaUrl.split(',');
+      if (parts.length === 2) {
+        const header = parts[0];
+        const base64Data = parts[1];
+        const mimeMatch = header.match(/:(.*?);/);
+        const mimetype = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+        return new MessageMedia(mimetype, base64Data, 'product.jpg');
+      }
+    }
+
+    if (mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://')) {
       const filename = path.basename(new URL(mediaUrl).pathname);
       const localPath = path.resolve(__dirname, 'uploads', filename);
       if (fs.existsSync(localPath)) {

@@ -396,6 +396,10 @@ async function callGemini(apiKey, model, messages) {
       } else {
         const err = await res.text();
         lastError = new Error(`Gemini ${geminiModel} ${res.status}: ${err}`);
+        // 404 = this model doesn't exist → the next fallback may work.
+        // 400/401/403 = bad request or credentials → every model will
+        // fail the same way; retrying only multiplies the latency.
+        if (res.status === 400 || res.status === 401 || res.status === 403) break;
       }
     } catch (e) {
       lastError = e;

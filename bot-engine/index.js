@@ -1136,9 +1136,12 @@ app.post('/api/reply', async (req, res) => {
   try {
     const targetPlatform = platform || (botConfig.platform === 'telegram' ? 'telegram' : 'facebook');
 
-    // Activate Human Takeover
+    // Activate Human Takeover — except for system notifications
+    // (delivery receipts, arrival notices) which must NOT silence the AI
     const takeoverKey = `${botId}_${targetUserId}`;
-    humanTakeoverMap.set(takeoverKey, true);
+    if (!req.body.system) {
+      humanTakeoverMap.set(takeoverKey, true);
+    }
 
     if (targetPlatform === 'facebook' || targetPlatform === 'instagram' || targetPlatform === 'messenger') {
       const rawToken = targetPlatform === 'instagram' ? botConfig.instagramToken : botConfig.facebookPageToken;

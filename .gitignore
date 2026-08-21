@@ -32,3 +32,4 @@ whatsapp-engine/sessions/
 *.sw?
 
 .vercel
+scratch/

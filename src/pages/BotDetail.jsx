@@ -391,6 +391,7 @@ export default function BotDetail() {
                 botId: id,
                 telegramUserId: currentOrder.customerId,
                 message: receiptMsg,
+                system: true,
               }),
             });
             const data = await res.json().catch(() => ({}));

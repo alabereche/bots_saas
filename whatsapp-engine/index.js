@@ -248,8 +248,11 @@ app.post('/api/reply', async (req, res) => {
   }
 
   try {
-    // A manual reply implies manual mode: pause the AI for this customer
-    setTakeover(botId, telegramUserId, true);
+    // A manual reply implies manual mode: pause the AI for this customer.
+    // System notifications (delivery receipts etc.) must NOT silence the AI.
+    if (!req.body.system) {
+      setTakeover(botId, telegramUserId, true);
+    }
 
     await state.client.sendMessage(String(telegramUserId), String(message).slice(0, 1000));
 
@@ -278,6 +281,13 @@ app.post('/api/takeover', async (req, res) => {
   setTakeover(botId, telegramUserId, !!enabled);
   console.log(`[API] ${enabled ? '🖐️' : '🤖'} Takeover ${enabled ? 'ON' : 'OFF'} (bot ${botId})`);
   res.json({ success: true, takeover: !!enabled });
+});
+
+// GET /api/takeover/:botId — Current manual-mode customers of a bot
+// (used by the dashboard to restore takeover state after a page reload)
+app.get('/api/takeover/:botId', async (req, res) => {
+  if (!(await requireBotAccess(res, req.uid, req.params.botId))) return;
+  res.json({ takeovers: getTakeoverMap(req.params.botId) });
 });
 
 // ─── Order Tracking & Delivery Management ─────────────────────

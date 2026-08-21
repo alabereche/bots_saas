@@ -7,6 +7,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import crypto from 'crypto';
 import { Bot, InputFile } from 'grammy';
 import admin from 'firebase-admin';
 import fs from 'fs';
@@ -1305,33 +1306,38 @@ const META_APP_SECRET = process.env.META_APP_SECRET || '';
 
 // 1. Generate secure OAuth Authorization URL with HMAC-signed CSRF protection (F04)
 app.get('/api/meta/oauth/url', async (req, res) => {
-  const { botId, redirectUri } = req.query;
-  if (!botId || !redirectUri) {
-    return res.status(400).json({ error: 'معطيات ناقصة (botId, redirectUri)' });
+  try {
+    const { botId, redirectUri } = req.query;
+    if (!botId || !redirectUri) {
+      return res.status(400).json({ error: 'معطيات ناقصة (botId, redirectUri)' });
+    }
+
+    const botConfig = await requireBotAccess(res, req.uid, botId);
+    if (!botConfig) return;
+
+    // State encodes uid, botId, timestamp, and cryptographic HMAC signature
+    const stateData = { uid: req.uid, botId, ts: Date.now() };
+    const stateJson = JSON.stringify(stateData);
+    const stateSig = crypto.createHmac('sha256', META_APP_SECRET || 'botforge_oauth_secret').update(stateJson).digest('hex');
+    const state = Buffer.from(JSON.stringify({ data: stateJson, sig: stateSig })).toString('base64url');
+
+    const scope = [
+      'pages_show_list',
+      'pages_messaging',
+      'pages_read_engagement',
+      'pages_manage_metadata',
+      'instagram_basic',
+      'instagram_manage_messages',
+      'public_profile'
+    ].join(',');
+
+    const oauthUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${META_APP_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&scope=${scope}&response_type=code`;
+
+    res.json({ oauthUrl, state });
+  } catch (err) {
+    console.error('[/api/meta/oauth/url] Error:', err);
+    res.status(500).json({ error: 'فشل إنشاء رابط تسجيل الدخول لفيسبوك: ' + err.message });
   }
-
-  const botConfig = await requireBotAccess(res, req.uid, botId);
-  if (!botConfig) return;
-
-  // State encodes uid, botId, timestamp, and cryptographic HMAC signature
-  const stateData = { uid: req.uid, botId, ts: Date.now() };
-  const stateJson = JSON.stringify(stateData);
-  const stateSig = crypto.createHmac('sha256', META_APP_SECRET || 'botforge_oauth_secret').update(stateJson).digest('hex');
-  const state = Buffer.from(JSON.stringify({ data: stateJson, sig: stateSig })).toString('base64url');
-
-  const scope = [
-    'pages_show_list',
-    'pages_messaging',
-    'pages_read_engagement',
-    'pages_manage_metadata',
-    'instagram_basic',
-    'instagram_manage_messages',
-    'public_profile'
-  ].join(',');
-
-  const oauthUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${META_APP_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&scope=${scope}&response_type=code`;
-
-  res.json({ oauthUrl, state });
 });
 
 // 2. Exchange OAuth Code for Long-Lived Token & Fetch Merchant's Pages with Strict CSRF Check (F04)

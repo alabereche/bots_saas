@@ -13,6 +13,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const CreateBot = lazy(() => import('./pages/CreateBot'));
 const BotDetail = lazy(() => import('./pages/BotDetail'));
 const Billing = lazy(() => import('./pages/Billing'));
+const MetaCallback = lazy(() => import('./pages/MetaCallback'));
 
 function PageLoader() {
   return (
@@ -41,6 +42,7 @@ function AppLayout() {
         <Routes>
           {/* Public Landing Page */}
           <Route path="/" element={<Landing />} />
+          <Route path="/meta-callback" element={<MetaCallback />} />
 
           {/* Public Auth Routes */}
           <Route 

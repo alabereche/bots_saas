@@ -8,6 +8,8 @@ export function getSafeImageUrl(url) {
   if (url.includes('162.62.233.152') || url.includes('localhost')) {
     return '';
   }
+  // Engine-hosted images via the Cloudflare tunnel are HTTPS — serve directly
+  if (url.startsWith('https://wa.nosfir.online/')) return url;
   if (url.startsWith('https://') || url.startsWith('data:')) return url;
   if (url.startsWith('http://')) {
     const raw = url.replace(/^https?:\/\//, '');

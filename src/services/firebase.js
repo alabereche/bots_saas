@@ -345,8 +345,8 @@ export function sanitizeBotFeatures(features = {}) {
   return f;
 }
 
-const WHATSAPP_ENGINE_URL = import.meta.env.VITE_WHATSAPP_ENGINE_URL || 'http://162.62.233.152:3001';
-const TELEGRAM_ENGINE_URL = import.meta.env.VITE_ENGINE_URL || 'http://162.62.233.152:3002';
+const WHATSAPP_ENGINE_URL = import.meta.env.VITE_WHATSAPP_ENGINE_URL || 'https://wa.nosfir.online';
+const TELEGRAM_ENGINE_URL = import.meta.env.VITE_ENGINE_URL || 'https://tg.nosfir.online';
 
 function engineUrlFor(platform) {
   return platform === 'telegram' ? TELEGRAM_ENGINE_URL : WHATSAPP_ENGINE_URL;

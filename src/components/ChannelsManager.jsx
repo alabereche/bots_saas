@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { useToast } from '../context/ToastContext';
 import { auth } from '../services/firebase';
 
-const WHATSAPP_ENGINE_URL = import.meta.env.VITE_WHATSAPP_ENGINE_URL || 'http://162.62.233.152:3001';
-const TELEGRAM_ENGINE_URL = import.meta.env.VITE_ENGINE_URL || 'http://162.62.233.152:3002';
+const WHATSAPP_ENGINE_URL = import.meta.env.VITE_WHATSAPP_ENGINE_URL || 'https://wa.nosfir.online';
+const TELEGRAM_ENGINE_URL = import.meta.env.VITE_ENGINE_URL || 'https://tg.nosfir.online';
 
 async function engineHeaders(json = true) {
   const token = await auth.currentUser?.getIdToken();

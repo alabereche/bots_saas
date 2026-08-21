@@ -43,10 +43,9 @@ function platformLabel(p) {
   return 'محادثة';
 }
 
-// Engine endpoints — WhatsApp engine (3001) handles WhatsApp bots,
-// the Telegram engine (3002) handles everything else
-const WHATSAPP_ENGINE_URL = import.meta.env.VITE_WHATSAPP_ENGINE_URL || 'http://162.62.233.152:3001';
-const TELEGRAM_ENGINE_URL = import.meta.env.VITE_ENGINE_URL || 'http://162.62.233.152:3002';
+// Engine endpoints served through the Cloudflare tunnel (HTTPS)
+const WHATSAPP_ENGINE_URL = import.meta.env.VITE_WHATSAPP_ENGINE_URL || 'https://wa.nosfir.online';
+const TELEGRAM_ENGINE_URL = import.meta.env.VITE_ENGINE_URL || 'https://tg.nosfir.online';
 
 function engineUrlFor(platform) {
   return platform === 'whatsapp' ? WHATSAPP_ENGINE_URL : TELEGRAM_ENGINE_URL;

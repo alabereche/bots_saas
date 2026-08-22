@@ -206,10 +206,19 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
   return botState;
 }
 
-// Stop Bot
+// Stop Bot & Purge Session
 async function stopWhatsAppBot(botId, purgeSession = true) {
   const entry = activeBots.get(botId);
   if (entry) {
+    try {
+      if (entry.status === 'connected' && entry.client) {
+        console.log(`[BotManager] 🚪 Logging out WhatsApp session for "${entry.config.botName}"...`);
+        await entry.client.logout().catch(() => {});
+      }
+    } catch (e) {
+      console.warn('[BotManager] Logout notice:', e.message);
+    }
+
     try {
       await entry.client.destroy();
       console.log(`[BotManager] Bot "${entry.config.botName}" stopped.`);

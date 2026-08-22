@@ -156,7 +156,7 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
       setQrDataUrl(null);
       setPairingCode(null);
       await onUpdateBot({ whatsappStatus: 'disconnected' });
-      toast.success('تم فصل اتصال واتساب');
+      toast.success('تم فصل اتصال واتساب وتطهير الجلسة بنجاح');
     } catch {
       toast.error('فشل قطع الاتصال');
     }
@@ -257,8 +257,9 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                 </div>
               </div>
 
-              <span className={`channel-status-pill ${isWaConnected ? 'channel-status-pill--online' : 'channel-status-pill--offline'}`}>
-                {isWaConnected ? '🟢 متصل' : '⚪ غير متصل'}
+              <span className={`channel-status-pill ${isWaConnected ? 'channel-status-pill--online' : 'channel-status-pill--offline'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: isWaConnected ? '#10b981' : '#94a3b8' }} />
+                <span>{isWaConnected ? 'متصل' : 'غير متصل'}</span>
               </span>
             </div>
 
@@ -303,8 +304,9 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                 </div>
               </div>
 
-              <span className={`channel-status-pill ${isTgConnected ? 'channel-status-pill--online' : 'channel-status-pill--offline'}`}>
-                {isTgConnected ? '🟢 متصل' : '⚪ غير متصل'}
+              <span className={`channel-status-pill ${isTgConnected ? 'channel-status-pill--online' : 'channel-status-pill--offline'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: isTgConnected ? '#10b981' : '#94a3b8' }} />
+                <span>{isTgConnected ? 'متصل' : 'غير متصل'}</span>
               </span>
             </div>
 
@@ -337,7 +339,7 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
       {/* ─── Modern WhatsApp Connection Modal (Pairing Code & QR) ─── */}
       {showWaModal && (
         <div className="modal-overlay" onClick={() => !waConnecting && setShowWaModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px', textAlign: 'center', padding: '1.75rem' }}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px', width: '92%', textAlign: 'center', padding: '1.75rem', boxSizing: 'border-box' }}>
             
             <h3 className="modal-title" style={{ marginBottom: '0.35rem', fontSize: '1.25rem', fontWeight: 800, color: '#ffffff' }}>
               ربط حساب واتساب (WhatsApp)
@@ -377,7 +379,8 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                   gap: '6px'
                 }}
               >
-                <span>📱 كود الهاتف (موصى للهاتف)</span>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
+                <span>كود الهاتف (موصى للهاتف)</span>
               </button>
               <button
                 type="button"
@@ -399,7 +402,8 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                   gap: '6px'
                 }}
               >
-                <span>💻 مسح QR (للكمبيوتر)</span>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
+                <span>مسح QR (للكمبيوتر)</span>
               </button>
             </div>
 
@@ -408,34 +412,59 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
               <div>
                 {!pairingCode ? (
                   <div>
-                    <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.06)', borderRadius: '14px', padding: '1.25rem', marginBottom: '1.25rem', textAlign: 'right' }}>
-                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#ffffff', marginBottom: '8px' }}>
+                    <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '16px', padding: '1.25rem', marginBottom: '1.25rem', textAlign: 'right', boxSizing: 'border-box' }}>
+                      <label style={{ display: 'block', fontSize: '0.88rem', fontWeight: 700, color: '#ffffff', marginBottom: '10px' }}>
                         أدخل رقم هاتف واتساب الخاص بمتجرك:
                       </label>
 
-                      <div style={{ display: 'flex', gap: '8px', direction: 'ltr' }}>
-                        <select
-                          value={selectedCountryCode}
-                          onChange={e => setSelectedCountryCode(e.target.value)}
-                          style={{
-                            padding: '10px 8px',
-                            borderRadius: '10px',
-                            background: 'rgba(255, 255, 255, 0.06)',
-                            border: '1px solid rgba(255, 255, 255, 0.12)',
-                            color: '#ffffff',
-                            fontSize: '0.88rem',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            outline: 'none'
-                          }}
-                        >
-                          {COUNTRIES.map(c => (
-                            <option key={c.code} value={c.code} style={{ background: '#0f172a', color: '#ffffff' }}>
-                              {c.flag} {c.dialCode} ({c.name})
-                            </option>
-                          ))}
-                        </select>
+                      {/* Unified Phone Input Group */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        direction: 'ltr',
+                        background: 'rgba(15, 23, 42, 0.8)',
+                        border: '1.5px solid rgba(255, 255, 255, 0.14)',
+                        borderRadius: '12px',
+                        padding: '3px',
+                        boxSizing: 'border-box',
+                        width: '100%',
+                        transition: 'border-color 0.2s ease',
+                      }}>
+                        {/* Country Selector */}
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', minWidth: '100px' }}>
+                          <select
+                            value={selectedCountryCode}
+                            onChange={e => setSelectedCountryCode(e.target.value)}
+                            style={{
+                              width: '100%',
+                              padding: '10px 8px',
+                              borderRadius: '9px',
+                              background: 'transparent',
+                              border: 'none',
+                              color: '#ffffff',
+                              fontSize: '0.88rem',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              outline: 'none',
+                              appearance: 'none',
+                              paddingRight: '20px'
+                            }}
+                          >
+                            {COUNTRIES.map(c => (
+                              <option key={c.code} value={c.code} style={{ background: '#0f172a', color: '#ffffff' }}>
+                                {c.flag} {c.dialCode} ({c.name})
+                              </option>
+                            ))}
+                          </select>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ position: 'absolute', right: '6px', pointerEvents: 'none', color: '#94a3b8' }}>
+                            <polyline points="6 9 12 15 18 9"/>
+                          </svg>
+                        </div>
 
+                        {/* Divider */}
+                        <div style={{ width: '1px', height: '28px', background: 'rgba(255, 255, 255, 0.15)', margin: '0 4px' }} />
+
+                        {/* Phone Number Field */}
                         <input
                           type="tel"
                           placeholder={selectedCountry.phonePlaceholder || '0672 00 00 00'}
@@ -443,21 +472,24 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                           onChange={e => setPhoneNumberInput(e.target.value)}
                           style={{
                             flex: 1,
-                            padding: '10px 14px',
-                            borderRadius: '10px',
-                            background: 'rgba(255, 255, 255, 0.06)',
-                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                            minWidth: 0,
+                            padding: '10px 12px',
+                            background: 'transparent',
+                            border: 'none',
                             color: '#ffffff',
-                            fontSize: '0.95rem',
+                            fontSize: '1.05rem',
                             fontWeight: 700,
                             letterSpacing: '1px',
-                            outline: 'none'
+                            outline: 'none',
+                            fontFamily: 'monospace'
                           }}
                         />
                       </div>
-                      <span style={{ display: 'block', fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: '6px' }}>
-                        💡 سيتم إرسال كود ربط رسمي مكون من 8 خانات لتأكيده في تطبيق واتساب مباشرة.
-                      </span>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                        <span>سيتم إرسال كود ربط رسمي مكون من 8 خانات لتأكيده في تطبيق واتساب مباشرة.</span>
+                      </div>
                     </div>
 
                     {waConnecting || (waStatus === 'initializing' && !pairingCode) ? (
@@ -488,7 +520,8 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                           borderRadius: '12px'
                         }}
                       >
-                        <span>توليد كود الربط السريع ⚡</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        <span>توليد كود الربط السريع</span>
                       </button>
                     )}
                   </div>
@@ -523,7 +556,7 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                         {pairingCode}
                       </div>
 
-                      <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'center', gap: '10px', alignItems: 'center' }}>
+                      <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'center', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
                         <button
                           type="button"
                           className="btn btn-secondary btn-sm"
@@ -534,15 +567,28 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                             fontWeight: 700,
                             padding: '6px 16px',
                             borderRadius: '8px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
                             gap: '6px'
                           }}
                         >
-                          {copiedCode ? '✓ تم النسخ' : '📋 نسخ الكود'}
+                          {copiedCode ? (
+                            <>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                              <span>تم النسخ</span>
+                            </>
+                          ) : (
+                            <>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                              <span>نسخ الكود</span>
+                            </>
+                          )}
                         </button>
 
                         {timeLeft !== null && (
-                          <span style={{ fontSize: '0.78rem', color: timeLeft < 30 ? '#ef4444' : '#94a3b8' }}>
-                            ⏳ ينتهي خلال {timeLeft} ثانية
+                          <span style={{ fontSize: '0.78rem', color: timeLeft < 30 ? '#ef4444' : '#94a3b8', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            <span>ينتهي خلال {timeLeft} ثانية</span>
                           </span>
                         )}
                       </div>
@@ -550,7 +596,10 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
 
                     {/* Step-by-Step Instructions */}
                     <div style={{ textAlign: 'right', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '12px', padding: '1rem', fontSize: '0.82rem', lineHeight: 1.6, color: '#e2e8f0', marginBottom: '1rem' }}>
-                      <div style={{ fontWeight: 800, color: '#38bdf8', marginBottom: '6px' }}>📌 خطوات التفعيل السريعة على هاتفك:</div>
+                      <div style={{ fontWeight: 800, color: '#38bdf8', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                        <span>خطوات التفعيل السريعة على هاتفك:</span>
+                      </div>
                       <div>1. افتح تطبيق واتساب على هاتفك ➔ اضغط على النقاط الثلاث (أو الإعدادات).</div>
                       <div>2. اختر <strong>الأجهزة المرتبطة (Linked Devices)</strong> ➔ اضغط <strong>ربط جهاز</strong>.</div>
                       <div>3. اختر بالأسفل <strong>«الربط باستخدام رقم الهاتف» (Link with phone number instead)</strong>.</div>

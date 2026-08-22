@@ -54,12 +54,16 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
             setPairingExpiresAt(data.pairingCodeExpiresAt || Date.now() + 120000);
             setWaStatus('waiting_scan');
           }
-          if (data.status === 'connected') {
+          if (data.status === 'connected' || data.status === 'authenticated') {
+            setWaStatus('connected');
             setQrDataUrl(null);
             setPairingCode(null);
             setShowWaModal(false);
             clearInterval(interval);
-            toast.success('تم ربط واتساب بنجاح!');
+            if (onUpdateBot) {
+              await onUpdateBot({ whatsappStatus: 'connected', whatsappEnabled: true }).catch(() => {});
+            }
+            toast.success('تم ربط حساب واتساب بنجاح!');
           }
         }
       } catch (err) {

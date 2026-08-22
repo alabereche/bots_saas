@@ -117,12 +117,23 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
       console.error('[BotManager] QR generation error:', e.message);
     }
 
-    await firestore.updateBotStatus(botId, 'waiting_scan').catch(() => {});
+  // Authenticated Event (Fires immediately upon pairing code / QR scan confirmation)
+  client.on('authenticated', async () => {
+    console.log(`[BotManager] 🔑 Bot "${config.botName}" authenticated with WhatsApp!`);
+    botState.status = 'connected';
+    botState.qrCode = null;
+    botState.qrDataUrl = null;
+    botState.pairingCode = null;
+    botState.pairingCodeExpiresAt = null;
+
+    await firestore.updateBotStatus(botId, 'connected', {
+      whatsappConnectedAt: new Date().toISOString(),
+    }).catch(() => {});
   });
 
-  // Ready Event (Connected)
+  // Ready Event (Full sync completed)
   client.on('ready', async () => {
-    console.log(`[BotManager] Bot "${config.botName}" connected to WhatsApp!`);
+    console.log(`[BotManager] 🚀 Bot "${config.botName}" fully ready and synced on WhatsApp!`);
     botState.status = 'connected';
     botState.qrCode = null;
     botState.qrDataUrl = null;

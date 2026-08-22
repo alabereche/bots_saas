@@ -342,72 +342,129 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
 
       {/* ─── Modern WhatsApp Connection Modal (Pairing Code & QR) ─── */}
       {showWaModal && (
-        <div className="modal-overlay" onClick={() => !waConnecting && setShowWaModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px', width: '92%', textAlign: 'center', padding: '1.75rem', boxSizing: 'border-box' }}>
+        <div className="modal-overlay" onClick={() => !waConnecting && setShowWaModal(false)} style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', background: 'rgba(3, 7, 18, 0.85)' }}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{
+            maxWidth: '490px',
+            width: '92%',
+            textAlign: 'center',
+            padding: '2rem 1.75rem',
+            boxSizing: 'border-box',
+            background: 'linear-gradient(180deg, #0f172a 0%, #090d16 100%)',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
+            borderRadius: '24px',
+            boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.9), 0 0 35px rgba(37, 211, 102, 0.12)',
+            position: 'relative'
+          }}>
             
-            <h3 className="modal-title" style={{ marginBottom: '0.35rem', fontSize: '1.25rem', fontWeight: 800, color: '#ffffff' }}>
-              ربط حساب واتساب (WhatsApp)
+            {/* Top Close Button */}
+            <button
+              onClick={() => !waConnecting && setShowWaModal(false)}
+              style={{
+                position: 'absolute',
+                top: '18px',
+                left: '18px',
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.06)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                color: '#94a3b8',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)'; e.currentTarget.style.color = '#ef4444'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)'; e.currentTarget.style.color = '#94a3b8'; }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+
+            {/* Glowing Brand Icon Badge */}
+            <div style={{
+              width: '52px',
+              height: '52px',
+              borderRadius: '16px',
+              background: 'linear-gradient(135deg, rgba(37, 211, 102, 0.2) 0%, rgba(18, 140, 126, 0.1) 100%)',
+              border: '1px solid rgba(37, 211, 102, 0.4)',
+              color: '#25d366',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 1rem',
+              boxShadow: '0 0 24px rgba(37, 211, 102, 0.25)'
+            }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+              </svg>
+            </div>
+
+            <h3 style={{ margin: '0 0 6px', fontSize: '1.35rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em' }}>
+              ربط حساب واتساب
             </h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
-              اختر الطريقة الأنسب لك لربط متجرك فوراً
+            <p style={{ color: '#94a3b8', fontSize: '0.86rem', margin: '0 0 1.5rem', lineHeight: 1.5 }}>
+              اختر الطريقة المفضلة لربط متجرك بالذكاء الاصطناعي فوراً
             </p>
 
-            {/* Mode Switch Tabs */}
+            {/* Mode Switch Tabs (Luxury Segmented Control) */}
             <div style={{
               display: 'grid',
               gridTemplateColumns: '1fr 1fr',
-              background: 'rgba(255, 255, 255, 0.04)',
-              padding: '4px',
-              borderRadius: '12px',
+              background: 'rgba(15, 23, 42, 0.8)',
+              padding: '5px',
+              borderRadius: '14px',
               border: '1px solid rgba(255, 255, 255, 0.08)',
               marginBottom: '1.5rem',
-              gap: '4px'
+              gap: '6px'
             }}>
               <button
                 type="button"
                 onClick={() => { setConnectTab('phone'); setQrDataUrl(null); }}
                 style={{
-                  padding: '8px 12px',
-                  borderRadius: '9px',
-                  border: 'none',
-                  background: connectTab === 'phone' ? 'rgba(37, 211, 102, 0.15)' : 'transparent',
-                  color: connectTab === 'phone' ? '#25d366' : '#94a3b8',
-                  fontWeight: connectTab === 'phone' ? 800 : 500,
-                  fontSize: '0.85rem',
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  border: connectTab === 'phone' ? '1px solid rgba(37, 211, 102, 0.35)' : '1px solid transparent',
+                  background: connectTab === 'phone' ? 'linear-gradient(135deg, rgba(37, 211, 102, 0.18) 0%, rgba(18, 140, 126, 0.1) 100%)' : 'transparent',
+                  color: connectTab === 'phone' ? '#34d399' : '#94a3b8',
+                  fontWeight: connectTab === 'phone' ? 800 : 600,
+                  fontSize: '0.88rem',
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  borderBottom: connectTab === 'phone' ? '2px solid #25d366' : '2px solid transparent',
+                  transition: 'all 0.25s ease',
+                  boxShadow: connectTab === 'phone' ? '0 4px 14px rgba(37, 211, 102, 0.15)' : 'none',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '6px'
+                  gap: '8px'
                 }}
               >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
-                <span>كود الهاتف (موصى للهاتف)</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
+                <span>كود الهاتف السريع</span>
               </button>
               <button
                 type="button"
                 onClick={() => { setConnectTab('qr'); setPairingCode(null); }}
                 style={{
-                  padding: '8px 12px',
-                  borderRadius: '9px',
-                  border: 'none',
-                  background: connectTab === 'qr' ? 'rgba(37, 211, 102, 0.15)' : 'transparent',
-                  color: connectTab === 'qr' ? '#25d366' : '#94a3b8',
-                  fontWeight: connectTab === 'qr' ? 800 : 500,
-                  fontSize: '0.85rem',
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  border: connectTab === 'qr' ? '1px solid rgba(37, 211, 102, 0.35)' : '1px solid transparent',
+                  background: connectTab === 'qr' ? 'linear-gradient(135deg, rgba(37, 211, 102, 0.18) 0%, rgba(18, 140, 126, 0.1) 100%)' : 'transparent',
+                  color: connectTab === 'qr' ? '#34d399' : '#94a3b8',
+                  fontWeight: connectTab === 'qr' ? 800 : 600,
+                  fontSize: '0.88rem',
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  borderBottom: connectTab === 'qr' ? '2px solid #25d366' : '2px solid transparent',
+                  transition: 'all 0.25s ease',
+                  boxShadow: connectTab === 'qr' ? '0 4px 14px rgba(37, 211, 102, 0.15)' : 'none',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '6px'
+                  gap: '8px'
                 }}
               >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
-                <span>مسح QR (للكمبيوتر)</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
+                <span>مسح الـ QR</span>
               </button>
             </div>
 
@@ -416,41 +473,56 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
               <div>
                 {!pairingCode ? (
                   <div>
-                    <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '16px', padding: '1.25rem', marginBottom: '1.25rem', textAlign: 'right', boxSizing: 'border-box' }}>
-                      <label style={{ display: 'block', fontSize: '0.88rem', fontWeight: 700, color: '#ffffff', marginBottom: '10px' }}>
-                        أدخل رقم هاتف واتساب الخاص بمتجرك:
+                    <div style={{
+                      background: 'linear-gradient(145deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%)',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      borderRadius: '18px',
+                      padding: '1.4rem',
+                      marginBottom: '1.25rem',
+                      textAlign: 'right',
+                      boxSizing: 'border-box'
+                    }}>
+                      <label style={{ display: 'block', fontSize: '0.88rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '10px' }}>
+                        رقم هاتف واتساب الخاص بمتجرك:
                       </label>
 
-                      {/* Bulletproof Unified Phone Input Bar */}
+                      {/* Luxury Phone Input Bar */}
                       <div style={{
                         display: 'grid',
-                        gridTemplateColumns: '120px 1fr',
+                        gridTemplateColumns: '125px 1fr',
                         direction: 'ltr',
-                        background: '#090d16',
-                        border: '1.5px solid rgba(255, 255, 255, 0.12)',
-                        borderRadius: '12px',
+                        background: '#060911',
+                        border: '1.5px solid rgba(255, 255, 255, 0.14)',
+                        borderRadius: '14px',
                         overflow: 'hidden',
                         boxSizing: 'border-box',
                         width: '100%',
+                        boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.6)',
                         transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
                       }}>
                         {/* Country Selector Column */}
-                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', background: 'rgba(255, 255, 255, 0.03)', borderRight: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                        <div style={{
+                          position: 'relative',
+                          display: 'flex',
+                          alignItems: 'center',
+                          background: 'rgba(255, 255, 255, 0.04)',
+                          borderRight: '1px solid rgba(255, 255, 255, 0.1)'
+                        }}>
                           <select
                             value={selectedCountryCode}
                             onChange={e => setSelectedCountryCode(e.target.value)}
                             style={{
                               width: '100%',
-                              padding: '11px 8px 11px 10px',
+                              padding: '12px 10px 12px 12px',
                               background: 'transparent',
                               border: 'none',
                               color: '#ffffff',
-                              fontSize: '0.88rem',
+                              fontSize: '0.9rem',
                               fontWeight: 800,
                               cursor: 'pointer',
                               outline: 'none',
                               appearance: 'none',
-                              paddingRight: '22px',
+                              paddingRight: '24px',
                               boxSizing: 'border-box'
                             }}
                           >
@@ -460,7 +532,7 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                               </option>
                             ))}
                           </select>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ position: 'absolute', right: '7px', pointerEvents: 'none', color: '#94a3b8' }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ position: 'absolute', right: '8px', pointerEvents: 'none', color: '#94a3b8' }}>
                             <polyline points="6 9 12 15 18 9"/>
                           </svg>
                         </div>
@@ -473,13 +545,13 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                           onChange={e => setPhoneNumberInput(e.target.value)}
                           style={{
                             width: '100%',
-                            padding: '11px 14px',
+                            padding: '12px 14px',
                             background: 'transparent',
                             border: 'none',
                             color: '#ffffff',
-                            fontSize: '1.05rem',
+                            fontSize: '1.1rem',
                             fontWeight: 700,
-                            letterSpacing: '1.5px',
+                            letterSpacing: '2px',
                             outline: 'none',
                             fontFamily: 'monospace',
                             boxSizing: 'border-box'
@@ -487,41 +559,59 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                         />
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                        <span>سيتم إرسال كود ربط رسمي مكون من 8 خانات لتأكيده في تطبيق واتساب مباشرة.</span>
+                      {/* Info Pill */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        marginTop: '10px',
+                        fontSize: '0.78rem',
+                        color: '#93c5fd',
+                        background: 'rgba(59, 130, 246, 0.08)',
+                        border: '1px solid rgba(59, 130, 246, 0.2)',
+                        padding: '8px 12px',
+                        borderRadius: '10px',
+                        lineHeight: 1.4
+                      }}>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                        <span>سيتم توليد كود ربط رسمي مكون من 8 خانات لتأكيده على هاتفك فوراً.</span>
                       </div>
                     </div>
 
                     {waConnecting || (waStatus === 'initializing' && !pairingCode) ? (
                       <div style={{ padding: '2rem 0', textAlign: 'center' }}>
-                        <div className="spinner spinner-lg" style={{ margin: '0 auto 1rem' }} />
-                        <div style={{ fontWeight: 700, color: '#ffffff', fontSize: '1rem', marginBottom: '4px' }}>
+                        <div className="spinner spinner-lg" style={{ margin: '0 auto 1rem', borderColor: '#25d366', borderTopColor: 'transparent' }} />
+                        <div style={{ fontWeight: 800, color: '#ffffff', fontSize: '1rem', marginBottom: '4px' }}>
                           جاري تهيئة الاتصال وتوليد كود الربط...
                         </div>
-                        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                          ثوانٍ معدودة وسيظهر كود الربط المكون من 8 خانات لتأكيده على هاتفك.
+                        <p style={{ fontSize: '0.82rem', color: '#94a3b8' }}>
+                          ثوانٍ معدودة وسيظهر كود الربط لتأكيده في تطبيق واتساب.
                         </p>
                       </div>
                     ) : (
                       <button
                         type="button"
-                        className="btn btn-primary"
                         onClick={() => handleWaConnect('phone')}
                         disabled={waConnecting}
                         style={{
                           width: '100%',
-                          background: 'linear-gradient(135deg, #25d366 0%, #128c7e 100%)',
-                          borderColor: 'transparent',
-                          padding: '0.85rem',
+                          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                          border: 'none',
+                          padding: '1rem',
                           fontWeight: 800,
-                          fontSize: '0.95rem',
+                          fontSize: '1rem',
                           color: '#ffffff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
                           gap: '8px',
-                          borderRadius: '12px'
+                          borderRadius: '14px',
+                          cursor: 'pointer',
+                          boxShadow: '0 10px 28px -6px rgba(16, 185, 129, 0.4)',
+                          transition: 'all 0.2s ease'
                         }}
                       >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                         <span>توليد كود الربط السريع</span>
                       </button>
                     )}
@@ -530,47 +620,50 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                   <div>
                     {/* Pairing Code Display Box */}
                     <div style={{
-                      background: 'linear-gradient(135deg, rgba(37, 211, 102, 0.1) 0%, rgba(18, 140, 126, 0.05) 100%)',
-                      border: '2px dashed rgba(37, 211, 102, 0.4)',
-                      borderRadius: '18px',
-                      padding: '1.5rem',
+                      background: 'linear-gradient(145deg, rgba(37, 211, 102, 0.12) 0%, rgba(18, 140, 126, 0.04) 100%)',
+                      border: '1.5px dashed rgba(37, 211, 102, 0.5)',
+                      borderRadius: '20px',
+                      padding: '1.75rem 1.25rem',
                       marginBottom: '1.25rem',
-                      position: 'relative'
+                      boxShadow: '0 0 30px rgba(37, 211, 102, 0.15)'
                     }}>
-                      <div style={{ fontSize: '0.82rem', color: '#34d399', fontWeight: 700, marginBottom: '8px' }}>
+                      <div style={{ fontSize: '0.84rem', color: '#34d399', fontWeight: 800, marginBottom: '10px' }}>
                         كود الربط الخاص بحسابك (8 خانات)
                       </div>
 
                       <div style={{
-                        fontSize: '2rem',
+                        fontSize: '2.2rem',
                         fontWeight: 900,
-                        letterSpacing: '4px',
+                        letterSpacing: '5px',
                         color: '#ffffff',
                         fontFamily: 'monospace',
-                        padding: '8px 14px',
-                        background: 'rgba(0, 0, 0, 0.4)',
-                        borderRadius: '10px',
+                        padding: '10px 20px',
+                        background: 'rgba(0, 0, 0, 0.5)',
+                        borderRadius: '12px',
                         display: 'inline-block',
                         userSelect: 'all',
-                        border: '1px solid rgba(255, 255, 255, 0.1)'
+                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5)'
                       }}>
                         {pairingCode}
                       </div>
 
-                      <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'center', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <div style={{ marginTop: '14px', display: 'flex', justifyContent: 'center', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
                         <button
                           type="button"
-                          className="btn btn-secondary btn-sm"
                           onClick={copyPairingCodeToClipboard}
                           style={{
                             background: copiedCode ? '#10b981' : 'rgba(255, 255, 255, 0.1)',
+                            border: '1px solid rgba(255, 255, 255, 0.15)',
                             color: '#ffffff',
                             fontWeight: 700,
-                            padding: '6px 16px',
-                            borderRadius: '8px',
+                            padding: '8px 18px',
+                            borderRadius: '10px',
+                            cursor: 'pointer',
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: '6px'
+                            gap: '6px',
+                            transition: 'all 0.2s ease'
                           }}
                         >
                           {copiedCode ? (
@@ -587,7 +680,17 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                         </button>
 
                         {timeLeft !== null && (
-                          <span style={{ fontSize: '0.78rem', color: timeLeft < 30 ? '#ef4444' : '#94a3b8', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{
+                            fontSize: '0.8rem',
+                            color: timeLeft < 30 ? '#ef4444' : '#94a3b8',
+                            background: 'rgba(0, 0, 0, 0.3)',
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px'
+                          }}>
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                             <span>ينتهي خلال {timeLeft} ثانية</span>
                           </span>
@@ -596,15 +699,25 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                     </div>
 
                     {/* Step-by-Step Instructions */}
-                    <div style={{ textAlign: 'right', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '12px', padding: '1rem', fontSize: '0.82rem', lineHeight: 1.6, color: '#e2e8f0', marginBottom: '1rem' }}>
-                      <div style={{ fontWeight: 800, color: '#38bdf8', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                        <span>خطوات التفعيل السريعة على هاتفك:</span>
+                    <div style={{
+                      textAlign: 'right',
+                      background: 'rgba(255, 255, 255, 0.02)',
+                      border: '1px solid rgba(255, 255, 255, 0.06)',
+                      borderRadius: '14px',
+                      padding: '1.1rem',
+                      fontSize: '0.84rem',
+                      lineHeight: 1.6,
+                      color: '#cbd5e1',
+                      marginBottom: '1rem'
+                    }}>
+                      <div style={{ fontWeight: 800, color: '#38bdf8', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                        <span>خطوات التأكيد السريعة على هاتفك:</span>
                       </div>
-                      <div>1. افتح تطبيق واتساب على هاتفك ➔ اضغط على النقاط الثلاث (أو الإعدادات).</div>
-                      <div>2. اختر <strong>الأجهزة المرتبطة (Linked Devices)</strong> ➔ اضغط <strong>ربط جهاز</strong>.</div>
-                      <div>3. اختر بالأسفل <strong>«الربط باستخدام رقم الهاتف» (Link with phone number instead)</strong>.</div>
-                      <div>4. الصق أو اكتب هذا الكود المكون من 8 خانات، وسيتصل البوت فوراً!</div>
+                      <div style={{ marginBottom: '4px' }}>1. افتح تطبيق واتساب ➔ اضغط <strong>الإعدادات (أو النقاط الثلاث)</strong>.</div>
+                      <div style={{ marginBottom: '4px' }}>2. اختر <strong>الأجهزة المرتبطة (Linked Devices)</strong> ➔ اضغط <strong>ربط جهاز</strong>.</div>
+                      <div style={{ marginBottom: '4px' }}>3. اختر بالأسفل <strong>«الربط باستخدام رقم الهاتف»</strong>.</div>
+                      <div>4. اكتب هذا الكود المكون من 8 خانات، وسيتصل البوت فوراً!</div>
                     </div>
                   </div>
                 )}
@@ -614,33 +727,45 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
             {/* TAB 2: QR Code Mode */}
             {connectTab === 'qr' && (
               <div>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1rem', lineHeight: 1.5 }}>
+                <p style={{ color: '#94a3b8', fontSize: '0.86rem', marginBottom: '1.25rem', lineHeight: 1.5 }}>
                   افتح تطبيق واتساب ➔ الإعدادات ➔ <strong>الأجهزة المرتبطة</strong> ➔ <strong>ربط جهاز</strong> ➔ وجّه الكاميرا للشاشة
                 </p>
 
                 {qrDataUrl ? (
-                  <div style={{ background: '#ffffff', borderRadius: 'var(--radius-lg)', display: 'inline-block', padding: '1rem', boxShadow: '0 8px 30px rgba(0,0,0,0.5)', marginBottom: '1rem' }}>
-                    <img src={qrDataUrl} alt="WhatsApp QR Code" style={{ width: '220px', height: '220px', display: 'block' }} />
+                  <div style={{
+                    background: '#ffffff',
+                    borderRadius: '20px',
+                    display: 'inline-block',
+                    padding: '1rem',
+                    boxShadow: '0 12px 35px rgba(0, 0, 0, 0.6), 0 0 25px rgba(37, 211, 102, 0.2)',
+                    marginBottom: '1rem'
+                  }}>
+                    <img src={qrDataUrl} alt="WhatsApp QR Code" style={{ width: '220px', height: '220px', display: 'block', borderRadius: '8px' }} />
                   </div>
                 ) : (
                   <div style={{ padding: '2rem 0' }}>
                     {waConnecting ? (
                       <>
-                        <div className="spinner spinner-lg" style={{ margin: '0 auto 1rem' }} />
-                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>جاري توليد رمز الـ QR من محرك واتساب...</p>
+                        <div className="spinner spinner-lg" style={{ margin: '0 auto 1rem', borderColor: '#25d366', borderTopColor: 'transparent' }} />
+                        <p style={{ fontSize: '0.85rem', color: '#94a3b8' }}>جاري توليد رمز الـ QR من محرك واتساب...</p>
                       </>
                     ) : (
                       <button
                         type="button"
-                        className="btn btn-primary"
                         onClick={() => handleWaConnect('qr')}
                         style={{
-                          background: 'linear-gradient(135deg, #25d366 0%, #128c7e 100%)',
-                          borderColor: 'transparent',
-                          padding: '0.8rem 1.5rem',
+                          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                          border: 'none',
+                          padding: '0.9rem 1.8rem',
                           fontWeight: 800,
+                          fontSize: '0.95rem',
                           color: '#ffffff',
-                          gap: '8px'
+                          borderRadius: '14px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          cursor: 'pointer',
+                          boxShadow: '0 8px 24px rgba(16, 185, 129, 0.35)'
                         }}
                       >
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/></svg>
@@ -652,8 +777,26 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
               </div>
             )}
 
-            <div className="modal-footer" style={{ justifyContent: 'center', marginTop: '1rem' }}>
-              <button className="btn btn-secondary" onClick={() => setShowWaModal(false)}>إغلاق</button>
+            <div style={{ marginTop: '1.25rem' }}>
+              <button
+                type="button"
+                onClick={() => setShowWaModal(false)}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  color: '#94a3b8',
+                  padding: '8px 24px',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  fontSize: '0.88rem',
+                  fontWeight: 600,
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.25)'; e.currentTarget.style.color = '#ffffff'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)'; e.currentTarget.style.color = '#94a3b8'; }}
+              >
+                إغلاق
+              </button>
             </div>
           </div>
         </div>

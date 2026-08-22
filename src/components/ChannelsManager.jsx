@@ -460,29 +460,37 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                       </span>
                     </div>
 
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      onClick={() => handleWaConnect('phone')}
-                      disabled={waConnecting}
-                      style={{
-                        width: '100%',
-                        background: 'linear-gradient(135deg, #25d366 0%, #128c7e 100%)',
-                        borderColor: 'transparent',
-                        padding: '0.85rem',
-                        fontWeight: 800,
-                        fontSize: '0.95rem',
-                        color: '#ffffff',
-                        gap: '8px',
-                        borderRadius: '12px'
-                      }}
-                    >
-                      {waConnecting ? <span className="spinner" /> : (
-                        <>
-                          <span>توليد كود الربط السريع ⚡</span>
-                        </>
-                      )}
-                    </button>
+                    {waConnecting || (waStatus === 'initializing' && !pairingCode) ? (
+                      <div style={{ padding: '2rem 0', textAlign: 'center' }}>
+                        <div className="spinner spinner-lg" style={{ margin: '0 auto 1rem' }} />
+                        <div style={{ fontWeight: 700, color: '#ffffff', fontSize: '1rem', marginBottom: '4px' }}>
+                          جاري تهيئة الاتصال وتوليد كود الربط...
+                        </div>
+                        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                          ثوانٍ معدودة وسيظهر كود الربط المكون من 8 خانات لتأكيده على هاتفك.
+                        </p>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={() => handleWaConnect('phone')}
+                        disabled={waConnecting}
+                        style={{
+                          width: '100%',
+                          background: 'linear-gradient(135deg, #25d366 0%, #128c7e 100%)',
+                          borderColor: 'transparent',
+                          padding: '0.85rem',
+                          fontWeight: 800,
+                          fontSize: '0.95rem',
+                          color: '#ffffff',
+                          gap: '8px',
+                          borderRadius: '12px'
+                        }}
+                      >
+                        <span>توليد كود الربط السريع ⚡</span>
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div>

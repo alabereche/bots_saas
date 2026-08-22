@@ -36,7 +36,7 @@ async function createWhatsAppBot(botId, config, phoneNumber = null) {
   };
   activeBots.set(botId, botState);
 
-  const client = new Client({
+  const clientOptions = {
     authStrategy: new LocalAuth({
       clientId: botId,
       dataPath: './sessions',
@@ -60,35 +60,42 @@ async function createWhatsAppBot(botId, config, phoneNumber = null) {
     webVersionCache: {
       type: 'local',
     },
-  });
+  };
+
+  if (phoneNumber) {
+    clientOptions.pairWithPhoneNumber = {
+      phoneNumber: String(phoneNumber),
+      showNotification: true,
+    };
+  }
+
+  const client = new Client(clientOptions);
 
   botState.client = client;
 
-  // QR Code Event
+  // Pairing Code Event (Emitted by whatsapp-web.js when pairWithPhoneNumber is enabled)
+  client.on('code', async (code) => {
+    console.log(`[BotManager] ✅ Pairing code event received for "${config.botName}" (${phoneNumber}): ${code}`);
+    botState.pairingCode = code;
+    botState.pairingCodeExpiresAt = Date.now() + 180000;
+    botState.status = 'waiting_scan';
+    await firestore.updateBotStatus(botId, 'waiting_scan').catch(() => {});
+  });
+
+  // QR Code Event (Emitted when QR mode is used)
   client.on('qr', async (qr) => {
-    console.log(`[BotManager] QR/Pairing triggered for "${config.botName}"`);
+    console.log(`[BotManager] 📷 QR generated for "${config.botName}"`);
     botState.qrCode = qr;
     botState.status = 'waiting_scan';
 
-    if (phoneNumber) {
-      try {
-        const code = await client.requestPairingCode(phoneNumber);
-        botState.pairingCode = code;
-        botState.pairingCodeExpiresAt = Date.now() + 120000;
-        console.log(`[BotManager] ✅ Pairing code generated for ${phoneNumber}: ${code}`);
-      } catch (e) {
-        console.error('[BotManager] ❌ Pairing code request failed:', e.message);
-      }
-    } else {
-      try {
-        botState.qrDataUrl = await QRCode.toDataURL(qr, {
-          width: 300,
-          margin: 2,
-          color: { dark: '#000000', light: '#ffffff' },
-        });
-      } catch (e) {
-        console.error('[BotManager] QR generation error:', e.message);
-      }
+    try {
+      botState.qrDataUrl = await QRCode.toDataURL(qr, {
+        width: 300,
+        margin: 2,
+        color: { dark: '#000000', light: '#ffffff' },
+      });
+    } catch (e) {
+      console.error('[BotManager] QR generation error:', e.message);
     }
 
     await firestore.updateBotStatus(botId, 'waiting_scan').catch(() => {});

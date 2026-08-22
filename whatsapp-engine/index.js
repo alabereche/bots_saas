@@ -181,7 +181,7 @@ app.post('/api/whatsapp/create', async (req, res) => {
       return res.status(503).json({ error: 'المحرك ممتلئ حالياً — يرجى المحاولة لاحقاً' });
     }
 
-    const state = await createWhatsAppBot(botId, config, cleanPhone);
+    const state = await createWhatsAppBot(botId, config, cleanPhone, !!cleanPhone);
 
     res.json({
       success: true,

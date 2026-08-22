@@ -4,6 +4,8 @@
 // with Cloud Firestore integration
 // ═══════════════════════════════════════════════════════════════
 
+const path = require('path');
+const fs = require('fs');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const QRCode = require('qrcode');
 const firestore = require('./firestore');
@@ -12,16 +14,33 @@ const { handleMessage } = require('./messageHandler');
 // Active bots: botId -> { client, config, qrCode, status }
 const activeBots = new Map();
 
+function cleanSession(botId) {
+  try {
+    const sessionDir = path.join(__dirname, 'sessions', `session-${botId}`);
+    if (fs.existsSync(sessionDir)) {
+      fs.rmSync(sessionDir, { recursive: true, force: true });
+      console.log(`[BotManager] 🧹 Purged session directory for bot: ${botId}`);
+    }
+  } catch (e) {
+    console.error(`[BotManager] Error cleaning session for bot ${botId}:`, e.message);
+  }
+}
+
 // ─── Create a WhatsApp Bot ────────────────────────────────────
-async function createWhatsAppBot(botId, config, phoneNumber = null) {
+async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = false) {
   if (activeBots.has(botId)) {
     const existing = activeBots.get(botId);
-    if (existing.status === 'connected') {
+    if (existing.status === 'connected' && !phoneNumber && !forceNew) {
       console.log(`[BotManager] Bot "${config.botName}" already connected.`);
       return existing;
     }
     try { await existing.client.destroy(); } catch {}
     activeBots.delete(botId);
+  }
+
+  // If pairing with a phone or forcing a new connection, wipe any previous saved session
+  if (phoneNumber || forceNew) {
+    cleanSession(botId);
   }
 
   console.log(`[BotManager] Initializing bot "${config.botName}"${phoneNumber ? ' (phone pairing mode)' : ''}...`);
@@ -188,18 +207,22 @@ async function createWhatsAppBot(botId, config, phoneNumber = null) {
 }
 
 // Stop Bot
-async function stopWhatsAppBot(botId) {
+async function stopWhatsAppBot(botId, purgeSession = true) {
   const entry = activeBots.get(botId);
-  if (!entry) return;
-
-  try {
-    await entry.client.destroy();
-    console.log(`[BotManager] Bot "${entry.config.botName}" stopped.`);
-  } catch (e) {
-    console.error(`[BotManager] Error stopping bot:`, e.message);
+  if (entry) {
+    try {
+      await entry.client.destroy();
+      console.log(`[BotManager] Bot "${entry.config.botName}" stopped.`);
+    } catch (e) {
+      console.error(`[BotManager] Error stopping bot:`, e.message);
+    }
+    activeBots.delete(botId);
   }
 
-  activeBots.delete(botId);
+  if (purgeSession) {
+    cleanSession(botId);
+  }
+
   await firestore.updateBotStatus(botId, 'disconnected').catch(() => {});
 }
 

@@ -173,9 +173,7 @@ export default function Sidebar() {
                 <span className="sidebar-status-dot" />
                 <span>محرك AI: متصل</span>
               </div>
-              <div className="sidebar-channel-dots" title="قنوات الربط: Messenger, Instagram, WhatsApp, Telegram">
-                <span className="sidebar-channel-dot fb" />
-                <span className="sidebar-channel-dot ig" />
+              <div className="sidebar-channel-dots" title="قنوات الربط: WhatsApp & Telegram">
                 <span className="sidebar-channel-dot wa" />
                 <span className="sidebar-channel-dot tg" />
               </div>

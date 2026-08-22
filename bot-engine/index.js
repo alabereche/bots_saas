@@ -739,348 +739,6 @@ function rateLimit({ windowMs = 60000, max = 120 } = {}) {
 
 app.use('/api', rateLimit({ windowMs: 60000, max: 120 }));
 
-// ─── Meta (Facebook Messenger & Instagram Direct) Webhook ───────
-// Verification Challenge from Meta
-app.get('/api/meta/webhook', (req, res) => {
-  const mode = req.query['hub.mode'];
-  const token = req.query['hub.verify_token'];
-  const challenge = req.query['hub.challenge'];
-  const expectedToken = process.env.META_VERIFY_TOKEN || 'botforge_meta_verify_2026';
-
-  if (mode === 'subscribe' && token === expectedToken) {
-    console.log('[Meta Webhook] ✅ Verified webhook challenge successfully');
-    return res.status(200).send(challenge);
-  }
-  return res.sendStatus(403);
-});
-
-async function sendMetaImage(pageToken, recipientId, mediaUrl) {
-  try {
-    if (!mediaUrl) return;
-
-    let buffer = null;
-    let mimeType = 'image/jpeg';
-
-    if (mediaUrl.startsWith('data:')) {
-      const match = mediaUrl.match(/^data:([A-Za-z0-9\/+.-]+);base64,(.+)$/);
-      if (match) {
-        mimeType = match[1] || 'image/jpeg';
-        buffer = Buffer.from(match[2], 'base64');
-      }
-    } else if (typeof mediaUrl === 'string') {
-      try {
-        const urlObj = new URL(mediaUrl);
-        const filename = path.basename(urlObj.pathname);
-        const possiblePaths = [
-          path.resolve(__dirname, '../whatsapp-engine/uploads', filename),
-          path.resolve(__dirname, 'uploads', filename),
-          path.resolve(__dirname, '../uploads', filename)
-        ];
-        for (const p of possiblePaths) {
-          if (fs.existsSync(p)) {
-            buffer = await fs.promises.readFile(p);
-            mimeType = filename.endsWith('.webp') ? 'image/webp' : (filename.endsWith('.png') ? 'image/png' : 'image/jpeg');
-            break;
-          }
-        }
-      } catch (e) {
-        // Not a standard URL
-      }
-    }
-
-    if (buffer) {
-      // Local file / Base64 upload via FormData to Meta Graph API
-      const blob = new Blob([buffer], { type: mimeType });
-      const form = new FormData();
-      form.append('recipient', JSON.stringify({ id: recipientId }));
-      form.append('message', JSON.stringify({ attachment: { type: 'image', payload: {} } }));
-      form.append('filedata', blob, 'product.jpg');
-
-      const res = await fetch(`https://graph.facebook.com/v19.0/me/messages?access_token=${pageToken}`, {
-        method: 'POST',
-        body: form
-      });
-      const data = await res.json();
-      console.log(`[Meta Webhook] 🖼️ Local image uploaded to Meta (status ${res.status}):`, data);
-      return;
-    }
-
-    if (mediaUrl.startsWith('https://') && isSafePublicHttpUrl(mediaUrl)) {
-      // Public HTTPS URL (SSRF protected)
-      const res = await fetch(`https://graph.facebook.com/v19.0/me/messages?access_token=${pageToken}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recipient: { id: recipientId },
-          message: {
-            attachment: {
-              type: 'image',
-              payload: { url: mediaUrl, is_reusable: true }
-            }
-          }
-        })
-      });
-      const data = await res.json();
-      console.log(`[Meta Webhook] 🖼️ HTTPS image sent to Meta (status ${res.status}):`, data);
-    }
-  } catch (err) {
-    console.error('[Meta Webhook] ❌ sendMetaImage error:', err.message);
-  }
-}
-
-// Incoming Events from Messenger & Instagram
-app.post('/api/meta/webhook', async (req, res) => {
-  // ─── 0. Verify Meta HMAC-SHA256 Signature (F01 Security Defense) ──
-  const metaAppSecret = process.env.META_APP_SECRET;
-  if (metaAppSecret) {
-    const signature = req.headers['x-hub-signature-256'];
-    if (!signature) {
-      console.warn('[Meta Webhook] ❌ Missing X-Hub-Signature-256 header');
-      return res.status(401).send('Signature required');
-    }
-    const rawBodyBuffer = req.rawBody || Buffer.from(JSON.stringify(req.body));
-    const hmac = crypto.createHmac('sha256', metaAppSecret);
-    const digest = 'sha256=' + hmac.update(rawBodyBuffer).digest('hex');
-
-    const sigBuf = Buffer.from(signature);
-    const digBuf = Buffer.from(digest);
-    if (sigBuf.length !== digBuf.length || !crypto.timingSafeEqual(sigBuf, digBuf)) {
-      console.warn('[Meta Webhook] ❌ Invalid X-Hub-Signature-256 signature');
-      return res.status(403).send('Invalid signature');
-    }
-  }
-
-  res.status(200).send('EVENT_RECEIVED');
-
-  try {
-    const body = req.body;
-    if (body.object !== 'page' && body.object !== 'instagram') return;
-
-    for (const entry of body.entry || []) {
-      for (const event of entry.messaging || []) {
-        if (event.message?.is_echo) continue;
-
-        const senderId = event.sender?.id;
-        const recipientId = event.recipient?.id;
-        const platform = body.object === 'instagram' ? 'instagram' : 'facebook';
-
-        if (!senderId) continue;
-
-        const quickReplyPayload = event.message?.quick_reply?.payload;
-        const postbackPayload = event.postback?.payload;
-        const actionPayload = quickReplyPayload || postbackPayload;
-        const text = event.message?.text || event.postback?.title || '';
-
-        console.log(`[Meta Webhook] 📩 Event (${platform}) from ${senderId} -> ${recipientId}: "${text}" (payload: ${actionPayload || 'none'})`);
-
-        // Lookup bot by facebookPageId or instagramUserId
-        const fieldName = platform === 'instagram' ? 'instagramUserId' : 'facebookPageId';
-        const botQuery = await db.collection('bots')
-          .where(fieldName, '==', recipientId)
-          .limit(1)
-          .get();
-
-        if (botQuery.empty) {
-          console.warn(`[Meta Webhook] ⚠️ No bot found with ${fieldName} == ${recipientId}`);
-          continue;
-        }
-
-        const botDoc = botQuery.docs[0];
-        const botConfig = { id: botDoc.id, ...botDoc.data() };
-        if (!botConfig.isActive) {
-          console.warn(`[Meta Webhook] Bot ${botConfig.id} is inactive`);
-          continue;
-        }
-
-        const rawToken = platform === 'instagram' ? botConfig.instagramToken : botConfig.facebookPageToken;
-        if (!rawToken) {
-          console.warn(`[Meta Webhook] No page token configured for bot ${botConfig.id}`);
-          continue;
-        }
-
-        // Support both encrypted and plain tokens
-        const pageToken = decrypt(rawToken) || rawToken;
-        const senderName = `زبون ${platform === 'instagram' ? 'إنستغرام' : 'فيسبوك'}`;
-
-        // Save incoming user message
-        if (text) {
-          await saveMessage(botConfig.id, botConfig.userId, senderId, senderName, text, 'user', platform);
-          await incrementMessageCount(botConfig.id);
-        }
-
-        // Check if Human Takeover is active
-        const takeoverKey = `${botConfig.id}_${senderId}`;
-        if (humanTakeoverMap.get(takeoverKey)) {
-          console.log(`[Meta Webhook] ⏸️ Human takeover active for ${senderId} — skipping AI response`);
-          continue;
-        }
-
-        let reply = '';
-        let mediaToSend = [];
-        let matchedProduct = null;
-
-        // ─── 1. Handle Quick Action Button Clicks ───────────────────────
-        if (actionPayload) {
-          if (actionPayload.startsWith('BUY_')) {
-            const pId = actionPayload.replace('BUY_', '');
-            matchedProduct = (botConfig.products || []).find(p => p && (String(p.id) === pId || pId.includes(String(p.id))));
-            const pName = matchedProduct ? matchedProduct.name : 'المنتج';
-            const pPrice = matchedProduct?.price ? `بسعر ${matchedProduct.price} دج` : '';
-            reply = `اختيار رائع خويا! 🌟\nلتأكيد وحجز (${pName}) ${pPrice}، يرجى تزويدي بالمعلومات التالية:\n1. الاسم الكامل\n2. الولاية والبلدية (العنوان بالتفصيل)\n3. رقم الهاتف الشغال\nوسنقوم بتجهيز الشحن فوراً وتأكيد الطلبية معكم!`;
-          } else if (actionPayload.startsWith('GALLERY_')) {
-            const pId = actionPayload.replace('GALLERY_', '');
-            matchedProduct = (botConfig.products || []).find(p => p && (String(p.id) === pId || pId.includes(String(p.id))));
-            if (matchedProduct) {
-              const allImages = [];
-              if (matchedProduct.primaryImage) allImages.push(matchedProduct.primaryImage);
-              if (Array.isArray(matchedProduct.secondaryImages)) allImages.push(...matchedProduct.secondaryImages.filter(Boolean));
-              else if (Array.isArray(matchedProduct.images)) allImages.push(...matchedProduct.images.filter(Boolean));
-              mediaToSend = allImages.slice(0, 5);
-              reply = `تفضل خويا، ها هي كامل صور (${matchedProduct.name}) المتوفرة عندنا في المحل 📸`;
-            } else {
-              reply = `تفضل خويا، ها هي صور المنتج.`;
-            }
-          } else if (actionPayload === 'TRACK_ORDER') {
-            reply = `📦 مرحباً بك في خدمة التتبع المباشر لمتجر (${botConfig.businessName || botConfig.botName})!\nيرجى كتابة رقم هاتفك أو كود التتبع (#DZ-XXXXXX) المسجل للبحث عن طلبيتك فوراً.`;
-          } else if (actionPayload === 'HUMAN_SUPPORT') {
-            reply = `💬 تم إشعار مسؤول المتجر! سيتواصل معك أحد ممثلينا في أقرب وقت. يمكنك ترك استفسارك وسؤالك هنا في الشات وسنرد عليك مباشرة.`;
-            try {
-              await db.collection('bots').doc(botConfig.id).collection('conversations').doc(String(senderId)).set({
-                needsHumanSupport: true,
-                lastSupportRequest: new Date().toISOString(),
-                platform
-              }, { merge: true });
-            } catch (e) {}
-          }
-        } else if (isTrackingIntent(text) && botConfig.features?.orderTracking !== false) {
-          // ─── 2. Fast-Path Order Tracking (0 LLM Calls & Indexed Queries - F08) ───
-          let matched = [];
-          const customerOrdersSnap = await db.collection('orders')
-            .where('botId', '==', botConfig.id)
-            .where('customerId', '==', String(senderId))
-            .limit(5)
-            .get();
-
-          if (!customerOrdersSnap.empty) {
-            matched = customerOrdersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-          } else {
-            const trackingCodeMatch = text.toUpperCase().match(/DZ-[A-Z0-9]{4,10}/);
-            if (trackingCodeMatch) {
-              const codeSnap = await db.collection('orders')
-                .where('botId', '==', botConfig.id)
-                .where('trackingCode', '==', trackingCodeMatch[0])
-                .limit(1)
-                .get();
-              if (!codeSnap.empty) {
-                matched = codeSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-              }
-            }
-          }
-          
-          if (matched.length === 1) {
-            reply = formatSingleOrderCard(matched[0]);
-          } else if (matched.length > 1) {
-            reply = formatMultipleOrdersList(matched);
-          } else {
-            reply = formatNoOrdersFound(botConfig.businessName);
-          }
-        } else {
-          // ─── 3. Gemini AI Conversational Engine ───────────────────────
-          let rawAiReply = '';
-          try {
-            rawAiReply = await askAI(botConfig, senderId, text);
-          } catch (aiErr) {
-            console.error('[Meta Webhook] ⚠️ AI call failed:', aiErr.message);
-            rawAiReply = `مرحباً بك في ${botConfig.businessName || botConfig.botName || 'متجرنا'}! كيف يمكنني مساعدتك اليوم؟`;
-          }
-
-          const processed = extractAndSaveOrder(
-            botConfig.id,
-            botConfig.userId,
-            senderId,
-            senderName,
-            rawAiReply,
-            platform,
-            botConfig.products
-          );
-          const extracted = extractProductMedia(processed.reply, botConfig.products);
-          reply = extracted.cleanReply || processed.reply;
-          mediaToSend = extracted.mediaToSend || [];
-
-          // Find if any product was referenced
-          if (Array.isArray(botConfig.products) && botConfig.products.length > 0) {
-            matchedProduct = botConfig.products.find(p => p && reply.includes(p.name));
-          }
-        }
-
-        // Send Product Media (Binary upload from local disk or URL)
-        if (mediaToSend && mediaToSend.length > 0) {
-          for (const mediaUrl of mediaToSend) {
-            await sendMetaImage(pageToken, senderId, mediaUrl);
-          }
-        }
-
-        // Clean formatting for Messenger
-        const cleanSendReply = (reply || '')
-          .replace(/`([^`]+)`/g, '$1')
-          .replace(/#([A-Za-z0-9_-]+)/g, '$1')
-          .trim();
-
-        // Build Native Quick Action Chips (Interactive Buttons)
-        const quickReplies = [];
-        if (matchedProduct) {
-          quickReplies.push({
-            content_type: 'text',
-            title: '🛒 حجز وشراء الآن',
-            payload: `BUY_${matchedProduct.id}`
-          });
-          const hasMoreImgs = (matchedProduct.secondaryImages?.length || 0) > 0 || (matchedProduct.images?.length || 0) > 1;
-          if (hasMoreImgs) {
-            quickReplies.push({
-              content_type: 'text',
-              title: '📸 صور إضافية',
-              payload: `GALLERY_${matchedProduct.id}`
-            });
-          }
-        }
-        quickReplies.push({
-          content_type: 'text',
-          title: '📦 تتبع طلبي',
-          payload: 'TRACK_ORDER'
-        });
-        quickReplies.push({
-          content_type: 'text',
-          title: '💬 التحدث مع مسؤول',
-          payload: 'HUMAN_SUPPORT'
-        });
-
-        // Send reply via Meta Graph API with interactive quick replies
-        const graphUrl = `https://graph.facebook.com/v19.0/me/messages?access_token=${pageToken}`;
-        const sendRes = await fetch(graphUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            recipient: { id: senderId },
-            message: {
-              text: cleanSendReply || 'أهلاً بك! كيف يمكنني مساعدتك؟',
-              quick_replies: quickReplies.slice(0, 5)
-            }
-          })
-        });
-
-        const sendData = await sendRes.json();
-        console.log(`[Meta Webhook] 📤 Graph API reply sent (status: ${sendRes.status}):`, sendData);
-
-        // Save bot reply
-        await saveMessage(botConfig.id, botConfig.userId, senderId, botConfig.botName, cleanSendReply, 'bot', platform);
-        await incrementMessageCount(botConfig.id);
-      }
-    }
-  } catch (err) {
-    console.error('[Meta Webhook] Error processing event:', err.message);
-  }
-});
-
 // ─── Security: Firebase ID token verification ──────────────────
 app.use('/api', async (req, res, next) => {
   const header = req.headers.authorization || '';
@@ -1100,7 +758,7 @@ app.use('/api', async (req, res, next) => {
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
-    engine: 'telegram_and_meta',
+    engine: 'telegram_engine',
     activeBots: activeBots.size,
     uptime: process.uptime(),
   });
@@ -1126,7 +784,7 @@ async function requireBotAccess(res, uid, botId) {
   }
 }
 
-// ─── Universal Omnichannel Manual Reply (Messenger, IG, Telegram, WhatsApp) ───
+// ─── Telegram Manual Reply ───
 app.post('/api/reply', async (req, res) => {
   const { botId, customerId, telegramUserId, message, platform } = req.body;
   const targetUserId = customerId || telegramUserId;
@@ -1139,53 +797,27 @@ app.post('/api/reply', async (req, res) => {
   if (!botConfig) return;
 
   try {
-    const targetPlatform = platform || (botConfig.platform === 'telegram' ? 'telegram' : 'facebook');
-
-    // Activate Human Takeover — except for system notifications
-    // (delivery receipts, arrival notices) which must NOT silence the AI
     const takeoverKey = `${botId}_${targetUserId}`;
     if (!req.body.system) {
       humanTakeoverMap.set(takeoverKey, true);
     }
 
-    if (targetPlatform === 'facebook' || targetPlatform === 'instagram' || targetPlatform === 'messenger') {
-      const rawToken = targetPlatform === 'instagram' ? botConfig.instagramToken : botConfig.facebookPageToken;
-      const pageToken = decrypt(rawToken) || rawToken;
-      if (!pageToken) {
-        return res.status(400).json({ error: 'لا يوجد رمز وصول مفعل لقناة فيسبوك/إنستغرام' });
-      }
-
-      const graphUrl = `https://graph.facebook.com/v19.0/me/messages?access_token=${pageToken}`;
-      const graphRes = await fetch(graphUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recipient: { id: targetUserId },
-          message: { text: message }
-        })
-      });
-      const graphData = await graphRes.json();
-      if (!graphRes.ok || graphData.error) {
-        throw new Error(graphData.error?.message || 'فشل الإرسال عبر فيسبوك Graph API');
-      }
-    } else if (targetPlatform === 'telegram') {
-      const entry = activeBots.get(botId);
-      if (entry && entry.bot) {
-        await entry.bot.api.sendMessage(targetUserId, message);
-      } else if (botConfig.telegramToken) {
-        const tempBot = new Bot(botConfig.telegramToken);
-        await tempBot.api.sendMessage(targetUserId, message);
-      } else {
-        throw new Error('قناة تيليغرام غير مهيأة');
-      }
+    const entry = activeBots.get(botId);
+    if (entry && entry.bot) {
+      await entry.bot.api.sendMessage(targetUserId, message);
+    } else if (botConfig.telegramToken) {
+      const tempBot = new Bot(botConfig.telegramToken);
+      await tempBot.api.sendMessage(targetUserId, message);
+    } else {
+      throw new Error('قناة تيليغرام غير مهيأة');
     }
 
     // Save message to Firestore
-    await saveMessage(botId, botConfig.userId, targetUserId, 'المالك', message, 'owner', targetPlatform);
+    await saveMessage(botId, botConfig.userId, targetUserId, 'المالك', message, 'owner', 'telegram');
 
     res.json({ success: true, takeover: true });
   } catch (err) {
-    console.error('[API] Universal reply error:', err.message);
+    console.error('[API] Telegram reply error:', err.message);
     res.status(500).json({ error: err.message || 'فشل إرسال الرد' });
   }
 });
@@ -1260,32 +892,14 @@ app.post('/api/orders/:id/delivery-status', async (req, res) => {
       }
       notifMsg += `يمكنك كتابة "تتبع" في أي وقت للاستعلام المباشر عن حالة الطرد.`;
 
-      // Dispatch based on platform
-      const targetPlatform = order.platform || botConfig.platform || 'telegram';
-      if (targetPlatform === 'facebook' || targetPlatform === 'instagram' || targetPlatform === 'messenger') {
-        const rawToken = targetPlatform === 'instagram' ? botConfig.instagramToken : botConfig.facebookPageToken;
-        const pageToken = decrypt(rawToken) || rawToken;
-        if (pageToken) {
-          const graphUrl = `https://graph.facebook.com/v19.0/me/messages?access_token=${pageToken}`;
-          await fetch(graphUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              recipient: { id: order.customerId },
-              message: { text: notifMsg.replace(/\*/g, '') }
-            })
-          });
-          notificationSent = true;
-        }
-      } else {
-        const entry = activeBots.get(botId);
-        if (entry && entry.bot) {
-          await entry.bot.api.sendMessage(order.customerId, notifMsg, { parse_mode: 'Markdown' });
-          notificationSent = true;
-        }
+      // Dispatch Telegram notification
+      const entry = activeBots.get(botId);
+      if (entry && entry.bot) {
+        await entry.bot.api.sendMessage(order.customerId, notifMsg, { parse_mode: 'Markdown' });
+        notificationSent = true;
       }
 
-      await saveMessage(botId, botConfig.userId, order.customerId, order.customerName || 'الزبون', notifMsg, 'bot', targetPlatform);
+      await saveMessage(botId, botConfig.userId, order.customerId, order.customerName || 'الزبون', notifMsg, 'bot', 'telegram');
     } catch (sendErr) {
       console.warn(`[Delivery Notif] Notification send failed for customer ${order.customerId}:`, sendErr.message);
     }
@@ -1297,228 +911,6 @@ app.post('/api/orders/:id/delivery-status', async (req, res) => {
     notificationSent,
     alreadyProcessed: !!updateResult.alreadyProcessed,
   });
-});
-
-// ─── Meta OAuth 2.0 (1-Click Facebook & Instagram Connect) ─────
-
-const META_APP_ID = process.env.META_APP_ID || '111222333444555';
-const META_APP_SECRET = process.env.META_APP_SECRET || '';
-
-// 1. Generate secure OAuth Authorization URL with HMAC-signed CSRF protection (F04)
-app.get('/api/meta/oauth/url', async (req, res) => {
-  try {
-    const { botId, redirectUri } = req.query;
-    if (!botId || !redirectUri) {
-      return res.status(400).json({ error: 'معطيات ناقصة (botId, redirectUri)' });
-    }
-
-    const botConfig = await requireBotAccess(res, req.uid, botId);
-    if (!botConfig) return;
-
-    // State encodes uid, botId, timestamp, and cryptographic HMAC signature
-    const stateData = { uid: req.uid, botId, ts: Date.now() };
-    const stateJson = JSON.stringify(stateData);
-    const stateSig = crypto.createHmac('sha256', META_APP_SECRET || 'botforge_oauth_secret').update(stateJson).digest('hex');
-    const state = Buffer.from(JSON.stringify({ data: stateJson, sig: stateSig })).toString('base64url');
-
-    const scope = [
-      'pages_show_list',
-      'pages_messaging',
-      'pages_read_engagement',
-      'pages_manage_metadata',
-      'instagram_basic',
-      'instagram_manage_messages',
-      'public_profile'
-    ].join(',');
-
-    const oauthUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${META_APP_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&scope=${scope}&response_type=code`;
-
-    res.json({ oauthUrl, state });
-  } catch (err) {
-    console.error('[/api/meta/oauth/url] Error:', err);
-    res.status(500).json({ error: 'فشل إنشاء رابط تسجيل الدخول لفيسبوك: ' + err.message });
-  }
-});
-
-// 2. Exchange OAuth Code for Long-Lived Token & Fetch Merchant's Pages with Strict CSRF Check (F04)
-app.post('/api/meta/oauth/exchange', async (req, res) => {
-  const { code, redirectUri, botId, state } = req.body;
-  if (!code || !redirectUri || !botId) {
-    return res.status(400).json({ error: 'معطيات ناقصة (code, redirectUri, botId)' });
-  }
-
-  // Mandatory CSRF state verification (F04)
-  if (!state) {
-    return res.status(400).json({ error: 'معامل الأمان (CSRF state) مطلوب للتحقق من المصادقة' });
-  }
-
-  try {
-    const parsedStateWrapper = JSON.parse(Buffer.from(state, 'base64url').toString('utf8'));
-    const expectedSig = crypto.createHmac('sha256', META_APP_SECRET || 'botforge_oauth_secret').update(parsedStateWrapper.data || '').digest('hex');
-
-    const sigBuf = Buffer.from(parsedStateWrapper.sig || '');
-    const expBuf = Buffer.from(expectedSig);
-    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
-      return res.status(403).json({ error: 'فشل التحقق من التوقيع الرقمي للـ CSRF State' });
-    }
-
-    const decodedState = JSON.parse(parsedStateWrapper.data);
-    if (decodedState.uid !== req.uid || decodedState.botId !== botId || (Date.now() - decodedState.ts > 600000)) {
-      return res.status(403).json({ error: 'جلسة الربط منتهية الصلاحية أو غير مصرح بها' });
-    }
-
-    const botDoc = await db.collection('bots').doc(botId).get();
-    if (!botDoc.exists || botDoc.data().userId !== req.uid) {
-      return res.status(403).json({ error: 'لا تملك صلاحية الوصول إلى هذا المتجر' });
-    }
-
-    if (!META_APP_SECRET) {
-      // In dev fallback simulation if no app secret set
-      return res.json({
-        pages: [
-          {
-            id: 'page_dev_demo_1',
-            name: botDoc.data().businessName || 'صفحة المتجر',
-            category: 'E-commerce Store',
-            instagramAccount: { id: 'ig_dev_demo_1', username: 'mystore_official' },
-            tokenEncrypted: encrypt('EAADevDemoPageToken123456789')
-          }
-        ]
-      });
-    }
-
-    // Exchange code for short-lived token
-    const tokenUrl = `https://graph.facebook.com/v19.0/oauth/access_token?client_id=${META_APP_ID}&client_secret=${META_APP_SECRET}&redirect_uri=${encodeURIComponent(redirectUri)}&code=${code}`;
-    const tokenRes = await fetch(tokenUrl);
-    const tokenData = await tokenRes.json();
-
-    if (tokenData.error) {
-      return res.status(400).json({ error: tokenData.error.message || 'فشل استبدال رمز فيسبوك' });
-    }
-
-    const shortLivedToken = tokenData.access_token;
-
-    // Exchange for Long-Lived User Token (60 days)
-    const longLivedUrl = `https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${META_APP_ID}&client_secret=${META_APP_SECRET}&fb_exchange_token=${shortLivedToken}`;
-    const longRes = await fetch(longLivedUrl);
-    const longData = await longRes.json();
-    const userToken = longData.access_token || shortLivedToken;
-
-    // Fetch user's managed Facebook Pages and linked Instagram accounts
-    const pagesUrl = `https://graph.facebook.com/v19.0/me/accounts?fields=id,name,category,access_token,instagram_business_account{id,username,profile_picture_url}&access_token=${userToken}`;
-    const pagesRes = await fetch(pagesUrl);
-    const pagesData = await pagesRes.json();
-
-    if (pagesData.error) {
-      return res.status(400).json({ error: pagesData.error.message || 'تعذر جلب صفحات فيسبوك' });
-    }
-
-    // Sanitize and encrypt page tokens before sending to client session
-    const pages = (pagesData.data || []).map(p => ({
-      id: p.id,
-      name: p.name,
-      category: p.category,
-      instagramAccount: p.instagram_business_account ? {
-        id: p.instagram_business_account.id,
-        username: p.instagram_business_account.username,
-        profilePic: p.instagram_business_account.profile_picture_url,
-      } : null,
-      tokenEncrypted: encrypt(p.access_token),
-    }));
-
-    res.json({ pages });
-  } catch (err) {
-    console.error('[Meta OAuth] Exchange error:', err.message);
-    res.status(500).json({ error: 'خطأ أثناء معالجة تسجيل الدخول بفيسبوك' });
-  }
-});
-
-// 3. Connect selected Page and auto-subscribe to Webhooks
-app.post('/api/meta/oauth/connect-page', async (req, res) => {
-  const { botId, pageId, pageName, tokenEncrypted, instagramUserId, instagramUsername } = req.body;
-  if (!botId || !pageId || !tokenEncrypted) {
-    return res.status(400).json({ error: 'معطيات ناقصة (botId, pageId, tokenEncrypted)' });
-  }
-
-  try {
-    // Verify ownership
-    const botDoc = await db.collection('bots').doc(botId).get();
-    if (!botDoc.exists || botDoc.data().userId !== req.uid) {
-      return res.status(403).json({ error: 'لا تملك صلاحية الوصول إلى هذا المتجر' });
-    }
-
-    const pageAccessToken = decrypt(tokenEncrypted);
-    if (!pageAccessToken) {
-      return res.status(400).json({ error: 'رمز الصفحة غير صالح' });
-    }
-
-    // Auto-subscribe the Facebook Page to our app's Webhooks
-    if (META_APP_SECRET) {
-      const subscribeUrl = `https://graph.facebook.com/v19.0/${pageId}/subscribed_apps?subscribed_fields=messages,messaging_postbacks,message_deliveries&access_token=${pageAccessToken}`;
-      const subRes = await fetch(subscribeUrl, { method: 'POST' });
-      const subData = await subRes.json();
-      console.log(`[Meta OAuth] Auto-subscribed page ${pageId}:`, subData);
-    }
-
-    // Update Bot in Firestore
-    await db.collection('bots').doc(botId).update({
-      facebookPageId: pageId,
-      facebookPageName: pageName || '',
-      facebookPageToken: pageAccessToken,
-      facebookEnabled: true,
-      instagramUserId: instagramUserId || null,
-      instagramUsername: instagramUsername || null,
-      instagramToken: pageAccessToken,
-      instagramEnabled: !!instagramUserId,
-      updatedAt: new Date().toISOString(),
-    });
-
-    res.json({
-      success: true,
-      message: 'تم ربط صفحة فيسبوك وحساب إنستغرام بنجاح!',
-      pageName,
-      hasInstagram: !!instagramUserId,
-    });
-  } catch (err) {
-    console.error('[Meta OAuth] Connect page error:', err.message);
-    res.status(500).json({ error: 'فشل ربط الصفحة: ' + err.message });
-  }
-});
-
-// 4. Disconnect Facebook & Instagram
-app.post('/api/meta/oauth/disconnect', async (req, res) => {
-  const { botId } = req.body;
-  if (!botId) return res.status(400).json({ error: 'معطيات ناقصة (botId)' });
-
-  try {
-    const botDoc = await db.collection('bots').doc(botId).get();
-    if (!botDoc.exists || botDoc.data().userId !== req.uid) {
-      return res.status(403).json({ error: 'لا تملك صلاحية الوصول' });
-    }
-
-    const botData = botDoc.data();
-    if (botData.facebookPageId && botData.facebookPageToken && META_APP_SECRET) {
-      // Unsubscribe from webhooks
-      const unsubUrl = `https://graph.facebook.com/v19.0/${botData.facebookPageId}/subscribed_apps?access_token=${botData.facebookPageToken}`;
-      await fetch(unsubUrl, { method: 'DELETE' }).catch(() => {});
-    }
-
-    await db.collection('bots').doc(botId).update({
-      facebookPageId: null,
-      facebookPageName: null,
-      facebookPageToken: null,
-      facebookEnabled: false,
-      instagramUserId: null,
-      instagramUsername: null,
-      instagramToken: null,
-      instagramEnabled: false,
-      updatedAt: new Date().toISOString(),
-    });
-
-    res.json({ success: true, message: 'تم فصل اتصال فيسبوك وإنستغرام بنجاح' });
-  } catch (err) {
-    res.status(500).json({ error: 'فشل فصل الاتصال: ' + err.message });
-  }
 });
 
 // Start Express and Firestore Listener

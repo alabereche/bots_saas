@@ -421,28 +421,27 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                         أدخل رقم هاتف واتساب الخاص بمتجرك:
                       </label>
 
-                      {/* Unified Phone Input Group */}
+                      {/* Bulletproof Unified Phone Input Bar */}
                       <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
+                        display: 'grid',
+                        gridTemplateColumns: '120px 1fr',
                         direction: 'ltr',
-                        background: 'rgba(15, 23, 42, 0.8)',
-                        border: '1.5px solid rgba(255, 255, 255, 0.14)',
+                        background: '#090d16',
+                        border: '1.5px solid rgba(255, 255, 255, 0.12)',
                         borderRadius: '12px',
-                        padding: '3px',
+                        overflow: 'hidden',
                         boxSizing: 'border-box',
                         width: '100%',
-                        transition: 'border-color 0.2s ease',
+                        transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
                       }}>
-                        {/* Country Selector */}
-                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', minWidth: '100px' }}>
+                        {/* Country Selector Column */}
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', background: 'rgba(255, 255, 255, 0.03)', borderRight: '1px solid rgba(255, 255, 255, 0.1)' }}>
                           <select
                             value={selectedCountryCode}
                             onChange={e => setSelectedCountryCode(e.target.value)}
                             style={{
                               width: '100%',
-                              padding: '10px 8px',
-                              borderRadius: '9px',
+                              padding: '11px 8px 11px 10px',
                               background: 'transparent',
                               border: 'none',
                               color: '#ffffff',
@@ -451,41 +450,39 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                               cursor: 'pointer',
                               outline: 'none',
                               appearance: 'none',
-                              paddingRight: '20px'
+                              paddingRight: '22px',
+                              boxSizing: 'border-box'
                             }}
                           >
                             {COUNTRIES.map(c => (
                               <option key={c.code} value={c.code} style={{ background: '#0f172a', color: '#ffffff' }}>
-                                {c.flag} {c.dialCode} ({c.name})
+                                {c.flag} {c.dialCode}
                               </option>
                             ))}
                           </select>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ position: 'absolute', right: '6px', pointerEvents: 'none', color: '#94a3b8' }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ position: 'absolute', right: '7px', pointerEvents: 'none', color: '#94a3b8' }}>
                             <polyline points="6 9 12 15 18 9"/>
                           </svg>
                         </div>
 
-                        {/* Divider */}
-                        <div style={{ width: '1px', height: '28px', background: 'rgba(255, 255, 255, 0.15)', margin: '0 4px' }} />
-
-                        {/* Phone Number Field */}
+                        {/* Phone Input Column */}
                         <input
                           type="tel"
                           placeholder={selectedCountry.phonePlaceholder || '0672 00 00 00'}
                           value={phoneNumberInput}
                           onChange={e => setPhoneNumberInput(e.target.value)}
                           style={{
-                            flex: 1,
-                            minWidth: 0,
-                            padding: '10px 12px',
+                            width: '100%',
+                            padding: '11px 14px',
                             background: 'transparent',
                             border: 'none',
                             color: '#ffffff',
                             fontSize: '1.05rem',
                             fontWeight: 700,
-                            letterSpacing: '1px',
+                            letterSpacing: '1.5px',
                             outline: 'none',
-                            fontFamily: 'monospace'
+                            fontFamily: 'monospace',
+                            boxSizing: 'border-box'
                           }}
                         />
                       </div>

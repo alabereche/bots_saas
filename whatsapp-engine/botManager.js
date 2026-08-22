@@ -60,6 +60,7 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
       clientId: botId,
       dataPath: './sessions',
     }),
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
     puppeteer: {
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
       headless: true,
@@ -73,11 +74,14 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
         '--disable-default-apps',
         '--disable-translate',
         '--disable-sync',
+        '--window-size=1280,800',
       ],
+      defaultViewport: { width: 1280, height: 800 },
       timeout: 60000,
     },
     webVersionCache: {
-      type: 'local',
+      type: 'remote',
+      remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/{version}.html',
     },
   };
 

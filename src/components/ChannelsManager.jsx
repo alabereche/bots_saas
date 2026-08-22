@@ -44,14 +44,16 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
         const res = await fetch(`${WHATSAPP_ENGINE_URL}/api/whatsapp/${bot.id}/qr`, { headers: await engineHeaders(false) });
         if (res.ok) {
           const data = await res.json();
-          if (data.status) setWaStatus(data.status);
+          if (data.status) {
+            setWaStatus(prev => (prev !== data.status ? data.status : prev));
+          }
           if (data.qrDataUrl) {
-            setQrDataUrl(data.qrDataUrl);
+            setQrDataUrl(prev => (prev !== data.qrDataUrl ? data.qrDataUrl : prev));
             setWaStatus('waiting_scan');
           }
           if (data.pairingCode) {
-            setPairingCode(data.pairingCode);
-            setPairingExpiresAt(data.pairingCodeExpiresAt || Date.now() + 120000);
+            setPairingCode(prev => (prev !== data.pairingCode ? data.pairingCode : prev));
+            setPairingExpiresAt(prev => prev || data.pairingCodeExpiresAt || Date.now() + 180000);
             setWaStatus('waiting_scan');
           }
           if (data.status === 'connected' || data.status === 'authenticated') {

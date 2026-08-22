@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '../context/ToastContext';
 import { auth } from '../services/firebase';
+import { COUNTRIES, getCountryByCode } from '../data/countries';
 
 const WHATSAPP_ENGINE_URL = import.meta.env.VITE_WHATSAPP_ENGINE_URL || 'https://wa.nosfir.online';
-const TELEGRAM_ENGINE_URL = import.meta.env.VITE_ENGINE_URL || 'https://tg.nosfir.online';
 
 async function engineHeaders(json = true) {
   const token = await auth.currentUser?.getIdToken();
@@ -18,15 +18,25 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
   // WhatsApp States
   const [waStatus, setWaStatus] = useState(bot?.whatsappStatus || 'not_initialized');
   const [qrDataUrl, setQrDataUrl] = useState(null);
+  const [pairingCode, setPairingCode] = useState(null);
+  const [pairingExpiresAt, setPairingExpiresAt] = useState(null);
+  const [timeLeft, setTimeLeft] = useState(null);
+  const [copiedCode, setCopiedCode] = useState(false);
   const [waConnecting, setWaConnecting] = useState(false);
-  const [showQrModal, setShowQrModal] = useState(false);
+  const [showWaModal, setShowWaModal] = useState(false);
+  const [connectTab, setConnectTab] = useState('phone'); // 'phone' | 'qr'
+  
+  // Phone inputs for pairing
+  const initialCountry = getCountryByCode(bot?.country || 'DZ');
+  const [selectedCountryCode, setSelectedCountryCode] = useState(initialCountry.code);
+  const [phoneNumberInput, setPhoneNumberInput] = useState('');
 
   // Telegram States
   const [tgToken, setTgToken] = useState(bot?.telegramToken || '');
   const [tgSaving, setTgSaving] = useState(false);
   const [showTgModal, setShowTgModal] = useState(false);
 
-  // WhatsApp QR Polling
+  // WhatsApp Polling (QR & Pairing Code & Status)
   useEffect(() => {
     if (waStatus !== 'waiting_scan' && waStatus !== 'initializing') return;
     const interval = setInterval(async () => {
@@ -39,30 +49,90 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
             setQrDataUrl(data.qrDataUrl);
             setWaStatus('waiting_scan');
           }
+          if (data.pairingCode) {
+            setPairingCode(data.pairingCode);
+            setPairingExpiresAt(data.pairingCodeExpiresAt || Date.now() + 120000);
+            setWaStatus('waiting_scan');
+          }
           if (data.status === 'connected') {
             setQrDataUrl(null);
-            setShowQrModal(false);
+            setPairingCode(null);
+            setShowWaModal(false);
             clearInterval(interval);
             toast.success('تم ربط واتساب بنجاح!');
           }
         }
       } catch (err) {
-        console.warn('QR poll error:', err.message);
+        console.warn('WhatsApp status poll error:', err.message);
       }
     }, 2500);
     return () => clearInterval(interval);
   }, [waStatus, bot.id]);
 
-  // Handle WhatsApp Connect
-  const handleWaConnect = async () => {
+  // Countdown timer for pairing code (120s TTL)
+  useEffect(() => {
+    if (!pairingExpiresAt) {
+      setTimeLeft(null);
+      return;
+    }
+    const updateTimer = () => {
+      const remaining = Math.max(0, Math.floor((pairingExpiresAt - Date.now()) / 1000));
+      setTimeLeft(remaining);
+      if (remaining <= 0) {
+        setPairingCode(null);
+        setPairingExpiresAt(null);
+      }
+    };
+    updateTimer();
+    const timer = setInterval(updateTimer, 1000);
+    return () => clearInterval(timer);
+  }, [pairingExpiresAt]);
+
+  // Handle WhatsApp Connect (QR or Phone Pairing)
+  const handleWaConnect = async (mode = connectTab) => {
     setWaConnecting(true);
-    setShowQrModal(true);
+    setQrDataUrl(null);
+    setPairingCode(null);
+    setCopiedCode(false);
+    setShowWaModal(true);
     setWaStatus('initializing');
+
+    let fullInternationalPhone = null;
+
+    if (mode === 'phone') {
+      const country = getCountryByCode(selectedCountryCode);
+      const cleanInput = phoneNumberInput.trim().replace(/\D/g, '');
+      if (!cleanInput) {
+        toast.error('يرجى إدخال رقم الهاتف المرتبط بحساب واتساب');
+        setWaConnecting(false);
+        return;
+      }
+      
+      // Auto normalize: If Algerian 0672... remove leading 0 and prepend 213
+      const dialDigits = country.dialCode.replace(/\D/g, '');
+      if (cleanInput.startsWith('0')) {
+        fullInternationalPhone = dialDigits + cleanInput.slice(1);
+      } else if (cleanInput.startsWith(dialDigits)) {
+        fullInternationalPhone = cleanInput;
+      } else {
+        fullInternationalPhone = dialDigits + cleanInput;
+      }
+
+      if (fullInternationalPhone.length < 9) {
+        toast.error('رقم الهاتف قصير جداً وغير صحيح');
+        setWaConnecting(false);
+        return;
+      }
+    }
+
     try {
       const res = await fetch(`${WHATSAPP_ENGINE_URL}/api/whatsapp/create`, {
         method: 'POST',
         headers: await engineHeaders(),
-        body: JSON.stringify({ botId: bot.id }),
+        body: JSON.stringify({
+          botId: bot.id,
+          phoneNumber: fullInternationalPhone,
+        }),
       });
       const data = await res.json();
       if (!res.ok || data.error) {
@@ -84,11 +154,20 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
       await fetch(`${WHATSAPP_ENGINE_URL}/api/whatsapp/${bot.id}/stop`, { method: 'POST', headers: await engineHeaders(false) });
       setWaStatus('disconnected');
       setQrDataUrl(null);
+      setPairingCode(null);
       await onUpdateBot({ whatsappStatus: 'disconnected' });
       toast.success('تم فصل اتصال واتساب');
     } catch {
       toast.error('فشل قطع الاتصال');
     }
+  };
+
+  const copyPairingCodeToClipboard = () => {
+    if (!pairingCode) return;
+    navigator.clipboard.writeText(pairingCode);
+    setCopiedCode(true);
+    toast.success('تم نسخ كود الربط إلى الحافظة!');
+    setTimeout(() => setCopiedCode(false), 3000);
   };
 
   // Handle Telegram Save
@@ -130,6 +209,7 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
   const isWaConnected = waStatus === 'connected' || bot?.whatsappStatus === 'connected';
   const isTgConnected = !!bot?.telegramToken && bot?.telegramEnabled !== false;
   const connectedCount = [isWaConnected, isTgConnected].filter(Boolean).length;
+  const selectedCountry = getCountryByCode(selectedCountryCode);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -138,36 +218,31 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <div>
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
-                <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
-                <line x1="6" y1="6" x2="6.01" y2="6"/>
-                <line x1="6" y1="18" x2="6.01" y2="18"/>
-              </svg>
-              مركز قنوات الربط والتواصل المباشر (WhatsApp & Telegram Hub)
-            </h3>
-            <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: '4px 0 0 0', lineHeight: 1.5 }}>
-              اربط متجرك بأقوى قنوات التجارة الإلكترونية. يعمل الذكاء الاصطناعي وكتالوج المنتجات المصور واستخراج الطلبيات تلقائياً 24/7.
+            <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>قنوات التواصل النشطة</span>
+              <span style={{ fontSize: '0.78rem', background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', padding: '2px 8px', borderRadius: '20px', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+                {connectedCount} من 2 متصلة
+              </span>
+            </h2>
+            <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              اربط حسابات متجرك على واتساب وتيليغرام ليعمل الذكاء الاصطناعي على استقبال الزبائن والبيع آلياً 24/7.
             </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.03)', padding: '6px 12px', borderRadius: 'var(--radius-full)', border: '1px solid var(--border-default)' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: connectedCount > 0 ? '#10b981' : '#64748b' }} />
-              <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#ffffff' }}>
-                {connectedCount} من 2 قنوات نشطة
-              </span>
-            </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <span style={{ fontSize: '0.8rem', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '6px 12px', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.25)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
+              محرك الذكاء الاصطناعي نشط
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Channels Matrix Grid */}
+      {/* Grid of 2 Channels */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' }}>
-
+        
         {/* 1. WhatsApp Card */}
-        <div className={`channel-card channel-card--whatsapp ${isWaConnected ? 'is-connected' : ''}`} style={{ background: 'rgba(14, 21, 38, 0.7)', border: isWaConnected ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '20px', padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        <div className={`channel-card channel-card--whatsapp ${isWaConnected ? 'is-connected' : ''}`} style={{ background: 'rgba(14, 21, 38, 0.7)', border: isWaConnected ? '1px solid rgba(37, 211, 102, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '20px', padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div>
             <div className="channel-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <div className="channel-card-brand" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -177,34 +252,35 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                   </svg>
                 </div>
                 <div>
-                  <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#ffffff' }}>واتساب (WhatsApp Web)</div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>ربط الحساب عبر مسح QR Code فوري</div>
+                  <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#ffffff' }}>واتساب (WhatsApp)</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>ربط مباشر وسريع عبر كود الهاتف أو الـ QR</div>
                 </div>
               </div>
 
-              <span className={`channel-status-pill ${isWaConnected ? 'channel-status-pill--online' : waStatus === 'waiting_scan' ? 'channel-status-pill--waiting' : 'channel-status-pill--offline'}`}>
-                {isWaConnected ? '🟢 متصل' : waStatus === 'waiting_scan' ? '🟡 بانتظار المسح' : '⚪ غير متصل'}
+              <span className={`channel-status-pill ${isWaConnected ? 'channel-status-pill--online' : 'channel-status-pill--offline'}`}>
+                {isWaConnected ? '🟢 متصل' : '⚪ غير متصل'}
               </span>
             </div>
 
             <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: 1.6 }}>
-              القناة رقم #1 للمبيعات في الجزائر والوطن العربي: استقبل وأكد طلبيات الزبائن وأرسل ألبومات الصور والتوصيل لـ 58 ولاية آلياً 24/7.
+              ربط رقم المتجر مباشرة لإرسال صور المنتجات، الإجابة التلقائية على الزبائن، وتسجيل طلبيات التوصيل للـ 58 ولاية تلقائياً.
             </p>
           </div>
 
-          <div style={{ paddingTop: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
+          <div style={{ display: 'flex', gap: '8px', paddingTop: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
             {isWaConnected ? (
-              <button className="btn btn-secondary btn-sm" onClick={handleWaDisconnect} style={{ width: '100%', padding: '0.65rem' }}>
-                فصل اتصال واتساب
-              </button>
+              <>
+                <button className="btn btn-secondary btn-sm" onClick={() => setShowWaModal(true)} style={{ flex: 1, padding: '0.65rem' }}>
+                  حالة الاتصال
+                </button>
+                <button className="btn btn-secondary btn-sm" onClick={handleWaDisconnect} style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.25)' }}>
+                  فصل
+                </button>
+              </>
             ) : (
-              <button className="btn btn-primary" onClick={handleWaConnect} disabled={waConnecting} style={{ width: '100%', background: 'linear-gradient(135deg, #25d366 0%, #128c7e 100%)', borderColor: 'transparent', padding: '0.75rem', fontWeight: 800, color: '#ffffff', gap: '8px' }}>
-                {waConnecting ? <span className="spinner" /> : (
-                  <>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/></svg>
-                    <span>ربط واتساب عبر مسح QR Code</span>
-                  </>
-                )}
+              <button className="btn btn-primary" onClick={() => setShowWaModal(true)} style={{ width: '100%', background: 'linear-gradient(135deg, #25d366 0%, #128c7e 100%)', borderColor: 'transparent', padding: '0.75rem', fontWeight: 800, color: '#ffffff', gap: '8px' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                <span>ربط رقم واتساب (كود الهاتف / QR)</span>
               </button>
             )}
           </div>
@@ -258,28 +334,268 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
 
       </div>
 
-      {/* ─── WhatsApp QR Modal ─── */}
-      {showQrModal && (
-        <div className="modal-overlay" onClick={() => setShowQrModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', textAlign: 'center' }}>
-            <h3 className="modal-title" style={{ marginBottom: '0.5rem' }}>مسح رمز الاستجابة السريعة (QR Code)</h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.25rem', lineHeight: 1.5 }}>
-              افتح تطبيق واتساب على هاتفك ➔ اضغط على النقاط الثلاث / الإعدادات ➔ <strong>الأجهزة المرتبطة</strong> ➔ <strong>ربط جهاز</strong>
+      {/* ─── Modern WhatsApp Connection Modal (Pairing Code & QR) ─── */}
+      {showWaModal && (
+        <div className="modal-overlay" onClick={() => !waConnecting && setShowWaModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px', textAlign: 'center', padding: '1.75rem' }}>
+            
+            <h3 className="modal-title" style={{ marginBottom: '0.35rem', fontSize: '1.25rem', fontWeight: 800, color: '#ffffff' }}>
+              ربط حساب واتساب (WhatsApp)
+            </h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
+              اختر الطريقة الأنسب لك لربط متجرك فوراً
             </p>
 
-            {qrDataUrl ? (
-              <div style={{ background: '#ffffff', borderRadius: 'var(--radius-lg)', display: 'inline-block', padding: '1rem', boxShadow: '0 8px 30px rgba(0,0,0,0.5)', marginBottom: '1rem' }}>
-                <img src={qrDataUrl} alt="WhatsApp QR Code" style={{ width: '220px', height: '220px', display: 'block' }} />
-              </div>
-            ) : (
-              <div style={{ padding: '3rem 0' }}>
-                <div className="spinner spinner-lg" style={{ margin: '0 auto 1rem' }} />
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>جاري توليد رمز الـ QR من محرك واتساب...</p>
+            {/* Mode Switch Tabs */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              background: 'rgba(255, 255, 255, 0.04)',
+              padding: '4px',
+              borderRadius: '12px',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              marginBottom: '1.5rem',
+              gap: '4px'
+            }}>
+              <button
+                type="button"
+                onClick={() => { setConnectTab('phone'); setQrDataUrl(null); }}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: '9px',
+                  border: 'none',
+                  background: connectTab === 'phone' ? 'rgba(37, 211, 102, 0.15)' : 'transparent',
+                  color: connectTab === 'phone' ? '#25d366' : '#94a3b8',
+                  fontWeight: connectTab === 'phone' ? 800 : 500,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  borderBottom: connectTab === 'phone' ? '2px solid #25d366' : '2px solid transparent',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                <span>📱 كود الهاتف (موصى للهاتف)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setConnectTab('qr'); setPairingCode(null); }}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: '9px',
+                  border: 'none',
+                  background: connectTab === 'qr' ? 'rgba(37, 211, 102, 0.15)' : 'transparent',
+                  color: connectTab === 'qr' ? '#25d366' : '#94a3b8',
+                  fontWeight: connectTab === 'qr' ? 800 : 500,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  borderBottom: connectTab === 'qr' ? '2px solid #25d366' : '2px solid transparent',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                <span>💻 مسح QR (للكمبيوتر)</span>
+              </button>
+            </div>
+
+            {/* TAB 1: Phone Pairing Code Mode */}
+            {connectTab === 'phone' && (
+              <div>
+                {!pairingCode ? (
+                  <div>
+                    <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.06)', borderRadius: '14px', padding: '1.25rem', marginBottom: '1.25rem', textAlign: 'right' }}>
+                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#ffffff', marginBottom: '8px' }}>
+                        أدخل رقم هاتف واتساب الخاص بمتجرك:
+                      </label>
+
+                      <div style={{ display: 'flex', gap: '8px', direction: 'ltr' }}>
+                        <select
+                          value={selectedCountryCode}
+                          onChange={e => setSelectedCountryCode(e.target.value)}
+                          style={{
+                            padding: '10px 8px',
+                            borderRadius: '10px',
+                            background: 'rgba(255, 255, 255, 0.06)',
+                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                            color: '#ffffff',
+                            fontSize: '0.88rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            outline: 'none'
+                          }}
+                        >
+                          {COUNTRIES.map(c => (
+                            <option key={c.code} value={c.code} style={{ background: '#0f172a', color: '#ffffff' }}>
+                              {c.flag} {c.dialCode} ({c.name})
+                            </option>
+                          ))}
+                        </select>
+
+                        <input
+                          type="tel"
+                          placeholder={selectedCountry.phonePlaceholder || '0672 00 00 00'}
+                          value={phoneNumberInput}
+                          onChange={e => setPhoneNumberInput(e.target.value)}
+                          style={{
+                            flex: 1,
+                            padding: '10px 14px',
+                            borderRadius: '10px',
+                            background: 'rgba(255, 255, 255, 0.06)',
+                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                            color: '#ffffff',
+                            fontSize: '0.95rem',
+                            fontWeight: 700,
+                            letterSpacing: '1px',
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+                      <span style={{ display: 'block', fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: '6px' }}>
+                        💡 سيتم إرسال كود ربط رسمي مكون من 8 خانات لتأكيده في تطبيق واتساب مباشرة.
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => handleWaConnect('phone')}
+                      disabled={waConnecting}
+                      style={{
+                        width: '100%',
+                        background: 'linear-gradient(135deg, #25d366 0%, #128c7e 100%)',
+                        borderColor: 'transparent',
+                        padding: '0.85rem',
+                        fontWeight: 800,
+                        fontSize: '0.95rem',
+                        color: '#ffffff',
+                        gap: '8px',
+                        borderRadius: '12px'
+                      }}
+                    >
+                      {waConnecting ? <span className="spinner" /> : (
+                        <>
+                          <span>توليد كود الربط السريع ⚡</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    {/* Pairing Code Display Box */}
+                    <div style={{
+                      background: 'linear-gradient(135deg, rgba(37, 211, 102, 0.1) 0%, rgba(18, 140, 126, 0.05) 100%)',
+                      border: '2px dashed rgba(37, 211, 102, 0.4)',
+                      borderRadius: '18px',
+                      padding: '1.5rem',
+                      marginBottom: '1.25rem',
+                      position: 'relative'
+                    }}>
+                      <div style={{ fontSize: '0.82rem', color: '#34d399', fontWeight: 700, marginBottom: '8px' }}>
+                        كود الربط الخاص بحسابك (8 خانات)
+                      </div>
+
+                      <div style={{
+                        fontSize: '2rem',
+                        fontWeight: 900,
+                        letterSpacing: '4px',
+                        color: '#ffffff',
+                        fontFamily: 'monospace',
+                        padding: '8px 14px',
+                        background: 'rgba(0, 0, 0, 0.4)',
+                        borderRadius: '10px',
+                        display: 'inline-block',
+                        userSelect: 'all',
+                        border: '1px solid rgba(255, 255, 255, 0.1)'
+                      }}>
+                        {pairingCode}
+                      </div>
+
+                      <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'center', gap: '10px', alignItems: 'center' }}>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={copyPairingCodeToClipboard}
+                          style={{
+                            background: copiedCode ? '#10b981' : 'rgba(255, 255, 255, 0.1)',
+                            color: '#ffffff',
+                            fontWeight: 700,
+                            padding: '6px 16px',
+                            borderRadius: '8px',
+                            gap: '6px'
+                          }}
+                        >
+                          {copiedCode ? '✓ تم النسخ' : '📋 نسخ الكود'}
+                        </button>
+
+                        {timeLeft !== null && (
+                          <span style={{ fontSize: '0.78rem', color: timeLeft < 30 ? '#ef4444' : '#94a3b8' }}>
+                            ⏳ ينتهي خلال {timeLeft} ثانية
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Step-by-Step Instructions */}
+                    <div style={{ textAlign: 'right', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '12px', padding: '1rem', fontSize: '0.82rem', lineHeight: 1.6, color: '#e2e8f0', marginBottom: '1rem' }}>
+                      <div style={{ fontWeight: 800, color: '#38bdf8', marginBottom: '6px' }}>📌 خطوات التفعيل السريعة على هاتفك:</div>
+                      <div>1. افتح تطبيق واتساب على هاتفك ➔ اضغط على النقاط الثلاث (أو الإعدادات).</div>
+                      <div>2. اختر <strong>الأجهزة المرتبطة (Linked Devices)</strong> ➔ اضغط <strong>ربط جهاز</strong>.</div>
+                      <div>3. اختر بالأسفل <strong>«الربط باستخدام رقم الهاتف» (Link with phone number instead)</strong>.</div>
+                      <div>4. الصق أو اكتب هذا الكود المكون من 8 خانات، وسيتصل البوت فوراً!</div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
-            <div className="modal-footer" style={{ justifyContent: 'center' }}>
-              <button className="btn btn-secondary" onClick={() => setShowQrModal(false)}>إغلاق</button>
+            {/* TAB 2: QR Code Mode */}
+            {connectTab === 'qr' && (
+              <div>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1rem', lineHeight: 1.5 }}>
+                  افتح تطبيق واتساب ➔ الإعدادات ➔ <strong>الأجهزة المرتبطة</strong> ➔ <strong>ربط جهاز</strong> ➔ وجّه الكاميرا للشاشة
+                </p>
+
+                {qrDataUrl ? (
+                  <div style={{ background: '#ffffff', borderRadius: 'var(--radius-lg)', display: 'inline-block', padding: '1rem', boxShadow: '0 8px 30px rgba(0,0,0,0.5)', marginBottom: '1rem' }}>
+                    <img src={qrDataUrl} alt="WhatsApp QR Code" style={{ width: '220px', height: '220px', display: 'block' }} />
+                  </div>
+                ) : (
+                  <div style={{ padding: '2rem 0' }}>
+                    {waConnecting ? (
+                      <>
+                        <div className="spinner spinner-lg" style={{ margin: '0 auto 1rem' }} />
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>جاري توليد رمز الـ QR من محرك واتساب...</p>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={() => handleWaConnect('qr')}
+                        style={{
+                          background: 'linear-gradient(135deg, #25d366 0%, #128c7e 100%)',
+                          borderColor: 'transparent',
+                          padding: '0.8rem 1.5rem',
+                          fontWeight: 800,
+                          color: '#ffffff',
+                          gap: '8px'
+                        }}
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/></svg>
+                        <span>توليد كود الـ QR الآن</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="modal-footer" style={{ justifyContent: 'center', marginTop: '1rem' }}>
+              <button className="btn btn-secondary" onClick={() => setShowWaModal(false)}>إغلاق</button>
             </div>
           </div>
         </div>

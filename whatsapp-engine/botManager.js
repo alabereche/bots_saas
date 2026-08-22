@@ -66,7 +66,7 @@ async function createWhatsAppBot(botId, config, phoneNumber = null) {
 
   // QR Code Event
   client.on('qr', async (qr) => {
-    console.log(`[BotManager] QR generated for "${config.botName}"`);
+    console.log(`[BotManager] QR/Pairing triggered for "${config.botName}"`);
     botState.qrCode = qr;
     botState.status = 'waiting_scan';
 
@@ -74,9 +74,10 @@ async function createWhatsAppBot(botId, config, phoneNumber = null) {
       try {
         const code = await client.requestPairingCode(phoneNumber);
         botState.pairingCode = code;
-        console.log(`[BotManager] Pairing code for ${phoneNumber}: ${code}`);
+        botState.pairingCodeExpiresAt = Date.now() + 120000;
+        console.log(`[BotManager] ✅ Pairing code generated for ${phoneNumber}: ${code}`);
       } catch (e) {
-        console.error('[BotManager] Pairing code request failed:', e.message);
+        console.error('[BotManager] ❌ Pairing code request failed:', e.message);
       }
     } else {
       try {
@@ -99,6 +100,8 @@ async function createWhatsAppBot(botId, config, phoneNumber = null) {
     botState.status = 'connected';
     botState.qrCode = null;
     botState.qrDataUrl = null;
+    botState.pairingCode = null;
+    botState.pairingCodeExpiresAt = null;
 
     await firestore.updateBotStatus(botId, 'connected', {
       whatsappConnectedAt: new Date().toISOString(),
@@ -203,6 +206,8 @@ function getQRCode(botId) {
   return {
     status: state.status,
     qrDataUrl: state.qrDataUrl,
+    pairingCode: state.pairingCode,
+    pairingCodeExpiresAt: state.pairingCodeExpiresAt,
   };
 }
 

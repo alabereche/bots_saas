@@ -138,25 +138,55 @@ async function requireBotAccess(res, uid, botId) {
   return bot;
 }
 
+const pairingAttempts = new Map(); // uid -> { count, start }
+
+function checkPairingRateLimit(uid) {
+  const now = Date.now();
+  const windowMs = 5 * 60 * 1000; // 5 mins
+  const maxAttempts = 3;
+  let record = pairingAttempts.get(uid);
+  if (!record || now - record.start > windowMs) {
+    record = { count: 1, start: now };
+    pairingAttempts.set(uid, record);
+    return true;
+  }
+  if (record.count >= maxAttempts) {
+    return false;
+  }
+  record.count++;
+  return true;
+}
+
 // ─── Routes ──────────────────────────────────────────────────
 
-// POST /api/whatsapp/create — Initialize a WhatsApp bot
+// POST /api/whatsapp/create — Initialize a WhatsApp bot (supports QR or Pairing Code)
 app.post('/api/whatsapp/create', async (req, res) => {
-  const { botId } = req.body;
+  const { botId, phoneNumber } = req.body;
   const config = await requireBotAccess(res, req.uid, botId);
   if (!config) return;
+
+  let cleanPhone = null;
+  if (phoneNumber) {
+    cleanPhone = String(phoneNumber).replace(/\D/g, '');
+    if (!/^[1-9]\d{9,14}$/.test(cleanPhone)) {
+      return res.status(400).json({ error: 'رقم الهاتف غير صالح — يرجى إدخال الرقم بالصيغة الدولية مثل 213672475892' });
+    }
+    if (!checkPairingRateLimit(req.uid)) {
+      return res.status(429).json({ error: 'تجاوزت الحد المسموح لطلب أكواد الربط (3 طلبات كل 5 دقائق) — يرجى الانتظار قليلاً' });
+    }
+  }
 
   try {
     if (!getBotState(botId) && getAllBotStatuses().length >= MAX_CONCURRENT_BOTS) {
       return res.status(503).json({ error: 'المحرك ممتلئ حالياً — يرجى المحاولة لاحقاً' });
     }
 
-    const state = await createWhatsAppBot(botId, config);
+    const state = await createWhatsAppBot(botId, config, cleanPhone);
 
     res.json({
       success: true,
       status: state.status,
-      message: 'جاري تهيئة البوت، انتظر ظهور QR Code',
+      message: cleanPhone ? 'جاري توليد كود الربط السريع لهاتفك' : 'جاري تهيئة البوت، انتظر ظهور QR Code',
     });
   } catch (err) {
     console.error('[API] Create error:', err.message);

@@ -117,6 +117,9 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
       console.error('[BotManager] QR generation error:', e.message);
     }
 
+    await firestore.updateBotStatus(botId, 'waiting_scan').catch(() => {});
+  });
+
   // Authenticated Event (Fires immediately upon pairing code / QR scan confirmation)
   client.on('authenticated', async () => {
     console.log(`[BotManager] 🔑 Bot "${config.botName}" authenticated with WhatsApp!`);

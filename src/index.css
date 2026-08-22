@@ -1357,74 +1357,93 @@ h1, h2, h3, h4, h5, h6 {
   margin-top: 4px;
 }
 
-/* ─── Tabs ─── */
+/* ─── Ultra-Modern Smooth Tabs Bar ─── */
 .tabs-container {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
-  padding: 4px;
-  border-radius: var(--radius-md);
-  background: var(--bg-card);
-  border: 1px solid var(--border-default);
-  gap: 4px;
+  padding: 6px;
+  border-radius: 16px;
+  background: rgba(14, 21, 38, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   margin-bottom: 1.5rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
+}
+
+.tabs-container::-webkit-scrollbar {
+  display: none;
 }
 
 .tab-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 0.65rem 0.5rem;
-  border-radius: var(--radius-sm);
-  border: none;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 11px;
+  border: 1px solid transparent;
   background: transparent;
   color: var(--text-secondary);
   font-family: var(--font-arabic);
   font-size: 0.88rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all var(--trans-fast);
-  width: 100%;
+  white-space: nowrap;
+  flex: 1 1 0px;
+  min-width: fit-content;
+  transition: all 0.2s ease;
   text-align: center;
 }
 
 .tab-btn:hover {
   color: #ffffff;
-  background: #1c263c;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.06);
 }
 
 .tab-btn--active {
-  background: var(--color-primary);
-  color: #041209;
-  font-weight: 700;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.18) 0%, rgba(6, 182, 212, 0.1) 100%) !important;
+  border-color: rgba(52, 211, 153, 0.38) !important;
+  color: #34d399 !important;
+  font-weight: 800 !important;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.15);
 }
 
 .tab-count-badge {
   background: rgba(16, 185, 129, 0.2);
   color: #34d399;
   font-size: 0.72rem;
-  font-weight: 700;
-  padding: 1px 6px;
-  border-radius: var(--radius-full);
+  font-weight: 800;
+  padding: 1px 7px;
+  border-radius: 20px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
 .tab-count-badge.badge--danger {
-  background: rgba(244, 63, 94, 0.2);
-  color: #f43f5e;
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.3);
 }
 
 .tab-btn--active .tab-count-badge {
-  background: #041209;
-  color: var(--color-primary);
+  background: rgba(52, 211, 153, 0.25);
+  color: #a7f3d0;
+  border-color: rgba(52, 211, 153, 0.5);
 }
 
 .tab-btn--active .tab-count-badge.badge--danger {
-  background: #041209;
-  color: #f43f5e;
+  background: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.5);
 }
 
 /* ─── Bot Actions Row ─── */

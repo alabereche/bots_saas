@@ -26,23 +26,6 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
   const [tgSaving, setTgSaving] = useState(false);
   const [showTgModal, setShowTgModal] = useState(false);
 
-  // Meta (Facebook & Instagram) 1-Click OAuth States
-  const [oauthLoading, setOauthLoading] = useState(false);
-  const [fetchedPages, setFetchedPages] = useState([]);
-  const [showPagePickerModal, setShowPagePickerModal] = useState(false);
-  const [connectingPageId, setConnectingPageId] = useState(null);
-
-  // Advanced Manual Config States
-  const [fbPageId, setFbPageId] = useState(bot?.facebookPageId || '');
-  const [fbPageToken, setFbPageToken] = useState(bot?.facebookPageToken || '');
-  const [fbSaving, setFbSaving] = useState(false);
-  const [showFbModal, setShowFbModal] = useState(false);
-
-  const [igUserId, setIgUserId] = useState(bot?.instagramUserId || '');
-  const [igToken, setIgToken] = useState(bot?.instagramToken || '');
-  const [igSaving, setIgSaving] = useState(false);
-  const [showIgModal, setShowIgModal] = useState(false);
-
   // WhatsApp QR Polling
   useEffect(() => {
     if (waStatus !== 'waiting_scan' && waStatus !== 'initializing') return;
@@ -131,183 +114,22 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
     }
   };
 
-  // ─── 1-Click Meta (Facebook & Instagram) 1-Click OAuth ────────
-
-  const handle1ClickMetaLogin = async () => {
-    setOauthLoading(true);
-    try {
-      const redirectUri = window.location.origin + '/meta-callback';
-      const res = await fetch(`${TELEGRAM_ENGINE_URL}/api/meta/oauth/url?botId=${bot.id}&redirectUri=${encodeURIComponent(redirectUri)}`, {
-        headers: await engineHeaders(false),
-      });
-      const data = await res.json();
-
-      if (!res.ok || !data.oauthUrl) {
-        throw new Error(data.error || 'تعذر بدء جلسة الربط مع فيسبوك');
-      }
-
-      // Open Meta OAuth popup
-      const width = 600;
-      const height = 700;
-      const left = window.screenX + (window.outerWidth - width) / 2;
-      const top = window.screenY + (window.outerHeight - height) / 2.5;
-      const popup = window.open(
-        data.oauthUrl,
-        'MetaConnectPopup',
-        `width=${width},height=${height},left=${left},top=${top},scrollbars=yes`
-      );
-
-      // Listen for OAuth message
-      const checkPopup = setInterval(async () => {
-        if (!popup || popup.closed) {
-          clearInterval(checkPopup);
-          setOauthLoading(false);
-        }
-      }, 1000);
-
-      window.addEventListener('message', async (event) => {
-        if (event.data?.type === 'META_AUTH_CODE' && event.data?.code) {
-          clearInterval(checkPopup);
-          popup?.close();
-          const code = event.data.code;
-          const exchangeRes = await fetch(`${TELEGRAM_ENGINE_URL}/api/meta/oauth/exchange`, {
-            method: 'POST',
-            headers: await engineHeaders(),
-            body: JSON.stringify({
-              code,
-              redirectUri,
-              botId: bot.id,
-              state: data.state,
-            }),
-          });
-          const exchangeData = await exchangeRes.json();
-          if (exchangeData.pages && exchangeData.pages.length > 0) {
-            setFetchedPages(exchangeData.pages);
-            setShowPagePickerModal(true);
-          } else {
-            toast.error(exchangeData.error || 'لم يتم العثور على أي صفحات فيسبوك تديرها');
-          }
-        }
-      }, { once: true });
-
-    } catch (err) {
-      toast.error(err.message || 'فشل الاتصال بفيسبوك');
-    } finally {
-      setOauthLoading(false);
-    }
-  };
-
-  const handleSelectMetaPage = async (page) => {
-    setConnectingPageId(page.id);
-    try {
-      let backendSuccess = false;
-      try {
-        const res = await fetch(`${TELEGRAM_ENGINE_URL}/api/meta/oauth/connect-page`, {
-          method: 'POST',
-          headers: await engineHeaders(),
-          body: JSON.stringify({
-            botId: bot.id,
-            pageId: page.id,
-            pageName: page.name,
-            tokenEncrypted: page.tokenEncrypted,
-            instagramUserId: page.instagramAccount?.id || null,
-            instagramUsername: page.instagramAccount?.username || null,
-          }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && data.success) backendSuccess = true;
-      } catch (err) {
-        console.warn('Backend connect-page warning:', err.message);
-      }
-
-      // Ensure Firestore is updated directly so the UI is immediately connected
-      await onUpdateBot({
-        facebookPageId: page.id,
-        facebookPageName: page.name,
-        facebookPageToken: page.tokenEncrypted || 'mock_token',
-        facebookEnabled: true,
-        instagramUserId: page.instagramAccount?.id || null,
-        instagramUsername: page.instagramAccount?.username || null,
-        instagramToken: page.tokenEncrypted || 'mock_token',
-        instagramEnabled: !!page.instagramAccount?.id,
-      });
-
-      setShowPagePickerModal(false);
-      toast.success(`تم ربط صفحة "${page.name}" وقنوات فيسبوك وإنستغرام بنجاح!`);
-    } catch (err) {
-      toast.error('فشل ربط الصفحة: ' + err.message);
-    } finally {
-      setConnectingPageId(null);
-    }
-  };
-
-  const handleDisconnectMeta = async () => {
-    try {
-      fetch(`${TELEGRAM_ENGINE_URL}/api/meta/oauth/disconnect`, {
-        method: 'POST',
-        headers: await engineHeaders(),
-        body: JSON.stringify({ botId: bot.id }),
-      }).catch(() => {});
-
-      await onUpdateBot({
-        facebookPageId: null,
-        facebookPageName: null,
-        facebookPageToken: null,
-        facebookEnabled: false,
-        instagramUserId: null,
-        instagramUsername: null,
-        instagramToken: null,
-        instagramEnabled: false,
-      });
-      toast.success('تم فصل اتصال فيسبوك وإنستغرام بنجاح');
-    } catch (err) {
-      toast.error('فشل فصل الاتصال: ' + err.message);
-    }
-  };
-
-  // Advanced Manual Save
-  const handleFbSave = async (e) => {
-    e.preventDefault();
-    setFbSaving(true);
+  const handleTgDisconnect = async () => {
     try {
       await onUpdateBot({
-        facebookPageId: fbPageId.trim(),
-        facebookPageToken: fbPageToken.trim(),
-        facebookEnabled: !!fbPageToken.trim(),
+        telegramToken: '',
+        telegramEnabled: false,
       });
-      setShowFbModal(false);
-      toast.success('تم تحديث إعدادات قناة فيسبوك مسنجر');
+      setTgToken('');
+      toast.success('تم فصل اتصال تيليغرام');
     } catch (err) {
-      toast.error('فشل حفظ إعدادات فيسبوك: ' + err.message);
-    } finally {
-      setFbSaving(false);
-    }
-  };
-
-  const handleIgSave = async (e) => {
-    e.preventDefault();
-    setIgSaving(true);
-    try {
-      await onUpdateBot({
-        instagramUserId: igUserId.trim(),
-        instagramToken: igToken.trim(),
-        instagramEnabled: !!igToken.trim(),
-      });
-      setShowIgModal(false);
-      toast.success('تم تحديث إعدادات قناة إنستغرام');
-    } catch (err) {
-      toast.error('فشل حفظ إعدادات إنستغرام: ' + err.message);
-    } finally {
-      setIgSaving(false);
+      toast.error('فشل فصل تيليغرام: ' + err.message);
     }
   };
 
   const isWaConnected = waStatus === 'connected' || bot?.whatsappStatus === 'connected';
-  const isTgConnected = !!bot?.telegramToken;
-  const isFbConnected = !!bot?.facebookPageId && !!bot?.facebookEnabled;
-  const isIgConnected = !!bot?.instagramUserId && !!bot?.instagramEnabled;
-
-  const connectedCount = [isWaConnected, isTgConnected, isFbConnected, isIgConnected].filter(Boolean).length;
+  const isTgConnected = !!bot?.telegramToken && bot?.telegramEnabled !== false;
+  const connectedCount = [isWaConnected, isTgConnected].filter(Boolean).length;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -323,10 +145,10 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                 <line x1="6" y1="6" x2="6.01" y2="6"/>
                 <line x1="6" y1="18" x2="6.01" y2="18"/>
               </svg>
-              مركز قنوات الربط والتواصل الموحد (Omnichannel Channels Hub)
+              مركز قنوات الربط والتواصل المباشر (WhatsApp & Telegram Hub)
             </h3>
             <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: '4px 0 0 0', lineHeight: 1.5 }}>
-              اربط متجرك بجميع منصات التواصل الاجتماعي. يعمل الذكاء الاصطناعي وكتالوج المنتجات والطلبيات عبر جميع القنوات بشكل موحد وتلقائي.
+              اربط متجرك بأقوى قنوات التجارة الإلكترونية. يعمل الذكاء الاصطناعي وكتالوج المنتجات المصور واستخراج الطلبيات تلقائياً 24/7.
             </p>
           </div>
 
@@ -334,275 +156,107 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.03)', padding: '6px 12px', borderRadius: 'var(--radius-full)', border: '1px solid var(--border-default)' }}>
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: connectedCount > 0 ? '#10b981' : '#64748b' }} />
               <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#ffffff' }}>
-                {connectedCount} من 4 قنوات نشطة
+                {connectedCount} من 2 قنوات نشطة
               </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ─── 1-Click Meta OAuth Banner ─── */}
-      <div className="card" style={{ background: 'linear-gradient(135deg, rgba(0, 132, 255, 0.08) 0%, rgba(225, 48, 108, 0.08) 100%)', border: '1px solid rgba(0, 132, 255, 0.25)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ width: '42px', height: '42px', borderRadius: 'var(--radius-md)', background: 'linear-gradient(135deg, #0084ff, #e1306c)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', flexShrink: 0 }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>
-              </svg>
+      {/* Channels Matrix Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' }}>
+
+        {/* 1. WhatsApp Card */}
+        <div className={`channel-card channel-card--whatsapp ${isWaConnected ? 'is-connected' : ''}`} style={{ background: 'rgba(14, 21, 38, 0.7)', border: isWaConnected ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '20px', padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div>
+            <div className="channel-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div className="channel-card-brand" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'rgba(37, 211, 102, 0.15)', color: '#25d366', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(37, 211, 102, 0.3)' }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+                  </svg>
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#ffffff' }}>واتساب (WhatsApp Web)</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>ربط الحساب عبر مسح QR Code فوري</div>
+                </div>
+              </div>
+
+              <span className={`channel-status-pill ${isWaConnected ? 'channel-status-pill--online' : waStatus === 'waiting_scan' ? 'channel-status-pill--waiting' : 'channel-status-pill--offline'}`}>
+                {isWaConnected ? '🟢 متصل' : waStatus === 'waiting_scan' ? '🟡 بانتظار المسح' : '⚪ غير متصل'}
+              </span>
             </div>
-            <div>
-              <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#ffffff', margin: 0 }}>
-                ربط فيسبوك مسنجر وإنستغرام بضغطة زر واحدة (1-Click Meta Connect)
-              </h4>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '3px 0 0 0' }}>
-                سجل الدخول بحسابك في Meta واختر صفحة متجرك ليتم ربط الرسائل والـ DMs آلياً وبأمان تام.
-              </p>
-            </div>
+
+            <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: 1.6 }}>
+              القناة رقم #1 للمبيعات في الجزائر والوطن العربي: استقبل وأكد طلبيات الزبائن وأرسل ألبومات الصور والتوصيل لـ 58 ولاية آلياً 24/7.
+            </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {isFbConnected || isIgConnected ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '0.82rem', color: '#34d399', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
-                  {bot.facebookPageName ? `متصل: ${bot.facebookPageName}` : 'متصل بـ Meta'}
-                </span>
-                <button className="btn btn-secondary btn-sm" onClick={handleDisconnectMeta}>
-                  فصل الربط
-                </button>
-              </div>
+          <div style={{ paddingTop: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
+            {isWaConnected ? (
+              <button className="btn btn-secondary btn-sm" onClick={handleWaDisconnect} style={{ width: '100%', padding: '0.65rem' }}>
+                فصل اتصال واتساب
+              </button>
             ) : (
-              <button
-                className="btn btn-primary"
-                onClick={handle1ClickMetaLogin}
-                disabled={oauthLoading}
-                style={{ background: 'linear-gradient(90deg, #0084ff, #e1306c)', borderColor: 'transparent', gap: '8px', padding: '0.55rem 1.25rem' }}
-              >
-                {oauthLoading ? <span className="spinner" /> : (
+              <button className="btn btn-primary" onClick={handleWaConnect} disabled={waConnecting} style={{ width: '100%', background: 'linear-gradient(135deg, #25d366 0%, #128c7e 100%)', borderColor: 'transparent', padding: '0.75rem', fontWeight: 800, color: '#ffffff', gap: '8px' }}>
+                {waConnecting ? <span className="spinner" /> : (
                   <>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
-                    <span>تسجيل الدخول وربط الصفحات</span>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/></svg>
+                    <span>ربط واتساب عبر مسح QR Code</span>
                   </>
                 )}
               </button>
             )}
           </div>
         </div>
-      </div>
-
-      {/* Channels Matrix Grid */}
-      <div className="channels-matrix-grid">
-
-        {/* 1. WhatsApp Card */}
-        <div className={`channel-card channel-card--whatsapp ${isWaConnected ? 'is-connected' : ''}`}>
-          <div>
-            <div className="channel-card-header">
-              <div className="channel-card-brand">
-                <div className="channel-icon-badge channel-icon-badge--whatsapp">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-                  </svg>
-                </div>
-                <div>
-                  <div className="channel-card-title">واتساب (WhatsApp)</div>
-                  <div className="channel-card-desc">ربط الحساب عبر مسح QR Code</div>
-                </div>
-              </div>
-
-              <span className={`channel-status-pill ${isWaConnected ? 'channel-status-pill--online' : waStatus === 'waiting_scan' ? 'channel-status-pill--waiting' : 'channel-status-pill--offline'}`}>
-                {isWaConnected ? 'متصل' : waStatus === 'waiting_scan' ? 'انتظار المسح' : 'غير متصل'}
-              </span>
-            </div>
-
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: 1.5 }}>
-              استقبل وأكد طلبيات زبائن واتساب وأرسل إشعارات الشحن تلقائياً 24/7.
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', gap: '8px', paddingTop: '0.5rem', borderTop: '1px solid var(--border-subtle)' }}>
-            {isWaConnected ? (
-              <button className="btn btn-secondary btn-sm" onClick={handleWaDisconnect} style={{ width: '100%' }}>
-                فصل الاتصال
-              </button>
-            ) : (
-              <button className="btn btn-primary btn-sm" onClick={handleWaConnect} disabled={waConnecting} style={{ width: '100%', background: '#16a34a', borderColor: '#16a34a' }}>
-                {waConnecting ? <span className="spinner" /> : 'ربط عبر QR Code'}
-              </button>
-            )}
-          </div>
-        </div>
 
         {/* 2. Telegram Card */}
-        <div className={`channel-card channel-card--telegram ${isTgConnected ? 'is-connected' : ''}`}>
+        <div className={`channel-card channel-card--telegram ${isTgConnected ? 'is-connected' : ''}`} style={{ background: 'rgba(14, 21, 38, 0.7)', border: isTgConnected ? '1px solid rgba(14, 165, 233, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '20px', padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div>
-            <div className="channel-card-header">
-              <div className="channel-card-brand">
-                <div className="channel-icon-badge channel-icon-badge--telegram">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <div className="channel-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div className="channel-card-brand" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'rgba(14, 165, 233, 0.15)', color: '#0ea5e9', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(14, 165, 233, 0.3)' }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="22" y1="2" x2="11" y2="13"/>
                     <polygon points="22 2 15 22 11 13 2 9 22 2"/>
                   </svg>
                 </div>
                 <div>
-                  <div className="channel-card-title">تيليغرام (Telegram)</div>
-                  <div className="channel-card-desc">ربط البوت عبر BotFather Token</div>
+                  <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#ffffff' }}>تيليغرام (Telegram Bot)</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>ربط فوري عبر BotFather Token</div>
                 </div>
               </div>
 
               <span className={`channel-status-pill ${isTgConnected ? 'channel-status-pill--online' : 'channel-status-pill--offline'}`}>
-                {isTgConnected ? 'متصل' : 'غير متصل'}
+                {isTgConnected ? '🟢 متصل' : '⚪ غير متصل'}
               </span>
             </div>
 
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: 1.5 }}>
-              رد فوري على استفسارات المشتركين وقنوات ومجموعات التيليغرام.
+            <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: 1.6 }}>
+              رد ذكي فائق السرعة على استفسارات المشتركين والزبائن وقنوات تيليغرام مع إرسال صور المواصفات وتأكيد الطلبيات فوراً.
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: '8px', paddingTop: '0.5rem', borderTop: '1px solid var(--border-subtle)' }}>
-            <button className="btn btn-secondary btn-sm" onClick={() => setShowTgModal(true)} style={{ width: '100%' }}>
-              {isTgConnected ? 'تعديل الـ Token' : 'إدخال Token تيليغرام'}
-            </button>
-          </div>
-        </div>
-
-        {/* 3. Facebook Messenger Card */}
-        <div className={`channel-card channel-card--messenger ${isFbConnected ? 'is-connected' : ''}`}>
-          <div>
-            <div className="channel-card-header">
-              <div className="channel-card-brand">
-                <div className="channel-icon-badge channel-icon-badge--messenger">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-                    <polyline points="8 13 11 9 13 13 16 10"/>
-                  </svg>
-                </div>
-                <div>
-                  <div className="channel-card-title">فيسبوك مسنجر (Messenger)</div>
-                  <div className="channel-card-desc">{bot.facebookPageName ? bot.facebookPageName : 'ربط رسائل صفحة فيسبوك'}</div>
-                </div>
-              </div>
-
-              <span className={`channel-status-pill ${isFbConnected ? 'channel-status-pill--online' : 'channel-status-pill--offline'}`}>
-                {isFbConnected ? 'متصل' : 'غير متصل'}
-              </span>
-            </div>
-
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: 1.5 }}>
-              الرد التلقائي على رسائل صفحة الفيسبوك وتحويل المعلقين إلى زبائن.
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', gap: '8px', paddingTop: '0.5rem', borderTop: '1px solid var(--border-subtle)' }}>
-            <button className="btn btn-secondary btn-sm" onClick={() => setShowFbModal(true)} style={{ width: '100%' }}>
-              {isFbConnected ? 'إعدادات متقدمة' : 'إعداد يدوي (Advanced)'}
-            </button>
-          </div>
-        </div>
-
-        {/* 4. Instagram Direct Card */}
-        <div className={`channel-card channel-card--instagram ${isIgConnected ? 'is-connected' : ''}`}>
-          <div>
-            <div className="channel-card-header">
-              <div className="channel-card-brand">
-                <div className="channel-icon-badge channel-icon-badge--instagram">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
-                    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
-                    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
-                  </svg>
-                </div>
-                <div>
-                  <div className="channel-card-title">إنستغرام (Instagram Direct)</div>
-                  <div className="channel-card-desc">{bot.instagramUsername ? `@${bot.instagramUsername}` : 'الرد على الرسائل الخاصة DMs'}</div>
-                </div>
-              </div>
-
-              <span className={`channel-status-pill ${isIgConnected ? 'channel-status-pill--online' : 'channel-status-pill--offline'}`}>
-                {isIgConnected ? 'متصل' : 'غير متصل'}
-              </span>
-            </div>
-
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: 1.5 }}>
-              تحويل المتابعين واستفسارات الـ Stories و DMs إلى مبيعات مسجلة في ثوانٍ.
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', gap: '8px', paddingTop: '0.5rem', borderTop: '1px solid var(--border-subtle)' }}>
-            <button className="btn btn-secondary btn-sm" onClick={() => setShowIgModal(true)} style={{ width: '100%' }}>
-              {isIgConnected ? 'إعدادات متقدمة' : 'إعداد يدوي (Advanced)'}
-            </button>
+          <div style={{ display: 'flex', gap: '8px', paddingTop: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
+            {isTgConnected ? (
+              <>
+                <button className="btn btn-secondary btn-sm" onClick={() => setShowTgModal(true)} style={{ flex: 1, padding: '0.65rem' }}>
+                  تعديل الـ Token
+                </button>
+                <button className="btn btn-secondary btn-sm" onClick={handleTgDisconnect} style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.25)' }}>
+                  فصل
+                </button>
+              </>
+            ) : (
+              <button className="btn btn-primary" onClick={() => setShowTgModal(true)} style={{ width: '100%', background: 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)', borderColor: 'transparent', padding: '0.75rem', fontWeight: 800, color: '#ffffff', gap: '8px' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                <span>إدخال Bot Token تيليغرام</span>
+              </button>
+            )}
           </div>
         </div>
 
       </div>
-
-      {/* ─── Page Picker Modal (From 1-Click Meta OAuth) ─── */}
-      {showPagePickerModal && (
-        <div className="modal-overlay" onClick={() => !connectingPageId && setShowPagePickerModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '540px' }}>
-            <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>
-              </svg>
-              اختر الصفحة التي تريد ربطها بـ "{bot.botName || bot.businessName}"
-            </h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.25rem', lineHeight: 1.5 }}>
-              تم العثور على الصفحات التالية في حسابك على فيسبوك. اختر الصفحة المطلوبة لتفعيل البوت عليها فوراً:
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '350px', overflowY: 'auto', marginBottom: '1.25rem' }}>
-              {fetchedPages.map(page => (
-                <div
-                  key={page.id}
-                  style={{
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--border-default)',
-                    borderRadius: 'var(--radius-lg)',
-                    padding: '1rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '12px',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#ffffff', marginBottom: '3px' }}>
-                      {page.name}
-                    </div>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span>{page.category || 'صفحة فيسبوك'}</span>
-                      {page.instagramAccount && (
-                        <>
-                          <span>•</span>
-                          <span style={{ color: '#e1306c', fontWeight: 600 }}>@{page.instagramAccount.username} (إنستغرام)</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    disabled={connectingPageId === page.id}
-                    onClick={() => handleSelectMetaPage(page)}
-                    style={{ flexShrink: 0 }}
-                  >
-                    {connectingPageId === page.id ? <span className="spinner" /> : 'ربط هذه الصفحة'}
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={() => setShowPagePickerModal(false)} disabled={!!connectingPageId}>
-                إلغاء
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ─── WhatsApp QR Modal ─── */}
       {showQrModal && (
@@ -657,92 +311,6 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                 <button type="button" className="btn btn-secondary" onClick={() => setShowTgModal(false)} disabled={tgSaving}>إلغاء</button>
                 <button type="submit" className="btn btn-primary" disabled={tgSaving}>
                   {tgSaving ? <span className="spinner" /> : 'حفظ وتفعيل'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ─── Facebook Advanced Config Modal ─── */}
-      {showFbModal && (
-        <div className="modal-overlay" onClick={() => !fbSaving && setShowFbModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }}>
-            <h3 className="modal-title">إعداد يدوي لفيسبوك مسنجر (Manual Page Token)</h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.25rem', lineHeight: 1.5 }}>
-              أدخل معرف الصفحة و Page Access Token من بوابة Meta for Developers.
-            </p>
-
-            <form onSubmit={handleFbSave}>
-              <div className="form-group">
-                <label className="form-label">Page ID</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="مثال: 109876543210123"
-                  value={fbPageId}
-                  onChange={e => setFbPageId(e.target.value)}
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Page Access Token</label>
-                <input
-                  type="password"
-                  className="form-input"
-                  placeholder="EAA..."
-                  value={fbPageToken}
-                  onChange={e => setFbPageToken(e.target.value)}
-                />
-              </div>
-
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowFbModal(false)} disabled={fbSaving}>إلغاء</button>
-                <button type="submit" className="btn btn-primary" disabled={fbSaving}>
-                  {fbSaving ? <span className="spinner" /> : 'حفظ الإعدادات'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ─── Instagram Advanced Config Modal ─── */}
-      {showIgModal && (
-        <div className="modal-overlay" onClick={() => !igSaving && setShowIgModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }}>
-            <h3 className="modal-title">إعداد يدوي لإنستغرام (Manual Instagram Token)</h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.25rem', lineHeight: 1.5 }}>
-              أدخل معرف حساب إنستغرام الاحترافي و Access Token.
-            </p>
-
-            <form onSubmit={handleIgSave}>
-              <div className="form-group">
-                <label className="form-label">Instagram Business User ID</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="مثال: 17841400000000000"
-                  value={igUserId}
-                  onChange={e => setIgUserId(e.target.value)}
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Access Token</label>
-                <input
-                  type="password"
-                  className="form-input"
-                  placeholder="IGQ..."
-                  value={igToken}
-                  onChange={e => setIgToken(e.target.value)}
-                />
-              </div>
-
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowIgModal(false)} disabled={igSaving}>إلغاء</button>
-                <button type="submit" className="btn btn-primary" disabled={igSaving}>
-                  {igSaving ? <span className="spinner" /> : 'حفظ الإعدادات'}
                 </button>
               </div>
             </form>

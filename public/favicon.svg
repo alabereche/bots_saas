@@ -1,5 +1,49 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#7c5dfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-  <path d="M2 17l10 5 10-5"/>
-  <path d="M2 12l10 5 10-5"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="tileBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1b2643"/>
+      <stop offset="52%" stop-color="#101828"/>
+      <stop offset="100%" stop-color="#070c16"/>
+    </linearGradient>
+    <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+    <linearGradient id="sparkGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#a7f3d0"/>
+      <stop offset="45%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.10"/>
+      <stop offset="30%" stop-color="#ffffff" stop-opacity="0.02"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="auraGlow" cx="50%" cy="44%" r="56%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.34"/>
+      <stop offset="58%" stop-color="#10b981" stop-opacity="0.09"/>
+      <stop offset="100%" stop-color="#10b981" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="sparkGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feDropShadow dx="0" dy="0.8" stdDeviation="1.8" flood-color="#10b981" flood-opacity="0.55"/>
+    </filter>
+  </defs>
+
+  <!-- App tile -->
+  <rect width="64" height="64" rx="14.5" fill="url(#tileBg)"/>
+  <rect x="0.5" y="0.5" width="63" height="63" rx="14" fill="none" stroke="#ffffff" stroke-opacity="0.09"/>
+
+  <!-- Ambient aura glow -->
+  <circle cx="32" cy="30" r="27" fill="url(#auraGlow)"/>
+
+  <!-- Dashed aura ring -->
+  <circle cx="32" cy="32" r="17.5" fill="none" stroke="url(#ringGrad)" stroke-width="3.4" stroke-linecap="round" stroke-dasharray="5.36 3.8"/>
+
+  <!-- Center spark -->
+  <g transform="translate(32 32) scale(2.02) translate(-12 -12)" filter="url(#sparkGlow)">
+    <path d="M12 4.5L14.2 9.8L19.5 12L14.2 14.2L12 19.5L9.8 14.2L4.5 12L9.8 9.8L12 4.5Z" fill="url(#sparkGrad)"/>
+  </g>
+
+  <!-- Glass sheen -->
+  <rect width="64" height="64" rx="14.5" fill="url(#sheen)"/>
 </svg>

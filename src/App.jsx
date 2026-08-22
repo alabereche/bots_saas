@@ -13,7 +13,8 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const CreateBot = lazy(() => import('./pages/CreateBot'));
 const BotDetail = lazy(() => import('./pages/BotDetail'));
 const Billing = lazy(() => import('./pages/Billing'));
-const MetaCallback = lazy(() => import('./pages/MetaCallback'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
+const TermsOfService = lazy(() => import('./pages/TermsOfService'));
 
 function PageLoader() {
   return (
@@ -40,9 +41,10 @@ function AppLayout() {
     <div style={{ position: 'relative', zIndex: 5, minHeight: '100vh' }}>
       <Suspense fallback={<PageLoader />}>
         <Routes>
-          {/* Public Landing Page */}
+          {/* Public Landing Page & Legal */}
           <Route path="/" element={<Landing />} />
-          <Route path="/meta-callback" element={<MetaCallback />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsOfService />} />
 
           {/* Public Auth Routes */}
           <Route 

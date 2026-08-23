@@ -2666,3 +2666,228 @@ h1, h2, h3, h4, h5, h6 {
 
 
 
+
+/* ═══════════════════════════════════════════════════════════════
+   Responsive Polish Layer — professional fit for all screens
+   (CSS-only; appended last so it wins the cascade safely)
+   ═══════════════════════════════════════════════════════════════ */
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+html, body {
+  overflow-x: clip;
+}
+
+/* ─── Large screens: cap content width, keep lines readable ─── */
+@media (min-width: 1536px) {
+  .page-container,
+  .dashboard-container {
+    max-width: 1440px;
+    margin-inline: auto;
+  }
+  .chat-layout {
+    height: calc(100vh - 240px);
+    min-height: 620px;
+  }
+}
+
+/* ─── Tablets & small laptops (≤ 1024px) ─── */
+@media (max-width: 1024px) {
+  .chat-layout {
+    grid-template-columns: 240px 1fr;
+  }
+  .catalog-items-grid {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1rem;
+  }
+}
+
+/* ─── Phones & tablets portrait (≤ 768px) ─── */
+@media (max-width: 768px) {
+
+  /* Prevent iOS auto-zoom on input focus (16px minimum) */
+  .form-input,
+  .form-select,
+  .form-textarea,
+  .custom-input,
+  .custom-textarea,
+  .price-input,
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="tel"],
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+
+  /* Comfortable tap targets */
+  .btn {
+    min-height: 40px;
+  }
+  .btn-sm {
+    min-height: 34px;
+  }
+
+  /* iPhone home-indicator safe area */
+  .mobile-bottom-nav {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    height: calc(62px + env(safe-area-inset-bottom, 0px));
+  }
+  .app-main {
+    padding-bottom: calc(7.5rem + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  /* Header cards stack gracefully */
+  .card[style*="justify-content: space-between"] {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  /* Chat: fill the viewport instead of a fixed 540px strip */
+  .chat-layout {
+    height: calc(100dvh - 215px);
+    min-height: 480px;
+  }
+  .chat-thread-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .chat-msg {
+    max-width: 88%;
+  }
+  .chat-input-area {
+    gap: 6px;
+    padding: 0.6rem;
+  }
+  .chat-input-area .btn {
+    padding: 0.6rem 1rem;
+  }
+
+  /* Modals become edge-to-edge sheets with stacked actions */
+  .modal-overlay {
+    padding: 0.75rem;
+    align-items: flex-end;
+  }
+  .modal {
+    max-width: 100% !important;
+    max-height: 88dvh;
+    overflow-y: auto;
+    padding: 1.15rem 1rem;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+  .modal[style*="max-width"] {
+    max-width: 100% !important;
+  }
+  .modal-footer {
+    flex-direction: column-reverse;
+  }
+  .modal-footer .btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .modal-title {
+    font-size: 1.08rem;
+  }
+
+  /* Tabs: scrollable pills instead of crushed thirds */
+  .tabs-container {
+    gap: 6px;
+    padding: 5px;
+  }
+  .tab-btn {
+    flex: 0 0 auto;
+    padding: 8px 13px;
+    font-size: 0.82rem;
+  }
+
+  /* Orders: lighter cards, full-width actions */
+  .order-card {
+    padding: 1rem 0.9rem;
+  }
+  .order-card-actions {
+    flex-direction: column;
+  }
+  .order-card-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Catalog editor */
+  .catalog-items-grid {
+    grid-template-columns: 1fr;
+  }
+  .editor-footer-actions {
+    flex-direction: column-reverse;
+  }
+  .editor-footer-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .dropzone-box {
+    padding: 1.25rem 0.9rem;
+  }
+
+  /* Info rows & misc spacing */
+  .info-item {
+    margin-bottom: 0.6rem;
+  }
+  .toast-container {
+    left: 0.75rem !important;
+    right: 0.75rem !important;
+  }
+}
+
+/* ─── Small phones (≤ 480px) ─── */
+@media (max-width: 480px) {
+  .page-title-responsive {
+    font-size: 1.25rem !important;
+  }
+  .tabs-container {
+    border-radius: 13px;
+  }
+  .tab-btn {
+    padding: 7px 11px;
+    font-size: 0.78rem;
+    gap: 5px;
+  }
+  .chat-layout {
+    height: calc(100dvh - 195px);
+    min-height: 440px;
+    border-radius: var(--radius-md);
+  }
+  .chat-bubble {
+    font-size: 0.84rem;
+    padding: 0.65rem 0.8rem;
+  }
+  .stats-row {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .card, .solid-card {
+    padding: 1rem 0.85rem !important;
+  }
+  .catalog-hero-card {
+    padding: 1.1rem 0.9rem !important;
+  }
+  .catalog-items-grid {
+    gap: 0.85rem;
+  }
+  .modal {
+    max-height: 92dvh;
+  }
+}
+
+/* ─── Very small phones (≤ 360px) ─── */
+@media (max-width: 360px) {
+  .tab-btn {
+    padding: 7px 8px;
+    font-size: 0.74rem;
+  }
+  .bot-actions-row {
+    grid-template-columns: 1fr !important;
+  }
+}

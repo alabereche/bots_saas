@@ -2891,3 +2891,103 @@ html, body {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Channels: pulsing status dots + WhatsApp pairing-code display
+   ═══════════════════════════════════════════════════════════════ */
+.channel-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.channel-dot--online {
+  background: #10b981;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55);
+  animation: channelPulseDot 2.2s ease-out infinite;
+}
+.channel-dot--offline {
+  background: #94a3b8;
+}
+@keyframes channelPulseDot {
+  70% { box-shadow: 0 0 0 7px rgba(16, 185, 129, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+.wa-pair-row {
+  display: flex;
+  direction: ltr;
+  justify-content: center;
+  align-items: center;
+  gap: 7px;
+  margin-top: 4px;
+}
+.wa-pair-digit {
+  width: 46px;
+  height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 900;
+  font-size: 1.85rem;
+  color: #ffffff;
+  background: linear-gradient(180deg, #131c31 0%, #0a1120 100%);
+  border: 1px solid rgba(37, 211, 102, 0.4);
+  border-radius: 12px;
+  user-select: all;
+  box-shadow: inset 0 -4px 10px rgba(0, 0, 0, 0.45), 0 6px 16px rgba(0, 0, 0, 0.45);
+}
+.wa-pair-sep {
+  color: #34d399;
+  font-weight: 900;
+  font-size: 1.3rem;
+  padding: 0 2px;
+}
+@media (max-width: 420px) {
+  .wa-pair-digit { width: 36px; height: 48px; font-size: 1.45rem; border-radius: 10px; }
+  .wa-pair-row { gap: 5px; }
+}
+
+.wa-ttl-bar {
+  height: 6px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.09);
+  overflow: hidden;
+  margin-top: 14px;
+}
+.wa-ttl-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #25d366, #10b981);
+  transition: width 1s linear;
+}
+
+.wa-cancel-btn {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+  padding: 9px 20px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.86rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: all 0.2s ease;
+}
+.wa-cancel-btn:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+.wa-cancel-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .channel-dot--online { animation: none; }
+}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import { useToast } from '../context/ToastContext';
 import { auth } from '../services/firebase';
 import { COUNTRIES, getCountryByCode } from '../data/countries';
@@ -22,9 +22,16 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
   const [pairingExpiresAt, setPairingExpiresAt] = useState(null);
   const [timeLeft, setTimeLeft] = useState(null);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [pairingTtlSeconds, setPairingTtlSeconds] = useState(null);
   const [waConnecting, setWaConnecting] = useState(false);
+  const [waCanceling, setWaCanceling] = useState(false);
   const [showWaModal, setShowWaModal] = useState(false);
   const [connectTab, setConnectTab] = useState('phone'); // 'phone' | 'qr'
+  const pollDeadlineRef = useRef(0);
+  const expiryNotifiedRef = useRef(false);
+  // Auto-following the engine's actual mode (QR vs phone code) stops as soon
+  // as the user manually picks a tab — never fight them afterwards.
+  const userPickedTabRef = useRef(false);
   
   // Phone inputs for pairing
   const initialCountry = getCountryByCode(bot?.country || 'DZ');
@@ -36,46 +43,106 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
   const [tgSaving, setTgSaving] = useState(false);
   const [showTgModal, setShowTgModal] = useState(false);
 
-  // WhatsApp Polling (QR & Pairing Code & Status)
+  // Adopt a pairing code + its TTL window (shared by probe & polling)
+  const adoptPairing = (code, expiresAt) => {
+    setPairingCode(prev => (prev !== code ? code : prev));
+    setPairingExpiresAt(prev => prev || expiresAt || Date.now() + 180000);
+    setPairingTtlSeconds(prev => {
+      if (prev) return prev;
+      const exp = expiresAt || Date.now() + 180000;
+      return Math.max(1, Math.round((exp - Date.now()) / 1000));
+    });
+    expiryNotifiedRef.current = false;
+  };
+
+  // Probe once whenever the modal opens: if the engine still holds a live
+  // session (leftover QR / still booting / already connected), adopt it
+  // immediately instead of showing a blank form that only "works" after
+  // closing and reopening the window.
   useEffect(() => {
-    if (waStatus !== 'waiting_scan' && waStatus !== 'initializing') return;
-    const interval = setInterval(async () => {
+    if (!showWaModal) return;
+    let cancelled = false;
+    (async () => {
       try {
         const res = await fetch(`${WHATSAPP_ENGINE_URL}/api/whatsapp/${bot.id}/qr`, { headers: await engineHeaders(false) });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.status) {
-            setWaStatus(prev => (prev !== data.status ? data.status : prev));
-          }
-          if (data.qrDataUrl) {
-            setQrDataUrl(prev => (prev !== data.qrDataUrl ? data.qrDataUrl : prev));
-            setWaStatus('waiting_scan');
-          }
-          if (data.pairingCode) {
-            setPairingCode(prev => (prev !== data.pairingCode ? data.pairingCode : prev));
-            setPairingExpiresAt(prev => prev || data.pairingCodeExpiresAt || Date.now() + 180000);
-            setWaStatus('waiting_scan');
-          }
-          if (data.status === 'connected' || data.status === 'authenticated') {
-            setWaStatus('connected');
-            setQrDataUrl(null);
-            setPairingCode(null);
-            setShowWaModal(false);
-            clearInterval(interval);
-            if (onUpdateBot) {
-              await onUpdateBot({ whatsappStatus: 'connected', whatsappEnabled: true }).catch(() => {});
-            }
-            toast.success('تم ربط حساب واتساب بنجاح!');
-          }
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (cancelled) return;
+
+        if (data.status === 'connected' || data.status === 'authenticated') {
+          setWaStatus('connected');
+          setQrDataUrl(null);
+          setPairingCode(null);
+          setPairingExpiresAt(null);
+          if (onUpdateBot) onUpdateBot({ whatsappStatus: 'connected', whatsappEnabled: true }).catch(() => {});
+        } else if (data.qrDataUrl) {
+          setConnectTab('qr');
+          setQrDataUrl(data.qrDataUrl);
+          setWaStatus('waiting_scan');
+        } else if (data.pairingCode) {
+          setConnectTab('phone');
+          adoptPairing(data.pairingCode, data.pairingCodeExpiresAt);
+          setWaStatus('waiting_scan');
+        } else if (data.status === 'initializing') {
+          setWaStatus(prev => (['initializing', 'waiting_scan'].includes(prev) ? prev : 'initializing'));
+        }
+      } catch { /* engine unreachable — keep current view */ }
+    })();
+    return () => { cancelled = true; };
+  }, [showWaModal, bot.id]);
+
+  // Live polling while linking — first tick is immediate (no dead 2.5s gap),
+  // and a hard deadline stops abandoned sessions from polling forever.
+  useEffect(() => {
+    if (waStatus !== 'waiting_scan' && waStatus !== 'initializing') return;
+    let stopped = false;
+    pollDeadlineRef.current = Date.now() + 5 * 60 * 1000;
+
+    const tick = async () => {
+      if (stopped) return;
+      if (Date.now() > pollDeadlineRef.current) {
+        stopped = true;
+        handleWaCancel(true);
+        toast.warning('انتهت مهلة انتظار الربط — تم إيقاف المحاولة، حاول من جديد');
+        return;
+      }
+      try {
+        const res = await fetch(`${WHATSAPP_ENGINE_URL}/api/whatsapp/${bot.id}/qr`, { headers: await engineHeaders(false) });
+        if (!res.ok || stopped) return;
+        const data = await res.json();
+        if (stopped) return;
+
+        if (data.qrDataUrl) {
+          setQrDataUrl(data.qrDataUrl);
+          setWaStatus('waiting_scan');
+          if (!userPickedTabRef.current) setConnectTab(prev => (prev === 'phone' ? 'qr' : prev));
+        }
+        if (data.pairingCode) {
+          adoptPairing(data.pairingCode, data.pairingCodeExpiresAt);
+          setWaStatus('waiting_scan');
+          if (!userPickedTabRef.current) setConnectTab(prev => (prev === 'qr' ? 'phone' : prev));
+        }
+        if (data.status === 'connected' || data.status === 'authenticated') {
+          stopped = true;
+          setWaStatus('connected');
+          setQrDataUrl(null);
+          setPairingCode(null);
+          setPairingExpiresAt(null);
+          setShowWaModal(false);
+          if (onUpdateBot) onUpdateBot({ whatsappStatus: 'connected', whatsappEnabled: true }).catch(() => {});
+          toast.success('تم ربط حساب واتساب بنجاح!');
         }
       } catch (err) {
         console.warn('WhatsApp status poll error:', err.message);
       }
-    }, 2500);
-    return () => clearInterval(interval);
+    };
+
+    tick();
+    const interval = setInterval(tick, 2500);
+    return () => { stopped = true; clearInterval(interval); };
   }, [waStatus, bot.id]);
 
-  // Countdown timer for pairing code (120s TTL)
+  // Countdown timer for the pairing code TTL (engine issues 180s codes)
   useEffect(() => {
     if (!pairingExpiresAt) {
       setTimeLeft(null);
@@ -87,6 +154,11 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
       if (remaining <= 0) {
         setPairingCode(null);
         setPairingExpiresAt(null);
+        setPairingTtlSeconds(null);
+        if (!expiryNotifiedRef.current) {
+          expiryNotifiedRef.current = true;
+          toast.warning('انتهت صلاحية كود الربط — اضغط «توليد كود الربط السريع» للحصول على كود جديد');
+        }
       }
     };
     updateTimer();
@@ -96,13 +168,6 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
 
   // Handle WhatsApp Connect (QR or Phone Pairing)
   const handleWaConnect = async (mode = connectTab) => {
-    setWaConnecting(true);
-    setQrDataUrl(null);
-    setPairingCode(null);
-    setCopiedCode(false);
-    setShowWaModal(true);
-    setWaStatus('initializing');
-
     let fullInternationalPhone = null;
 
     if (mode === 'phone') {
@@ -110,10 +175,9 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
       const cleanInput = phoneNumberInput.trim().replace(/\D/g, '');
       if (!cleanInput) {
         toast.error('يرجى إدخال رقم الهاتف المرتبط بحساب واتساب');
-        setWaConnecting(false);
         return;
       }
-      
+
       // Auto normalize: If Algerian 0672... remove leading 0 and prepend 213
       const dialDigits = country.dialCode.replace(/\D/g, '');
       if (cleanInput.startsWith('0')) {
@@ -126,10 +190,21 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
 
       if (fullInternationalPhone.length < 9) {
         toast.error('رقم الهاتف قصير جداً وغير صحيح');
-        setWaConnecting(false);
         return;
       }
     }
+
+    setWaConnecting(true);
+    setQrDataUrl(null);
+    setPairingCode(null);
+    setPairingExpiresAt(null);
+    setPairingTtlSeconds(null);
+    setTimeLeft(null);
+    setCopiedCode(false);
+    setShowWaModal(true);
+    setConnectTab(mode === 'phone' ? 'phone' : 'qr');
+    userPickedTabRef.current = false;
+    setWaStatus('initializing');
 
     try {
       const res = await fetch(`${WHATSAPP_ENGINE_URL}/api/whatsapp/create`, {
@@ -166,6 +241,26 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
     } catch {
       toast.error('فشل قطع الاتصال');
     }
+  };
+
+  // Cancel a pending link attempt: destroys the engine session so the QR /
+  // pairing code stops existing, clears local state and hides everything.
+  const handleWaCancel = async (silent = false) => {
+    setWaCanceling(true);
+    try {
+      await fetch(`${WHATSAPP_ENGINE_URL}/api/whatsapp/${bot.id}/stop`, { method: 'POST', headers: await engineHeaders(false) });
+    } catch { /* session may already be gone */ }
+    setQrDataUrl(null);
+    setPairingCode(null);
+    setPairingExpiresAt(null);
+    setPairingTtlSeconds(null);
+    setTimeLeft(null);
+    setCopiedCode(false);
+    setWaStatus('not_initialized');
+    setWaCanceling(false);
+    setShowWaModal(false);
+    if (onUpdateBot) onUpdateBot({ whatsappStatus: 'disconnected' }).catch(() => {});
+    if (!silent) toast.success('تم إلغاء محاولة الربط وإخفاء الرمز');
   };
 
   const copyPairingCodeToClipboard = () => {
@@ -216,6 +311,8 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
   const isTgConnected = !!bot?.telegramToken && bot?.telegramEnabled !== false;
   const connectedCount = [isWaConnected, isTgConnected].filter(Boolean).length;
   const selectedCountry = getCountryByCode(selectedCountryCode);
+  const waLinking = waStatus === 'waiting_scan' || waStatus === 'initializing';
+  const ttlPercent = pairingTtlSeconds ? Math.max(0, Math.min(100, ((timeLeft || 0) / pairingTtlSeconds) * 100)) : 100;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -264,13 +361,15 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
               </div>
 
               <span className={`channel-status-pill ${isWaConnected ? 'channel-status-pill--online' : 'channel-status-pill--offline'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: isWaConnected ? '#10b981' : '#94a3b8' }} />
+                <span className={`channel-dot ${isWaConnected ? 'channel-dot--online' : 'channel-dot--offline'}`} />
                 <span>{isWaConnected ? 'متصل' : 'غير متصل'}</span>
               </span>
             </div>
 
             <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: 1.6 }}>
-              ربط رقم المتجر مباشرة لإرسال صور المنتجات، الإجابة التلقائية على الزبائن، وتسجيل طلبيات التوصيل للـ 58 ولاية تلقائياً.
+              {isWaConnected
+                ? 'البوت يعمل الآن على واتساب ويرد على زبائنك ويسجل طلبياتهم تلقائياً 24/7.'
+                : 'ربط رقم المتجر مباشرة لإرسال صور المنتجات، الإجابة التلقائية على الزبائن، وتسجيل طلبيات التوصيل للـ 58 ولاية تلقائياً.'}
             </p>
           </div>
 
@@ -280,7 +379,7 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                 <button className="btn btn-secondary btn-sm" onClick={() => setShowWaModal(true)} style={{ flex: 1, padding: '0.65rem' }}>
                   حالة الاتصال
                 </button>
-                <button className="btn btn-secondary btn-sm" onClick={handleWaDisconnect} style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.25)' }}>
+                <button className="btn btn-secondary btn-sm" onClick={handleWaDisconnect} style={{ flex: 1, color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.25)' }}>
                   فصل
                 </button>
               </>
@@ -311,13 +410,15 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
               </div>
 
               <span className={`channel-status-pill ${isTgConnected ? 'channel-status-pill--online' : 'channel-status-pill--offline'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: isTgConnected ? '#10b981' : '#94a3b8' }} />
+                <span className={`channel-dot ${isTgConnected ? 'channel-dot--online' : 'channel-dot--offline'}`} />
                 <span>{isTgConnected ? 'متصل' : 'غير متصل'}</span>
               </span>
             </div>
 
             <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: 1.6 }}>
-              رد ذكي فائق السرعة على استفسارات المشتركين والزبائن وقنوات تيليغرام مع إرسال صور المواصفات وتأكيد الطلبيات فوراً.
+              {isTgConnected
+                ? 'البوت يعمل الآن على تيليغرام ويرد على المشتركين فوراً مع إرسال صور المواصفات وتأكيد الطلبيات.'
+                : 'رد ذكي فائق السرعة على استفسارات المشتركين والزبائن وقنوات تيليغرام مع إرسال صور المواصفات وتأكيد الطلبيات فوراً.'}
             </p>
           </div>
 
@@ -327,7 +428,7 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                 <button className="btn btn-secondary btn-sm" onClick={() => setShowTgModal(true)} style={{ flex: 1, padding: '0.65rem' }}>
                   تعديل الـ Token
                 </button>
-                <button className="btn btn-secondary btn-sm" onClick={handleTgDisconnect} style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.25)' }}>
+                <button className="btn btn-secondary btn-sm" onClick={handleTgDisconnect} style={{ flex: 1, color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.25)' }}>
                   فصل
                 </button>
               </>
@@ -344,7 +445,7 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
 
       {/* ─── Modern WhatsApp Connection Modal (Pairing Code & QR) ─── */}
       {showWaModal && (
-        <div className="modal-overlay" onClick={() => !waConnecting && setShowWaModal(false)} style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', background: 'rgba(3, 7, 18, 0.85)' }}>
+        <div className="modal-overlay" onClick={() => setShowWaModal(false)} style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', background: 'rgba(3, 7, 18, 0.85)' }}>
           <div className="modal" onClick={e => e.stopPropagation()} style={{
             maxWidth: '490px',
             width: '92%',
@@ -360,7 +461,7 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
             
             {/* Top Close Button */}
             <button
-              onClick={() => !waConnecting && setShowWaModal(false)}
+              onClick={() => setShowWaModal(false)}
               style={{
                 position: 'absolute',
                 top: '18px',
@@ -424,7 +525,7 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
             }}>
               <button
                 type="button"
-                onClick={() => { setConnectTab('phone'); setQrDataUrl(null); }}
+                onClick={() => { userPickedTabRef.current = true; setConnectTab('phone'); }}
                 style={{
                   padding: '10px 14px',
                   borderRadius: '10px',
@@ -447,7 +548,7 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
               </button>
               <button
                 type="button"
-                onClick={() => { setConnectTab('qr'); setPairingCode(null); }}
+                onClick={() => { userPickedTabRef.current = true; setConnectTab('qr'); }}
                 style={{
                   padding: '10px 14px',
                   borderRadius: '10px',
@@ -623,72 +724,26 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                     {/* Pairing Code Display Box */}
                     <div style={{
                       background: 'linear-gradient(145deg, rgba(37, 211, 102, 0.12) 0%, rgba(18, 140, 126, 0.04) 100%)',
-                      border: '1.5px dashed rgba(37, 211, 102, 0.5)',
+                      border: '1.5px solid rgba(37, 211, 102, 0.45)',
                       borderRadius: '20px',
-                      padding: '1.75rem 1.25rem',
+                      padding: '1.5rem 1.25rem',
                       marginBottom: '1.25rem',
                       boxShadow: '0 0 30px rgba(37, 211, 102, 0.15)'
                     }}>
-                      <div style={{ fontSize: '0.84rem', color: '#34d399', fontWeight: 800, marginBottom: '10px' }}>
-                        كود الربط الخاص بحسابك (8 خانات)
-                      </div>
-
-                      <div style={{
-                        fontSize: '2.2rem',
-                        fontWeight: 900,
-                        letterSpacing: '5px',
-                        color: '#ffffff',
-                        fontFamily: 'monospace',
-                        padding: '10px 20px',
-                        background: 'rgba(0, 0, 0, 0.5)',
-                        borderRadius: '12px',
-                        display: 'inline-block',
-                        userSelect: 'all',
-                        border: '1px solid rgba(255, 255, 255, 0.15)',
-                        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5)'
-                      }}>
-                        {pairingCode}
-                      </div>
-
-                      <div style={{ marginTop: '14px', display: 'flex', justifyContent: 'center', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-                        <button
-                          type="button"
-                          onClick={copyPairingCodeToClipboard}
-                          style={{
-                            background: copiedCode ? '#10b981' : 'rgba(255, 255, 255, 0.1)',
-                            border: '1px solid rgba(255, 255, 255, 0.15)',
-                            color: '#ffffff',
-                            fontWeight: 700,
-                            padding: '8px 18px',
-                            borderRadius: '10px',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            transition: 'all 0.2s ease'
-                          }}
-                        >
-                          {copiedCode ? (
-                            <>
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                              <span>تم النسخ</span>
-                            </>
-                          ) : (
-                            <>
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                              <span>نسخ الكود</span>
-                            </>
-                          )}
-                        </button>
-
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
+                        <span style={{ fontSize: '0.84rem', color: '#34d399', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
+                          كود الربط (8 خانات)
+                        </span>
                         {timeLeft !== null && (
                           <span style={{
-                            fontSize: '0.8rem',
-                            color: timeLeft < 30 ? '#ef4444' : '#94a3b8',
-                            background: 'rgba(0, 0, 0, 0.3)',
-                            padding: '6px 12px',
+                            fontSize: '0.78rem',
+                            fontWeight: 800,
+                            color: timeLeft < 30 ? '#f87171' : '#94a3b8',
+                            background: 'rgba(0, 0, 0, 0.35)',
+                            padding: '4px 10px',
                             borderRadius: '8px',
-                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            border: `1px solid ${timeLeft < 30 ? 'rgba(239, 68, 68, 0.35)' : 'rgba(255, 255, 255, 0.08)'}`,
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '5px'
@@ -697,6 +752,62 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                             <span>ينتهي خلال {timeLeft} ثانية</span>
                           </span>
                         )}
+                      </div>
+
+                      {/* Digit tiles — one tile per character, grouped 4+4 */}
+                      <div className="wa-pair-row">
+                        {String(pairingCode).split('').map((ch, i) => (
+                          <Fragment key={i}>
+                            {i === 4 && <span className="wa-pair-sep">–</span>}
+                            <span className="wa-pair-digit">{ch}</span>
+                          </Fragment>
+                        ))}
+                      </div>
+
+                      {/* TTL progress bar */}
+                      {timeLeft !== null && (
+                        <div className="wa-ttl-bar">
+                          <div
+                            className="wa-ttl-fill"
+                            style={{
+                              width: `${ttlPercent}%`,
+                              background: timeLeft < 30 ? 'linear-gradient(90deg, #f87171, #ef4444)' : undefined,
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={copyPairingCodeToClipboard}
+                          style={{
+                            background: copiedCode ? '#10b981' : 'linear-gradient(135deg, rgba(37, 211, 102, 0.25) 0%, rgba(16, 185, 129, 0.2) 100%)',
+                            border: copiedCode ? '1px solid transparent' : '1px solid rgba(37, 211, 102, 0.45)',
+                            color: copiedCode ? '#ffffff' : '#34d399',
+                            fontWeight: 800,
+                            fontSize: '0.88rem',
+                            padding: '9px 22px',
+                            borderRadius: '10px',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '7px',
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          {copiedCode ? (
+                            <>
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                              <span>تم النسخ!</span>
+                            </>
+                          ) : (
+                            <>
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                              <span>نسخ الكود</span>
+                            </>
+                          )}
+                        </button>
                       </div>
                     </div>
 
@@ -734,52 +845,80 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                 </p>
 
                 {qrDataUrl ? (
-                  <div style={{
-                    background: '#ffffff',
-                    borderRadius: '20px',
-                    display: 'inline-block',
-                    padding: '1rem',
-                    boxShadow: '0 12px 35px rgba(0, 0, 0, 0.6), 0 0 25px rgba(37, 211, 102, 0.2)',
-                    marginBottom: '1rem'
-                  }}>
-                    <img src={qrDataUrl} alt="WhatsApp QR Code" style={{ width: '220px', height: '220px', display: 'block', borderRadius: '8px' }} />
+                  <div>
+                    <div style={{
+                      background: '#ffffff',
+                      borderRadius: '20px',
+                      display: 'inline-block',
+                      padding: '1rem',
+                      boxShadow: '0 12px 35px rgba(0, 0, 0, 0.6), 0 0 25px rgba(37, 211, 102, 0.2)',
+                      marginBottom: '0.85rem'
+                    }}>
+                      <img src={qrDataUrl} alt="WhatsApp QR Code" style={{ width: '220px', height: '220px', display: 'block', borderRadius: '8px' }} />
+                    </div>
+                    <p style={{ fontSize: '0.78rem', color: '#64748b', margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+                      <span>يتجدد الرمز تلقائياً — إن انتهت صلاحيته انتظر لحظات</span>
+                    </p>
+                  </div>
+                ) : waConnecting || waStatus === 'initializing' ? (
+                  <div style={{ padding: '2rem 0' }}>
+                    <div className="spinner spinner-lg" style={{ margin: '0 auto 1rem', borderColor: '#25d366', borderTopColor: 'transparent' }} />
+                    <p style={{ fontSize: '0.88rem', fontWeight: 700, color: '#ffffff', margin: '0 0 4px' }}>جاري تهيئة محرك واتساب وتوليد رمز الـ QR...</p>
+                    <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: 0 }}>قد تستغرق العملية حتى دقيقة في المرة الأولى — سيظهر الرمز هنا تلقائياً.</p>
                   </div>
                 ) : (
-                  <div style={{ padding: '2rem 0' }}>
-                    {waConnecting ? (
-                      <>
-                        <div className="spinner spinner-lg" style={{ margin: '0 auto 1rem', borderColor: '#25d366', borderTopColor: 'transparent' }} />
-                        <p style={{ fontSize: '0.85rem', color: '#94a3b8' }}>جاري توليد رمز الـ QR من محرك واتساب...</p>
-                      </>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleWaConnect('qr')}
-                        style={{
-                          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                          border: 'none',
-                          padding: '0.9rem 1.8rem',
-                          fontWeight: 800,
-                          fontSize: '0.95rem',
-                          color: '#ffffff',
-                          borderRadius: '14px',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          cursor: 'pointer',
-                          boxShadow: '0 8px 24px rgba(16, 185, 129, 0.35)'
-                        }}
-                      >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/></svg>
-                        <span>توليد كود الـ QR الآن</span>
-                      </button>
+                  <div style={{ padding: waStatus === 'error' ? '1rem 0' : '2rem 0' }}>
+                    {waStatus === 'error' && (
+                      <p style={{ fontSize: '0.84rem', color: '#f87171', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '10px', padding: '10px 14px', margin: '0 0 1rem' }}>
+                        تعذر توليد الرمز — تأكد من عمل المحرك ثم أعد المحاولة.
+                      </p>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => handleWaConnect('qr')}
+                      style={{
+                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        border: 'none',
+                        padding: '0.9rem 1.8rem',
+                        fontWeight: 800,
+                        fontSize: '0.95rem',
+                        color: '#ffffff',
+                        borderRadius: '14px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        cursor: 'pointer',
+                        boxShadow: '0 8px 24px rgba(16, 185, 129, 0.35)'
+                      }}
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/></svg>
+                      <span>توليد كود الـ QR الآن</span>
+                    </button>
                   </div>
                 )}
               </div>
             )}
 
-            <div style={{ marginTop: '1.25rem' }}>
+            {waLinking && (
+              <div style={{ marginTop: '1.1rem' }}>
+                <button
+                  type="button"
+                  className="wa-cancel-btn"
+                  onClick={handleWaCancel}
+                  disabled={waCanceling}
+                >
+                  {waCanceling ? (
+                    <span className="spinner" style={{ width: '14px', height: '14px', borderWidth: '2px' }} />
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  )}
+                  <span>{waCanceling ? 'جاري الإلغاء...' : 'إلغاء الربط وإخفاء الرمز'}</span>
+                </button>
+              </div>
+            )}
+
+            <div style={{ marginTop: '1rem' }}>
               <button
                 type="button"
                 onClick={() => setShowWaModal(false)}

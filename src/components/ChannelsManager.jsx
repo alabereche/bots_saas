@@ -446,38 +446,12 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
       {/* ─── Modern WhatsApp Connection Modal (Pairing Code & QR) ─── */}
       {showWaModal && (
         <div className="modal-overlay" onClick={() => setShowWaModal(false)} style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', background: 'rgba(3, 7, 18, 0.85)' }}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{
-            maxWidth: '490px',
-            width: '92%',
-            textAlign: 'center',
-            padding: '2rem 1.75rem',
-            boxSizing: 'border-box',
-            background: 'linear-gradient(180deg, #0f172a 0%, #090d16 100%)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
-            borderRadius: '24px',
-            boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.9), 0 0 35px rgba(37, 211, 102, 0.12)',
-            position: 'relative'
-          }}>
-            
+          <div className="modal wa-modal" onClick={e => e.stopPropagation()}>
+
             {/* Top Close Button */}
             <button
+              className="wa-modal-close"
               onClick={() => setShowWaModal(false)}
-              style={{
-                position: 'absolute',
-                top: '18px',
-                left: '18px',
-                width: '32px',
-                height: '32px',
-                borderRadius: '50%',
-                background: 'rgba(255, 255, 255, 0.06)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                color: '#94a3b8',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.2s ease'
-              }}
               onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)'; e.currentTarget.style.color = '#ef4444'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)'; e.currentTarget.style.color = '#94a3b8'; }}
             >
@@ -487,84 +461,33 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
             </button>
 
             {/* Glowing Brand Icon Badge */}
-            <div style={{
-              width: '52px',
-              height: '52px',
-              borderRadius: '16px',
-              background: 'linear-gradient(135deg, rgba(37, 211, 102, 0.2) 0%, rgba(18, 140, 126, 0.1) 100%)',
-              border: '1px solid rgba(37, 211, 102, 0.4)',
-              color: '#25d366',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 1rem',
-              boxShadow: '0 0 24px rgba(37, 211, 102, 0.25)'
-            }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <div className="wa-modal-badge">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
               </svg>
             </div>
 
-            <h3 style={{ margin: '0 0 6px', fontSize: '1.35rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em' }}>
+            <h3 className="wa-modal-title">
               ربط حساب واتساب
             </h3>
-            <p style={{ color: '#94a3b8', fontSize: '0.86rem', margin: '0 0 1.5rem', lineHeight: 1.5 }}>
+            <p className="wa-modal-sub">
               اختر الطريقة المفضلة لربط متجرك بالذكاء الاصطناعي فوراً
             </p>
 
             {/* Mode Switch Tabs (Luxury Segmented Control) */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              background: 'rgba(15, 23, 42, 0.8)',
-              padding: '5px',
-              borderRadius: '14px',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              marginBottom: '1.5rem',
-              gap: '6px'
-            }}>
+            <div className="wa-tabs">
               <button
                 type="button"
+                className={`wa-tab${connectTab === 'phone' ? ' wa-tab--active' : ''}`}
                 onClick={() => { userPickedTabRef.current = true; setConnectTab('phone'); }}
-                style={{
-                  padding: '10px 14px',
-                  borderRadius: '10px',
-                  border: connectTab === 'phone' ? '1px solid rgba(37, 211, 102, 0.35)' : '1px solid transparent',
-                  background: connectTab === 'phone' ? 'linear-gradient(135deg, rgba(37, 211, 102, 0.18) 0%, rgba(18, 140, 126, 0.1) 100%)' : 'transparent',
-                  color: connectTab === 'phone' ? '#34d399' : '#94a3b8',
-                  fontWeight: connectTab === 'phone' ? 800 : 600,
-                  fontSize: '0.88rem',
-                  cursor: 'pointer',
-                  transition: 'all 0.25s ease',
-                  boxShadow: connectTab === 'phone' ? '0 4px 14px rgba(37, 211, 102, 0.15)' : 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px'
-                }}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
-                <span>كود الهاتف السريع</span>
+                <span>كود الهاتف</span>
               </button>
               <button
                 type="button"
+                className={`wa-tab${connectTab === 'qr' ? ' wa-tab--active' : ''}`}
                 onClick={() => { userPickedTabRef.current = true; setConnectTab('qr'); }}
-                style={{
-                  padding: '10px 14px',
-                  borderRadius: '10px',
-                  border: connectTab === 'qr' ? '1px solid rgba(37, 211, 102, 0.35)' : '1px solid transparent',
-                  background: connectTab === 'qr' ? 'linear-gradient(135deg, rgba(37, 211, 102, 0.18) 0%, rgba(18, 140, 126, 0.1) 100%)' : 'transparent',
-                  color: connectTab === 'qr' ? '#34d399' : '#94a3b8',
-                  fontWeight: connectTab === 'qr' ? 800 : 600,
-                  fontSize: '0.88rem',
-                  cursor: 'pointer',
-                  transition: 'all 0.25s ease',
-                  boxShadow: connectTab === 'qr' ? '0 4px 14px rgba(37, 211, 102, 0.15)' : 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px'
-                }}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
                 <span>مسح الـ QR</span>
@@ -590,19 +513,7 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                       </label>
 
                       {/* Luxury Phone Input Bar */}
-                      <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: '125px 1fr',
-                        direction: 'ltr',
-                        background: '#060911',
-                        border: '1.5px solid rgba(255, 255, 255, 0.14)',
-                        borderRadius: '14px',
-                        overflow: 'hidden',
-                        boxSizing: 'border-box',
-                        width: '100%',
-                        boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.6)',
-                        transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
-                      }}>
+                      <div className="wa-phone-bar">
                         {/* Country Selector Column */}
                         <div style={{
                           position: 'relative',
@@ -643,46 +554,22 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                         {/* Phone Input Column */}
                         <input
                           type="tel"
+                          className="wa-phone-input"
                           placeholder={selectedCountry.phonePlaceholder || '0672 00 00 00'}
                           value={phoneNumberInput}
                           onChange={e => setPhoneNumberInput(e.target.value)}
-                          style={{
-                            width: '100%',
-                            padding: '12px 14px',
-                            background: 'transparent',
-                            border: 'none',
-                            color: '#ffffff',
-                            fontSize: '1.1rem',
-                            fontWeight: 700,
-                            letterSpacing: '2px',
-                            outline: 'none',
-                            fontFamily: 'monospace',
-                            boxSizing: 'border-box'
-                          }}
                         />
                       </div>
 
                       {/* Info Pill */}
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        marginTop: '10px',
-                        fontSize: '0.78rem',
-                        color: '#93c5fd',
-                        background: 'rgba(59, 130, 246, 0.08)',
-                        border: '1px solid rgba(59, 130, 246, 0.2)',
-                        padding: '8px 12px',
-                        borderRadius: '10px',
-                        lineHeight: 1.4
-                      }}>
+                      <div className="wa-info-pill">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                        <span>سيتم توليد كود ربط رسمي مكون من 8 خانات لتأكيده على هاتفك فوراً.</span>
+                        <span>سيتم توليد كود ربط مكون من 8 خانات لتأكيده على هاتفك فوراً.</span>
                       </div>
                     </div>
 
                     {waConnecting || (waStatus === 'initializing' && !pairingCode) ? (
-                      <div style={{ padding: '2rem 0', textAlign: 'center' }}>
+                      <div style={{ padding: '1.25rem 0', textAlign: 'center' }}>
                         <div className="spinner spinner-lg" style={{ margin: '0 auto 1rem', borderColor: '#25d366', borderTopColor: 'transparent' }} />
                         <div style={{ fontWeight: 800, color: '#ffffff', fontSize: '1rem', marginBottom: '4px' }}>
                           جاري تهيئة الاتصال وتوليد كود الربط...
@@ -812,25 +699,15 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                     </div>
 
                     {/* Step-by-Step Instructions */}
-                    <div style={{
-                      textAlign: 'right',
-                      background: 'rgba(255, 255, 255, 0.02)',
-                      border: '1px solid rgba(255, 255, 255, 0.06)',
-                      borderRadius: '14px',
-                      padding: '1.1rem',
-                      fontSize: '0.84rem',
-                      lineHeight: 1.6,
-                      color: '#cbd5e1',
-                      marginBottom: '1rem'
-                    }}>
+                    <div className="wa-steps">
                       <div style={{ fontWeight: 800, color: '#38bdf8', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                        <span>خطوات التأكيد السريعة على هاتفك:</span>
+                        <span>خطوات التأكيد على هاتفك:</span>
                       </div>
-                      <div style={{ marginBottom: '4px' }}>1. افتح تطبيق واتساب ➔ اضغط <strong>الإعدادات (أو النقاط الثلاث)</strong>.</div>
-                      <div style={{ marginBottom: '4px' }}>2. اختر <strong>الأجهزة المرتبطة (Linked Devices)</strong> ➔ اضغط <strong>ربط جهاز</strong>.</div>
+                      <div style={{ marginBottom: '4px' }}>1. افتح واتساب ➔ <strong>الإعدادات</strong> (أو النقاط الثلاث).</div>
+                      <div style={{ marginBottom: '4px' }}>2. <strong>الأجهزة المرتبطة</strong> ➔ <strong>ربط جهاز</strong>.</div>
                       <div style={{ marginBottom: '4px' }}>3. اختر بالأسفل <strong>«الربط باستخدام رقم الهاتف»</strong>.</div>
-                      <div>4. اكتب هذا الكود المكون من 8 خانات، وسيتصل البوت فوراً!</div>
+                      <div>4. اكتب هذا الكود المكوّن من 8 خانات وسيتصل البوت فوراً!</div>
                     </div>
                   </div>
                 )}
@@ -840,21 +717,14 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
             {/* TAB 2: QR Code Mode */}
             {connectTab === 'qr' && (
               <div>
-                <p style={{ color: '#94a3b8', fontSize: '0.86rem', marginBottom: '1.25rem', lineHeight: 1.5 }}>
-                  افتح تطبيق واتساب ➔ الإعدادات ➔ <strong>الأجهزة المرتبطة</strong> ➔ <strong>ربط جهاز</strong> ➔ وجّه الكاميرا للشاشة
+                <p className="wa-qr-hint">
+                  افتح واتساب ➔ <strong>الأجهزة المرتبطة</strong> ➔ <strong>ربط جهاز</strong> ➔ وجّه الكاميرا للشاشة
                 </p>
 
                 {qrDataUrl ? (
                   <div>
-                    <div style={{
-                      background: '#ffffff',
-                      borderRadius: '20px',
-                      display: 'inline-block',
-                      padding: '1rem',
-                      boxShadow: '0 12px 35px rgba(0, 0, 0, 0.6), 0 0 25px rgba(37, 211, 102, 0.2)',
-                      marginBottom: '0.85rem'
-                    }}>
-                      <img src={qrDataUrl} alt="WhatsApp QR Code" style={{ width: '220px', height: '220px', display: 'block', borderRadius: '8px' }} />
+                    <div className="wa-qr-frame">
+                      <img src={qrDataUrl} alt="WhatsApp QR Code" className="wa-qr-img" />
                     </div>
                     <p style={{ fontSize: '0.78rem', color: '#64748b', margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
@@ -862,13 +732,13 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                     </p>
                   </div>
                 ) : waConnecting || waStatus === 'initializing' ? (
-                  <div style={{ padding: '2rem 0' }}>
+                  <div style={{ padding: '1.25rem 0' }}>
                     <div className="spinner spinner-lg" style={{ margin: '0 auto 1rem', borderColor: '#25d366', borderTopColor: 'transparent' }} />
                     <p style={{ fontSize: '0.88rem', fontWeight: 700, color: '#ffffff', margin: '0 0 4px' }}>جاري تهيئة محرك واتساب وتوليد رمز الـ QR...</p>
                     <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: 0 }}>قد تستغرق العملية حتى دقيقة في المرة الأولى — سيظهر الرمز هنا تلقائياً.</p>
                   </div>
                 ) : (
-                  <div style={{ padding: waStatus === 'error' ? '1rem 0' : '2rem 0' }}>
+                  <div style={{ padding: waStatus === 'error' ? '0.75rem 0' : '1.25rem 0' }}>
                     {waStatus === 'error' && (
                       <p style={{ fontSize: '0.84rem', color: '#f87171', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '10px', padding: '10px 14px', margin: '0 0 1rem' }}>
                         تعذر توليد الرمز — تأكد من عمل المحرك ثم أعد المحاولة.
@@ -900,13 +770,14 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
               </div>
             )}
 
-            {waLinking && (
-              <div style={{ marginTop: '1.1rem' }}>
+            <div style={{ marginTop: '1.1rem', display: 'flex', gap: '8px', justifyContent: 'center' }}>
+              {waLinking && (
                 <button
                   type="button"
                   className="wa-cancel-btn"
                   onClick={handleWaCancel}
                   disabled={waCanceling}
+                  style={{ flex: 1 }}
                 >
                   {waCanceling ? (
                     <span className="spinner" style={{ width: '14px', height: '14px', borderWidth: '2px' }} />
@@ -915,14 +786,12 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                   )}
                   <span>{waCanceling ? 'جاري الإلغاء...' : 'إلغاء الربط وإخفاء الرمز'}</span>
                 </button>
-              </div>
-            )}
-
-            <div style={{ marginTop: '1rem' }}>
+              )}
               <button
                 type="button"
                 onClick={() => setShowWaModal(false)}
                 style={{
+                  flex: waLinking ? 1 : '0 0 auto',
                   background: 'transparent',
                   border: '1px solid rgba(255, 255, 255, 0.1)',
                   color: '#94a3b8',

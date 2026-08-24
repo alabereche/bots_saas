@@ -29,6 +29,8 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
   const [connectTab, setConnectTab] = useState('phone'); // 'phone' | 'qr'
   const pollDeadlineRef = useRef(0);
   const expiryNotifiedRef = useRef(false);
+  const lastQrRef = useRef(null);
+  const lastPairingRef = useRef(null);
   // Auto-following the engine's actual mode (QR vs phone code) stops as soon
   // as the user manually picks a tab — never fight them afterwards.
   const userPickedTabRef = useRef(false);
@@ -43,16 +45,19 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
   const [tgSaving, setTgSaving] = useState(false);
   const [showTgModal, setShowTgModal] = useState(false);
 
-  // Adopt a pairing code + its TTL window (shared by probe & polling)
+  // Adopt a pairing code + its TTL window (shared by probe & polling).
+  // A regenerated code restarts the TTL — keeping the old expiry would
+  // instantly expire a brand-new code.
   const adoptPairing = (code, expiresAt) => {
-    setPairingCode(prev => (prev !== code ? code : prev));
-    setPairingExpiresAt(prev => prev || expiresAt || Date.now() + 180000);
-    setPairingTtlSeconds(prev => {
-      if (prev) return prev;
+    const isNew = lastPairingRef.current !== code;
+    lastPairingRef.current = code;
+    setPairingCode(code);
+    if (isNew) {
       const exp = expiresAt || Date.now() + 180000;
-      return Math.max(1, Math.round((exp - Date.now()) / 1000));
-    });
-    expiryNotifiedRef.current = false;
+      setPairingExpiresAt(exp);
+      setPairingTtlSeconds(Math.max(1, Math.round((exp - Date.now()) / 1000)));
+      expiryNotifiedRef.current = false;
+    }
   };
 
   // Probe once whenever the modal opens: if the engine still holds a live
@@ -113,11 +118,18 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
         if (stopped) return;
 
         if (data.qrDataUrl) {
+          if (lastQrRef.current !== data.qrDataUrl) {
+            lastQrRef.current = data.qrDataUrl;
+            pollDeadlineRef.current = Date.now() + 5 * 60 * 1000; // fresh code = fresh scan window
+          }
           setQrDataUrl(data.qrDataUrl);
           setWaStatus('waiting_scan');
           if (!userPickedTabRef.current) setConnectTab(prev => (prev === 'phone' ? 'qr' : prev));
         }
         if (data.pairingCode) {
+          if (lastPairingRef.current !== data.pairingCode) {
+            pollDeadlineRef.current = Date.now() + 5 * 60 * 1000;
+          }
           adoptPairing(data.pairingCode, data.pairingCodeExpiresAt);
           setWaStatus('waiting_scan');
           if (!userPickedTabRef.current) setConnectTab(prev => (prev === 'qr' ? 'phone' : prev));
@@ -201,6 +213,8 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
     setPairingTtlSeconds(null);
     setTimeLeft(null);
     setCopiedCode(false);
+    lastQrRef.current = null;
+    lastPairingRef.current = null;
     setShowWaModal(true);
     setConnectTab(mode === 'phone' ? 'phone' : 'qr');
     userPickedTabRef.current = false;
@@ -215,9 +229,18 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
           phoneNumber: fullInternationalPhone,
         }),
       });
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        toast.error(data.error || 'تعذر تشغيل محرك واتساب');
+      let data = null;
+      try { data = await res.json(); } catch { /* non-JSON body — e.g. Cloudflare 524 timeout page */ }
+      if (!res.ok || !data || data.error) {
+        toast.error(
+          data?.error ||
+          (res.status === 504 || res.status === 524
+            ? 'المحرك استغرق وقتاً أطول من المسموح — انتظر دقيقة ثم أعد المحاولة'
+            : 'تعذر تشغيل محرك واتساب — تأكد من عمله على الخادم')
+        );
+        setWaStatus('error');
+      } else if (data.status === 'error') {
+        toast.error('فشلت تهيئة محرك واتساب بعد عدة محاولات — راجع سجلات الخادم (pm2 logs)');
         setWaStatus('error');
       } else {
         setWaStatus(data.status || 'initializing');
@@ -256,6 +279,8 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
     setPairingTtlSeconds(null);
     setTimeLeft(null);
     setCopiedCode(false);
+    lastQrRef.current = null;
+    lastPairingRef.current = null;
     setWaStatus('not_initialized');
     setWaCanceling(false);
     setShowWaModal(false);

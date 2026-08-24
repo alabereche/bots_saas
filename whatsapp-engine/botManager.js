@@ -58,9 +58,9 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
   const clientOptions = {
     authStrategy: new LocalAuth({
       clientId: botId,
-      dataPath: './sessions',
+      // Absolute so wipes in cleanSession() hit the same dir regardless of pm2 cwd
+      dataPath: path.join(__dirname, 'sessions'),
     }),
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
     puppeteer: {
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
       headless: true,
@@ -79,9 +79,10 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
       defaultViewport: { width: 1280, height: 800 },
       timeout: 60000,
     },
+    // Local cache: the remote wppconnect archive 404s for the pinned web
+    // version, which made every boot fall back to a fragile live-page load
     webVersionCache: {
-      type: 'remote',
-      remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/{version}.html',
+      type: 'local',
     },
   };
 
@@ -212,6 +213,10 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
         console.error(`[BotManager] All retries exhausted for "${config.botName}". Marking as error.`);
         botState.status = 'error';
         await firestore.updateBotStatus(botId, 'error').catch(() => {});
+        // Release the browser and the concurrency slot — leaking either
+        // starves every future create attempt on the 4GB VPS
+        try { await client.destroy(); } catch {}
+        if (activeBots.get(botId) === botState) activeBots.delete(botId);
         break;
       }
 

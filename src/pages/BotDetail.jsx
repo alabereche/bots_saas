@@ -614,6 +614,16 @@ export default function BotDetail() {
                   value={inboxSearch}
                   onChange={e => setInboxSearch(e.target.value)}
                 />
+                {inboxSearch && (
+                  <button
+                    type="button"
+                    className="inbox-search-clear"
+                    onClick={() => setInboxSearch('')}
+                    aria-label="مسح البحث"
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                )}
                 <svg className="inbox-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
                 </svg>
@@ -621,9 +631,9 @@ export default function BotDetail() {
 
               <div className="inbox-filters-row">
                 {[
-                  { key: 'all', label: 'كل المحادثات', count: sortedCustomers.length },
+                  { key: 'all', label: 'الكل', count: sortedCustomers.length },
                   { key: 'unread', label: 'غير مقروءة', count: sortedCustomers.filter(c => takeoverMap[c.userId] || c.messages[c.messages.length - 1]?.role === 'user').length },
-                  { key: 'orders', label: 'طلبات 📦', count: Object.keys(customerOrdersMap).length },
+                  { key: 'orders', label: 'طلبات', count: Object.keys(customerOrdersMap).length },
                   { key: 'customers', label: 'عملاء', count: sortedCustomers.filter(c => c.messages.length >= 3).length },
                 ].map(f => (
                   <button
@@ -640,9 +650,19 @@ export default function BotDetail() {
             </div>
 
             {filteredCustomers.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>
-                <p style={{ fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>لا توجد محادثات تطابق هذا الفلتر</p>
-                <p style={{ fontSize: '0.78rem' }}>جرب اختيار "كل المحادثات" أو إفراغ خانة البحث.</p>
+              <div className="inbox-empty">
+                <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                </svg>
+                <p className="inbox-empty-title">لا توجد محادثات تطابق هذا الفلتر</p>
+                <p className="inbox-empty-hint">جرّب «الكل» أو امسح خانة البحث.</p>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => { setInboxFilter('all'); setInboxSearch(''); }}
+                >
+                  عرض كل المحادثات
+                </button>
               </div>
             ) : (
               <div style={{ overflowY: 'auto', flex: 1 }}>
@@ -650,45 +670,36 @@ export default function BotDetail() {
                   const lastMsg = c.messages[c.messages.length - 1];
                   const isActive = c.userId === selectedUserId;
                   const isTakeover = takeoverMap[c.userId];
+                  const isUnread = !isActive && (isTakeover || lastMsg?.role === 'user');
                   const activeOrder = customerOrdersMap[c.userId];
                   const platform = c.platform || bot?.platform || 'whatsapp';
 
                   return (
                     <div
                       key={c.userId}
-                      className={`chat-contact ${isActive ? 'active' : ''}`}
+                      className={`chat-contact ${isActive ? 'active' : ''} ${isUnread ? 'is-unread' : ''}`}
                       onClick={() => setSelectedUserId(c.userId)}
                     >
-                      <div style={{
-                        width: '36px', height: '36px', borderRadius: '50%',
-                        background: '#18243b', color: 'var(--color-primary)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        flexShrink: 0, border: '1px solid var(--border-default)',
-                        position: 'relative'
-                      }}>
-                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                        {isTakeover && (
-                          <span style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '9px', height: '9px', borderRadius: '50%', background: '#f59e0b', border: '2px solid #141c2c' }} title="وضع يدوي" />
-                        )}
+                      <div className="chat-avatar">
+                        <span>{(c.userName || '؟').trim().charAt(0)}</span>
+                        <span className="chat-avatar-platform"><PlatformMiniIcon platform={platform} size={9} /></span>
+                        {isTakeover && <span className="chat-avatar-manual" title="وضع الرد اليدوي مفعّل" />}
                       </div>
 
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                          <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#ffffff' }}>{c.userName}</span>
+                      <div className="chat-contact-body">
+                        <div className="chat-contact-top">
+                          <span className="chat-contact-name">{c.userName}</span>
+                          <span className="chat-contact-time">{formatTime(c.lastTime)}</span>
+                        </div>
+
+                        <div className="chat-contact-bottom">
+                          <span className="chat-contact-preview">
+                            {lastMsg?.role === 'owner' ? 'أنت: ' : lastMsg?.role === 'bot' ? 'البوت: ' : ''}{lastMsg?.content?.slice(0, 45) || '...'}
+                          </span>
                           {activeOrder?.trackingCode && (
                             <span className="thread-order-tag">#{activeOrder.trackingCode}</span>
                           )}
-                        </div>
-
-                        <div className="thread-meta-row">
-                          <span className={`thread-channel-tag thread-channel-tag--${platform}`}>
-                            <PlatformMiniIcon platform={platform} />
-                            <span>{platformLabel(platform)} · {formatTime(c.lastTime)}</span>
-                          </span>
-                        </div>
-
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '2px' }}>
-                          {lastMsg?.role === 'owner' ? 'أنت: ' : lastMsg?.role === 'bot' ? 'البوت: ' : ''}{lastMsg?.content?.slice(0, 45) || '...'}
+                          {isUnread && <span className="chat-unread-dot" />}
                         </div>
                       </div>
                     </div>

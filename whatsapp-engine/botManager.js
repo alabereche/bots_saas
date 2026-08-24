@@ -26,6 +26,17 @@ function cleanSession(botId) {
   }
 }
 
+// Chromium leaves lock files behind after a hard kill (OOM, pkill) and then
+// refuses to relaunch on the same profile with "The browser is already running"
+function clearStaleLocks(botId) {
+  try {
+    const sessionDir = path.join(__dirname, 'sessions', `session-${botId}`);
+    for (const lock of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
+      fs.rmSync(path.join(sessionDir, lock), { force: true });
+    }
+  } catch { /* best effort */ }
+}
+
 // ─── Create a WhatsApp Bot ────────────────────────────────────
 async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = false) {
   if (activeBots.has(botId)) {
@@ -34,9 +45,21 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
       console.log(`[BotManager] Bot "${config.botName}" already connected.`);
       return existing;
     }
+    // An initialize() still in flight owns the browser — destroying it
+    // mid-init orphans Chromium holding the profile lock, and every later
+    // attempt then dies with "The browser is already running". Join it.
+    if (existing.status === 'initializing' && existing.initPromise) {
+      console.log(`[BotManager] Bot "${config.botName}" is still initializing — joining the in-flight attempt.`);
+      await existing.initPromise.catch(() => {});
+      if (activeBots.get(botId) === existing && existing.status === 'connected') {
+        return existing;
+      }
+    }
     try { await existing.client.destroy(); } catch {}
-    activeBots.delete(botId);
+    if (activeBots.get(botId) === existing) activeBots.delete(botId);
   }
+
+  clearStaleLocks(botId);
 
   // If pairing with a phone or forcing a new connection, wipe any previous saved session
   if (phoneNumber || forceNew) {
@@ -197,34 +220,38 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
     console.error(`[BotManager] Client error "${config.botName}":`, err.message);
   });
 
-  // Initialize client with retry
-  let retries = 0;
-  const maxRetries = 2;
+  // Initialize client with retry — exposed as initPromise so concurrent
+  // create calls join this attempt instead of racing over the same profile
+  botState.initPromise = (async () => {
+    let retries = 0;
+    const maxRetries = 2;
 
-  while (retries <= maxRetries) {
-    try {
-      await client.initialize();
-      break;
-    } catch (err) {
-      retries++;
-      console.error(`[BotManager] Init attempt ${retries}/${maxRetries + 1} failed for "${config.botName}":`, err.message);
-
-      if (retries > maxRetries) {
-        console.error(`[BotManager] All retries exhausted for "${config.botName}". Marking as error.`);
-        botState.status = 'error';
-        await firestore.updateBotStatus(botId, 'error').catch(() => {});
-        // Release the browser and the concurrency slot — leaking either
-        // starves every future create attempt on the 4GB VPS
-        try { await client.destroy(); } catch {}
-        if (activeBots.get(botId) === botState) activeBots.delete(botId);
+    while (retries <= maxRetries) {
+      try {
+        await client.initialize();
         break;
-      }
+      } catch (err) {
+        retries++;
+        console.error(`[BotManager] Init attempt ${retries}/${maxRetries + 1} failed for "${config.botName}":`, err.message);
 
-      try { await client.destroy(); } catch {}
-      console.log(`[BotManager] Retrying in 3s...`);
-      await new Promise(r => setTimeout(r, 3000));
+        if (retries > maxRetries) {
+          console.error(`[BotManager] All retries exhausted for "${config.botName}". Marking as error.`);
+          botState.status = 'error';
+          await firestore.updateBotStatus(botId, 'error').catch(() => {});
+          // Release the browser and the concurrency slot — leaking either
+          // starves every future create attempt on the 4GB VPS
+          try { await client.destroy(); } catch {}
+          if (activeBots.get(botId) === botState) activeBots.delete(botId);
+          break;
+        }
+
+        try { await client.destroy(); } catch {}
+        console.log(`[BotManager] Retrying in 3s...`);
+        await new Promise(r => setTimeout(r, 3000));
+      }
     }
-  }
+  })();
+  await botState.initPromise;
 
   return botState;
 }

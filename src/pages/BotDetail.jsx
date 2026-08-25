@@ -938,11 +938,6 @@ export default function BotDetail() {
               </div>
             )}
           </div>
-
-          {/* WhatsApp Connection box if whatsapp platform */}
-          {isWhatsapp && (
-            <WhatsAppConnect botId={bot.id} />
-          )}
         </div>
       )}
 
@@ -1704,112 +1699,6 @@ function InfoRow({ label, value }) {
     <div className="info-item">
       <span className="info-item-label">{label}</span>
       <span className="info-item-value">{value}</span>
-    </div>
-  );
-}
-
-// WhatsApp Connect
-function WhatsAppConnect({ botId }) {
-  const [waStatus, setWaStatus] = useState('not_initialized');
-  const [qrDataUrl, setQrDataUrl] = useState(null);
-  const [connecting, setConnecting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
-
-  useEffect(() => {
-    if (waStatus !== 'waiting_scan' && waStatus !== 'initializing') return;
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`${WHATSAPP_ENGINE_URL}/api/whatsapp/${botId}/qr`, { headers: await engineHeaders(false) });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.status) setWaStatus(data.status);
-          if (data.qrDataUrl) {
-            setQrDataUrl(data.qrDataUrl);
-            setWaStatus('waiting_scan');
-          }
-          if (data.status === 'connected') {
-            setQrDataUrl(null);
-            clearInterval(interval);
-          }
-        }
-      } catch (err) {
-        console.warn('QR poll error:', err.message);
-      }
-    }, 2500);
-    return () => clearInterval(interval);
-  }, [waStatus, botId]);
-
-  const handleConnect = async () => {
-    setConnecting(true);
-    setErrorMsg('');
-    setWaStatus('initializing');
-    try {
-      const res = await fetch(`${WHATSAPP_ENGINE_URL}/api/whatsapp/create`, {
-        method: 'POST',
-        headers: await engineHeaders(),
-        body: JSON.stringify({ botId }),
-      });
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        setErrorMsg(data.error || 'تعذر تشغيل محرك واتساب');
-        setWaStatus('error');
-      } else {
-        setWaStatus(data.status || 'initializing');
-      }
-    } catch (err) {
-      setErrorMsg(`تعذر الاتصال بالسيرفر (${err.message})`);
-      setWaStatus('error');
-    } finally {
-      setConnecting(false);
-    }
-  };
-
-  const handleDisconnect = async () => {
-    try {
-      await fetch(`${WHATSAPP_ENGINE_URL}/api/whatsapp/${botId}/stop`, { method: 'POST', headers: await engineHeaders(false) });
-      setWaStatus('disconnected');
-      setQrDataUrl(null);
-    } catch {}
-  };
-
-  return (
-    <div className="card" style={{ textAlign: 'center', padding: '1.5rem' }}>
-      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#ffffff', marginBottom: '0.75rem' }}>ربط واتساب</h3>
-      <div style={{ marginBottom: '1.25rem' }}>
-        <span className={`status-pill ${waStatus === 'connected' ? 'status--online' : 'status--waiting'}`}>
-          <span className="status-pill-dot" />
-          {waStatus === 'connected' ? 'واتساب متصل' : waStatus === 'waiting_scan' ? 'في انتظار مسح الكود' : 'غير متصل'}
-        </span>
-      </div>
-
-      {(waStatus === 'not_initialized' || waStatus === 'disconnected' || waStatus === 'error') && (
-        <div>
-          <button className="btn btn-primary" onClick={handleConnect} disabled={connecting} style={{ background: '#16a34a', borderColor: '#16a34a' }}>
-            {connecting ? <span className="spinner" /> : 'ربط واتساب عبر QR Code'}
-          </button>
-          {errorMsg && <p style={{ color: 'var(--color-error)', fontSize: '0.82rem', marginTop: '0.5rem' }}>{errorMsg}</p>}
-        </div>
-      )}
-
-      {waStatus === 'waiting_scan' && qrDataUrl && (
-        <div>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
-            امسح هذا الرمز بتطبيق واتساب (الأجهزة المرتبطة ➔ ربط جهاز)
-          </p>
-          <div style={{ background: '#ffffff', borderRadius: 'var(--radius-md)', display: 'inline-block', padding: '0.75rem' }}>
-            <img src={qrDataUrl} alt="QR Code" style={{ width: '220px', height: '220px', display: 'block' }} />
-          </div>
-        </div>
-      )}
-
-      {waStatus === 'initializing' && <div className="spinner spinner-lg" style={{ margin: '0 auto' }} />}
-
-      {waStatus === 'connected' && (
-        <div>
-          <p style={{ color: 'var(--color-primary)', fontWeight: 600, marginBottom: '0.75rem', fontSize: '0.9rem' }}>واتساب متصل بنجاح</p>
-          <button className="btn btn-secondary btn-sm" onClick={handleDisconnect}>فصل الاتصال</button>
-        </div>
-      )}
     </div>
   );
 }

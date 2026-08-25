@@ -666,3 +666,10 @@
 @media (prefers-reduced-motion: reduce) {
   .dialect-chip { animation: none; }
 }
+
+/* Desktop: more breathing room between the fixed navbar and the hero badge */
+@media (min-width: 1024px) {
+  .landing-hero-section {
+    padding-top: 7.5rem;
+  }
+}

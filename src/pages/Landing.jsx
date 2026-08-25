@@ -300,8 +300,6 @@ export default function Landing() {
             <div className="hero-channels-row">
               <span className="channel-chip wa"><IconWhatsApp size={15} /> WhatsApp</span>
               <span className="channel-chip tg"><IconTelegram size={15} /> Telegram</span>
-              <span className="channel-chip meta">Messenger</span>
-              <span className="channel-chip meta">Instagram</span>
             </div>
           </div>
 

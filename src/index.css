@@ -3654,13 +3654,21 @@ html, body {
   width: auto;
 }
 
-/* Desktop notification bell — pinned to the content header's far (left) corner */
+/* Desktop notification bell — slim global topbar row (no overlap with page headers) */
 .desktop-topbar {
-  position: absolute;
-  top: 1.7rem;
-  left: 2.5rem;
-  z-index: 60;
+  display: none;
 }
-@media (max-width: 768px) {
-  .desktop-topbar { display: none; }
+@media (min-width: 769px) {
+  .desktop-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    height: 40px;
+    margin: -0.75rem 0 0.5rem;
+  }
+}
+/* Bell sits near the left edge — panel opens rightward into the screen */
+.notif-bell--desktop .notif-panel {
+  right: auto;
+  left: 0;
 }

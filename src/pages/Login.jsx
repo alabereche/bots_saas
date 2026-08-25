@@ -19,12 +19,11 @@ export default function Login() {
 
   const countryObj = COUNTRIES.find(c => c.code === selectedCountry) || COUNTRIES[0];
 
+  // "Back" from the login screen must be a deterministic exit: history.back()
+  // usually lands on a protected page that instantly redirects here again,
+  // which made the button look dead. Always exit to the landing page.
   const handleGoBack = () => {
-    if (window.history.state && window.history.state.idx > 0) {
-      navigate(-1);
-    } else {
-      navigate('/');
-    }
+    navigate('/', { replace: true });
   };
 
   const handleGoogleLogin = async () => {

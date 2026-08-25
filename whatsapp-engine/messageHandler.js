@@ -162,16 +162,36 @@ async function handleMessage(msg, config) {
       return;
     }
 
-    // Skip empty or non-text messages
+    // Check if message is a voice note / audio
+    const isAudio = msg.type === 'ptt' || msg.type === 'audio' || (msg.hasMedia && (msg.type === 'ptt' || msg.type === 'audio'));
     const userMessage = (msg.body || '').trim();
-    if (!userMessage) {
+
+    // Skip empty or non-text messages unless it is an audio/voice note
+    if (!userMessage && !isAudio) {
       return;
     }
 
     userId = msg.from;
     userName = msg._data?.notifyName || msg.notifyName || 'زبون واتساب';
 
-    console.log(`[Handler] 📩 New message from ${userName} (${userId}): "${userMessage}"`);
+    // Download audio data in-memory without storing on disk
+    let audioData = null;
+    if (isAudio) {
+      try {
+        const media = await msg.downloadMedia();
+        if (media && media.data) {
+          audioData = {
+            data: media.data,
+            mimeType: media.mimetype || 'audio/ogg',
+          };
+        }
+      } catch (audioDownloadErr) {
+        console.warn('[Handler] Failed to download audio note:', audioDownloadErr.message);
+      }
+    }
+
+    const displayMessage = userMessage || (isAudio ? '🎤 [رسالة صوتية]' : '');
+    console.log(`[Handler] 📩 New message from ${userName} (${userId}): "${displayMessage}"`);
 
     // Log the customer's message IMMEDIATELY — before any AI call —
     // so a provider outage can never silently swallow it
@@ -180,7 +200,7 @@ async function handleMessage(msg, config) {
       ownerUserId: config.userId,
       from: userId,
       userName,
-      message: userMessage,
+      message: displayMessage,
       response: null,
     }).catch(e => console.error('[Handler] Log error:', e.message));
 
@@ -188,6 +208,12 @@ async function handleMessage(msg, config) {
     // above; stay silent (no AI reply)
     if (isTakeoverActive(config.id, userId)) {
       console.log(`[Handler] ✋ Manual mode ON for ${userId} — skipping AI reply`);
+      return;
+    }
+
+    // If audio download failed completely and no text exists
+    if (isAudio && !userMessage && !audioData) {
+      await sendTextReply(msg, userId, 'عذراً، لم أتمكن من تشغيل التسجيل الصوتي. هل يمكنك إعادة إرساله أو كتابة استفسارك؟ 🙏');
       return;
     }
 
@@ -205,7 +231,7 @@ async function handleMessage(msg, config) {
       ? liveConfig.features.orderTracking !== false && liveConfig.features.orders !== false
       : (liveConfig.orderTrackingEnabled !== false);
 
-    if (trackingEnabled && trackingHelper.isTrackingIntent(userMessage)) {
+    if (trackingEnabled && userMessage && trackingHelper.isTrackingIntent(userMessage)) {
       const explicitCode = trackingHelper.extractTrackingCode(userMessage);
       const orders = await firestore.findOrdersForTracking(config.id, userId, explicitCode);
       let trackingReply = '';
@@ -239,8 +265,8 @@ async function handleMessage(msg, config) {
       autoOrdersEnabled: liveConfig.autoOrdersWhatsapp !== false,
     };
 
-    // Get AI response from Gemini
-    const rawReply = await askOpenRouter(aiConfig, userId, userMessage);
+    // Get AI response from Gemini (with audioData if available)
+    const rawReply = await askOpenRouter(aiConfig, userId, userMessage, audioData);
 
     // Extract order if present
     const { reply: replyWithoutOrder, orderData } = extractOrder(rawReply);

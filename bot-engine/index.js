@@ -377,7 +377,7 @@ function extractAndSaveOrder(botId, ownerUserId, customerId, customerName, rawRe
 
 // ─── Google Gemini AI ─────────────────────────────────────────
 
-async function callGemini(apiKey, model, messages) {
+async function callGemini(apiKey, model, messages, audioData = null) {
   const modelsToTry = [
     model || 'gemini-3.7-flash-lite',
     'gemini-3.5-flash-lite',
@@ -389,12 +389,35 @@ async function callGemini(apiKey, model, messages) {
   ];
 
   const systemInstruction = messages.find(m => m.role === 'system')?.content || '';
-  const contents = messages
-    .filter(m => m.role !== 'system')
-    .map(m => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }],
-    }));
+  const nonSystemMessages = messages.filter(m => m.role !== 'system');
+
+  const contents = nonSystemMessages.map((m, idx) => {
+    const isAssistant = m.role === 'assistant';
+    const isLatestUserTurn = !isAssistant && idx === nonSystemMessages.length - 1;
+
+    if (isLatestUserTurn && audioData && audioData.data) {
+      const cleanMimeType = (audioData.mimeType || 'audio/ogg').split(';')[0].trim();
+      const parts = [
+        {
+          inlineData: {
+            mimeType: cleanMimeType,
+            data: audioData.data,
+          },
+        },
+        {
+          text: m.content && m.content !== '🎤 [رسالة صوتية]'
+            ? `الزبون أرسل تسجيلاً صوتياً ومرفق معه النص: "${m.content}". استمع للتسجيل الصوتي وافهم لهجته بدقة أياً كانت (دارجة جزائرية، مغاربية، عربية، فرنسية، إنجليزية أو أي لغة/لهجة)، وأجب عن طلبه وفقاً لقواعد النشاط والكتالوج.`
+            : 'الزبون أرسل تسجيلاً صوتياً أعلاه. استمع له بعناية فائقة: افهم لهجته بدقة أياً كانت (دارجة جزائرية بجميع تنوعاتها، مغاربية، عربية، فرنسية، إنجليزية أو أي لهجة)، واستخرج طلبه أو سؤاله وأجب عنه بدقة ولباقة واحترافية وفقاً لتعليمات النشاط والكتالوج.',
+        },
+      ];
+      return { role: 'user', parts };
+    }
+
+    return {
+      role: isAssistant ? 'model' : 'user',
+      parts: [{ text: m.content || '' }],
+    };
+  });
 
   const isBearer = apiKey && (apiKey.startsWith('AQ') || apiKey.startsWith('ya29') || apiKey.length > 80);
   const urlBase = 'https://generativelanguage.googleapis.com/v1beta/models';
@@ -444,7 +467,7 @@ async function callGemini(apiKey, model, messages) {
   return null;
 }
 
-async function askAI(config, userId, userMessage) {
+async function askAI(config, userId, userMessage, audioData = null) {
   const historyKey = `${config.id}_${userId}`;
   if (!conversationHistory.has(historyKey)) {
     // Bound the number of tracked chats so memory stays flat
@@ -455,7 +478,10 @@ async function askAI(config, userId, userMessage) {
     conversationHistory.set(historyKey, []);
   }
   const history = conversationHistory.get(historyKey);
-  history.push({ role: 'user', content: userMessage });
+  const effectiveMessage = userMessage || (audioData ? '🎤 [رسالة صوتية]' : '');
+  if (effectiveMessage) {
+    history.push({ role: 'user', content: effectiveMessage });
+  }
   if (history.length > MAX_HISTORY) {
     history.splice(0, history.length - MAX_HISTORY);
   }
@@ -467,10 +493,12 @@ async function askAI(config, userId, userMessage) {
 
   let reply;
   try {
-    reply = await callGemini(apiKey, model, messages);
+    reply = await callGemini(apiKey, model, messages, audioData);
   } catch (err) {
     // The attempt failed: drop the user message so a retry doesn't carry a phantom turn
-    history.pop();
+    if (effectiveMessage) {
+      history.pop();
+    }
     throw err;
   }
   if (!reply) reply = 'عذراً، لم أتمكن من الرد. يرجى المحاولة مرة أخرى.';
@@ -560,18 +588,56 @@ async function startBot(config) {
       await ctx.reply(greeting);
     });
 
-    bot.on('message:text', async (ctx) => {
-      const userMessage = ctx.message.text;
+    bot.on(['message:text', 'message:voice', 'message:audio'], async (ctx) => {
+      const isVoice = !!(ctx.message.voice || ctx.message.audio);
+      const userMessage = (ctx.message.text || ctx.message.caption || '').trim();
       const userId = ctx.from.id;
       const userName = ctx.from.first_name || ctx.from.username || 'زبون تيليغرام';
       const takeoverKey = `${config.id}_${userId}`;
 
+      // Skip empty non-audio messages
+      if (!userMessage && !isVoice) {
+        return;
+      }
+
+      // Download audio data in-memory without saving to disk
+      let audioData = null;
+      if (isVoice) {
+        try {
+          const voiceObj = ctx.message.voice || ctx.message.audio;
+          const fileId = voiceObj.file_id;
+          const mimeType = ctx.message.voice ? (voiceObj.mime_type || 'audio/ogg') : (voiceObj.mime_type || 'audio/mp3');
+          const fileInfo = await ctx.api.getFile(fileId);
+          if (fileInfo && fileInfo.file_path) {
+            const fileUrl = `https://api.telegram.org/file/bot${config.telegramToken.trim()}/${fileInfo.file_path}`;
+            const audioRes = await fetch(fileUrl, { signal: AbortSignal.timeout(10000) });
+            if (audioRes.ok) {
+              const arrayBuf = await audioRes.arrayBuffer();
+              audioData = {
+                data: Buffer.from(arrayBuf).toString('base64'),
+                mimeType: mimeType.split(';')[0] || 'audio/ogg',
+              };
+            }
+          }
+        } catch (audioErr) {
+          console.warn('[Telegram Engine] Audio download failed:', audioErr.message);
+        }
+      }
+
+      const displayMessage = userMessage || (isVoice ? '🎤 [رسالة صوتية]' : '');
+
       // Save user message immediately
-      saveMessage(config.id, config.userId, userId, userName, userMessage, 'user');
+      saveMessage(config.id, config.userId, userId, userName, displayMessage, 'user');
 
       // Check human takeover
       if (humanTakeoverMap.get(takeoverKey)) {
         console.log(`[Engine] Human takeover active for user ${userId} in bot ${config.botName}`);
+        return;
+      }
+
+      // If audio download failed completely and no text exists
+      if (isVoice && !userMessage && !audioData) {
+        await ctx.reply('عذراً، لم أتمكن من تشغيل التسجيل الصوتي. هل يمكنك كتابة استفسارك أو إعادة إرساله؟ 🙏');
         return;
       }
 
@@ -584,7 +650,7 @@ async function startBot(config) {
         ? currentConfig.features.orderTracking !== false && currentConfig.features.orders !== false
         : (currentConfig.orderTrackingEnabled !== false);
 
-      if (trackingEnabled && isTrackingIntent(userMessage)) {
+      if (trackingEnabled && userMessage && isTrackingIntent(userMessage)) {
         const explicitCode = extractTrackingCode(userMessage);
         const orders = await findOrdersForTracking(currentConfig.id, userId, explicitCode);
         let trackingReply = '';
@@ -612,7 +678,7 @@ async function startBot(config) {
           autoOrdersEnabled: currentConfig.autoOrdersTelegram !== false,
         };
 
-        const rawReply = await askAI(aiConfig, userId, userMessage);
+        const rawReply = await askAI(aiConfig, userId, userMessage, audioData);
         const { reply: replyWithoutOrder, orderFound } = extractAndSaveOrder(
           currentConfig.id,
           currentConfig.userId,

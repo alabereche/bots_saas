@@ -16,7 +16,7 @@ const AI_TIMEOUT_MS = 9000;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 
 // --- Google Gemini ---
-async function callGemini(apiKey, model, messages) {
+async function callGemini(apiKey, model, messages, audioData = null) {
   const modelsToTry = [
     model || 'gemini-3.7-flash-lite',
     'gemini-3.5-flash-lite',
@@ -28,12 +28,35 @@ async function callGemini(apiKey, model, messages) {
   ];
 
   const systemInstruction = messages.find(m => m.role === 'system')?.content || '';
-  const contents = messages
-    .filter(m => m.role !== 'system')
-    .map(m => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }],
-    }));
+  const nonSystemMessages = messages.filter(m => m.role !== 'system');
+
+  const contents = nonSystemMessages.map((m, idx) => {
+    const isAssistant = m.role === 'assistant';
+    const isLatestUserTurn = !isAssistant && idx === nonSystemMessages.length - 1;
+
+    if (isLatestUserTurn && audioData && audioData.data) {
+      const cleanMimeType = (audioData.mimeType || 'audio/ogg').split(';')[0].trim();
+      const parts = [
+        {
+          inlineData: {
+            mimeType: cleanMimeType,
+            data: audioData.data,
+          },
+        },
+        {
+          text: m.content && m.content !== '🎤 [رسالة صوتية]'
+            ? `الزبون أرسل تسجيلاً صوتياً ومرفق معه النص: "${m.content}". استمع للتسجيل الصوتي وافهم لهجته بدقة أياً كانت (دارجة جزائرية، مغاربية، عربية، فرنسية، إنجليزية أو أي لغة/لهجة)، وأجب عن طلبه وفقاً لقواعد النشاط والكتالوج.`
+            : 'الزبون أرسل تسجيلاً صوتياً أعلاه. استمع له بعناية فائقة: افهم لهجته بدقة أياً كانت (دارجة جزائرية بجميع تنوعاتها، مغاربية، عربية، فرنسية، إنجليزية أو أي لهجة)، واستخرج طلبه أو سؤاله وأجب عنه بدقة ولباقة واحترافية وفقاً لتعليمات النشاط والكتالوج.',
+        },
+      ];
+      return { role: 'user', parts };
+    }
+
+    return {
+      role: isAssistant ? 'model' : 'user',
+      parts: [{ text: m.content || '' }],
+    };
+  });
 
   const isBearer = apiKey && (apiKey.startsWith('AQ') || apiKey.startsWith('ya29') || apiKey.length > 80);
   const urlBase = 'https://generativelanguage.googleapis.com/v1beta/models';
@@ -84,7 +107,7 @@ async function callGemini(apiKey, model, messages) {
 }
 
 // --- Unified AI (Gemini only) ---
-async function askOpenRouter(config, userId, userMessage) {
+async function askOpenRouter(config, userId, userMessage, audioData = null) {
   const historyKey = `${config.id}_${userId}`;
   if (!conversationHistory.has(historyKey)) {
     // Bound the number of tracked chats so memory stays flat
@@ -95,7 +118,10 @@ async function askOpenRouter(config, userId, userMessage) {
     conversationHistory.set(historyKey, []);
   }
   const history = conversationHistory.get(historyKey);
-  history.push({ role: 'user', content: userMessage });
+  const effectiveMessage = userMessage || (audioData ? '🎤 [رسالة صوتية]' : '');
+  if (effectiveMessage) {
+    history.push({ role: 'user', content: effectiveMessage });
+  }
   if (history.length > MAX_HISTORY) {
     history.splice(0, history.length - MAX_HISTORY);
   }
@@ -110,16 +136,18 @@ async function askOpenRouter(config, userId, userMessage) {
       throw new Error('GEMINI_API_KEY غير مضبوط على المحرك');
     }
     const model = config.aiModel || process.env.DEFAULT_AI_MODEL || 'gemini-3.5-flash-lite';
-    reply = await callGemini(GEMINI_API_KEY, model, messages);
+    reply = await callGemini(GEMINI_API_KEY, model, messages, audioData);
   } catch (err) {
     // The attempt failed: drop the user message from history so a
     // retry doesn't carry a phantom turn
-    history.pop();
+    if (effectiveMessage) {
+      history.pop();
+    }
     console.error(`[WA Engine] Gemini call failed: ${err.message}`);
     throw err;
   }
 
-  if (!reply) reply = 'عذراً، لم أتمكن من المعالجة.';
+  if (!reply) reply = 'عذراً، لم أتمكن من المعالجة. يرجى إعادة المحاولة.';
   history.push({ role: 'assistant', content: reply });
   return reply;
 }

@@ -74,5 +74,15 @@ service cloud.firestore {
       allow update: if isDataOwner() && keepsIdentityData();
       allow delete: if isDataOwner();
     }
+
+    // ─── Notifications (in-app bell) ──────────────────────────────
+    // Written ONLY by the engines via the Admin SDK (client create is
+    // denied); the owner reads and marks his own as read.
+    match /notifications/{notifId} {
+      allow read: if isDataOwner();
+      allow create: if false;
+      allow update: if isDataOwner() && keepsIdentityData();
+      allow delete: if isDataOwner();
+    }
   }
 }

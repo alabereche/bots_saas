@@ -194,6 +194,17 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
     console.log(`[BotManager] Bot "${config.botName}" disconnected:`, reason);
     botState.status = 'disconnected';
     firestore.updateBotStatus(botId, 'disconnected').catch(() => {});
+    // The merchant must know his storefront went offline — gated by his
+    // notifications setting (default on)
+    if (config.userId && config.notificationsEnabled !== false) {
+      firestore.createNotification({
+        userId: config.userId,
+        botId,
+        type: 'system',
+        title: 'انقطع اتصال واتساب',
+        body: `البوت "${config.botName}" فقد الاتصال — أعد الربط من صفحة القنوات.`,
+      }).catch(() => {});
+    }
     // Release the slot immediately, and only if THIS client still owns
     // it (a restart may have replaced the map entry meanwhile)
     if (activeBots.get(botId) === botState) activeBots.delete(botId);

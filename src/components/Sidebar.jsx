@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import NotificationBell from './NotificationBell';
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
@@ -120,9 +121,11 @@ export default function Sidebar() {
             </div>
           </div>
 
-          <button 
+          <NotificationBell variant="desktop" />
+
+          <button
             type="button"
-            className="sidebar-collapse-btn" 
+            className="sidebar-collapse-btn"
             onClick={() => setCollapsed(prev => !prev)}
             title={collapsed ? 'توسيع القائمة' : 'طي القائمة'}
           >
@@ -239,6 +242,7 @@ export default function Sidebar() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <NotificationBell variant="mobile" />
           <div className="sidebar-user-avatar" style={{ width: '30px', height: '30px', fontSize: '0.75rem', overflow: 'hidden' }}>
             {userPhoto ? (
               <img 

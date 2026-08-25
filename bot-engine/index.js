@@ -167,6 +167,29 @@ function generateTrackingCode() {
   return code;
 }
 
+// ─── Notifications (in-app bell) ────────────────────────────────
+// Engines write via Admin SDK; the merchant's dashboard listens live.
+async function createNotification({ userId, botId, type = 'system', title, body = '', meta = {} }) {
+  try {
+    if (!userId) return null;
+    const ref = await db.collection('notifications').add({
+      userId,
+      botId: botId || '',
+      type,
+      title: String(title).slice(0, 140),
+      body: String(body).slice(0, 300),
+      ...meta,
+      read: false,
+      createdIso: new Date().toISOString(),
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    return ref.id;
+  } catch (e) {
+    console.error('[Engine] Create notification error:', e.message);
+    return null;
+  }
+}
+
 async function saveOrderToFirestore(orderData) {
   try {
     const trackingCode = orderData.trackingCode || generateTrackingCode();
@@ -293,7 +316,7 @@ async function updateOrderDeliveryStatus(orderId, newDeliveryStatus, providerInf
 // ─── Smart Order Extraction ──────────────────────────────────
 const ORDER_TAG = '[ORDER_CONFIRMED]';
 
-function extractAndSaveOrder(botId, ownerUserId, customerId, customerName, rawReply, platform = 'telegram', catalogProducts = []) {
+function extractAndSaveOrder(botId, ownerUserId, customerId, customerName, rawReply, platform = 'telegram', catalogProducts = [], config = null) {
   const tagIndex = rawReply.indexOf(ORDER_TAG);
   if (tagIndex === -1) return { reply: rawReply, orderFound: false };
 
@@ -332,7 +355,17 @@ function extractAndSaveOrder(botId, ownerUserId, customerId, customerName, rawRe
         product,
         price: validatedPrice,
         orderSummary: cleanReply.slice(-500),
-      });
+      }).then((saved) => {
+        if (!saved || !config || config.notificationsEnabled === false) return;
+        createNotification({
+          userId: ownerUserId,
+          botId,
+          type: 'order',
+          title: `طلبية جديدة #${saved.trackingCode}`,
+          body: `${customerName || 'زبون'} — ${product || 'منتج'}${validatedPrice ? ` — ${validatedPrice} دج` : ''}`,
+          meta: { orderId: saved.id, trackingCode: saved.trackingCode },
+        }).catch(() => {});
+      }).catch(() => {});
       return { reply: cleanReply, orderFound: true };
     }
     return { reply: cleanReply, orderFound: false };
@@ -587,7 +620,8 @@ async function startBot(config) {
           userName,
           rawReply,
           'telegram',
-          currentConfig.products
+          currentConfig.products,
+          currentConfig
         );
         const { cleanReply: finalReplyText, mediaToSend } = extractProductMedia(replyWithoutOrder, currentConfig.products);
         const reply = finalReplyText || replyWithoutOrder;

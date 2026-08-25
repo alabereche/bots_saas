@@ -332,6 +332,30 @@ async function updateOrderDeliveryStatus(orderId, newDeliveryStatus, providerInf
   }
 }
 
+// ─── Notifications (in-app bell) ────────────────────────────────
+// Engines write via Admin SDK (client create is denied by rules);
+// the merchant's dashboard listens in realtime.
+async function createNotification({ userId, botId, type = 'system', title, body = '', meta = {} }) {
+  try {
+    if (!userId) return null;
+    const ref = await db.collection('notifications').add({
+      userId,
+      botId: botId || '',
+      type,
+      title: String(title).slice(0, 140),
+      body: String(body).slice(0, 300),
+      ...meta,
+      read: false,
+      createdIso: new Date().toISOString(),
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    return ref.id;
+  } catch (e) {
+    console.error('[Firestore] Create notification error:', e.message);
+    return null;
+  }
+}
+
 module.exports = {
   admin,
   db,
@@ -348,4 +372,5 @@ module.exports = {
   generateTrackingCode,
   findOrdersForTracking,
   updateOrderDeliveryStatus,
+  createNotification,
 };

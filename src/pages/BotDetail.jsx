@@ -866,6 +866,14 @@ export default function BotDetail() {
       {/* ─── Tab 5: Bot Info & Capabilities Tab ─── */}
       {activeTab === 'info' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {/* Card 0: Merchant Notifications Toggle */}
+          <MerchantNotificationsCard
+            bot={bot}
+            onUpdateBot={async (data) => {
+              await updateBot(id, data);
+            }}
+          />
+
           {/* Card 1: Modular Capabilities */}
           <BotCapabilitiesManager
             bot={bot}
@@ -1441,6 +1449,82 @@ function OrderDeliveryItem({ order, bot, onUpdateDelivery }) {
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// Merchant alerts toggle — controls ALL merchant-facing notifications for
+// this bot (in-app bell + WhatsApp self-message on new orders & disconnects).
+// Default: ON (the field's absence means enabled).
+function MerchantNotificationsCard({ bot, onUpdateBot }) {
+  const enabled = bot?.notificationsEnabled !== false;
+  const [saving, setSaving] = useState(false);
+  const toast = useToast();
+
+  const toggle = async () => {
+    setSaving(true);
+    try {
+      await onUpdateBot({ notificationsEnabled: !enabled });
+      toast.success(!enabled ? 'تم تفعيل تنبيهات التاجر' : 'تم كتم تنبيهات التاجر');
+    } catch (e) {
+      toast.error('فشل تحديث الإشعارات: ' + e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="card" style={{ borderColor: enabled ? 'rgba(16, 185, 129, 0.25)' : undefined }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', flex: 1, minWidth: '240px' }}>
+          <div style={{
+            width: '42px', height: '42px', borderRadius: '12px', flexShrink: 0,
+            background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.3)',
+            color: '#34d399', display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+          </div>
+          <div>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#ffffff', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              تنبيهات التاجر
+              <span style={{
+                fontSize: '0.68rem', fontWeight: 800, padding: '2px 8px', borderRadius: '20px',
+                background: enabled ? 'rgba(16, 185, 129, 0.12)' : 'rgba(148, 163, 184, 0.1)',
+                color: enabled ? '#34d399' : '#94a3b8',
+                border: `1px solid ${enabled ? 'rgba(16, 185, 129, 0.35)' : 'rgba(148, 163, 184, 0.25)'}`
+              }}>
+                {enabled ? 'مفعلة' : 'مكتومة'}
+              </span>
+            </h3>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.55 }}>
+              إشعار فوري في اللوحة + رسالة واتساب لرقمك عند كل طلبية جديدة أو انقطاع اتصال — لهذا البوت تحديداً.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={toggle}
+          disabled={saving}
+          style={{
+            width: '52px', height: '28px', borderRadius: '99px', flexShrink: 0,
+            border: 'none', cursor: saving ? 'wait' : 'pointer', position: 'relative',
+            background: enabled ? 'linear-gradient(135deg, #10b981, #059669)' : 'rgba(148, 163, 184, 0.25)',
+            transition: 'background 0.25s ease',
+          }}
+          aria-label={enabled ? 'كتم التنبيهات' : 'تفعيل التنبيهات'}
+        >
+          <span style={{
+            position: 'absolute', top: '3px',
+            right: enabled ? '27px' : '3px',
+            width: '22px', height: '22px', borderRadius: '50%',
+            background: '#ffffff', boxShadow: '0 2px 6px rgba(0, 0, 0, 0.35)',
+            transition: 'right 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+          }} />
+        </button>
       </div>
     </div>
   );

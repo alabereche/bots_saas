@@ -305,6 +305,32 @@ async function handleMessage(msg, config) {
         product: order.product,
         price: order.price,
         orderSummary: reply.slice(-500),
+      }).then(async (saved) => {
+        if (!saved || config.notificationsEnabled === false) return;
+
+        // 1) In-app bell notification (dashboard listens in realtime)
+        firestore.createNotification({
+          userId: config.userId,
+          botId: config.id,
+          type: 'order',
+          title: `طلبية جديدة #${saved.trackingCode}`,
+          body: `${userName} — ${order.product || 'منتج'}${order.price ? ` — ${order.price} دج` : ''}`,
+          meta: { orderId: saved.id, trackingCode: saved.trackingCode },
+        }).catch(() => {});
+
+        // 2) WhatsApp self-message to the merchant's own chat
+        try {
+          const selfJid = msg.client.info.wid._serialized;
+          await msg.client.sendMessage(selfJid,
+            `📦 *طلبية جديدة!* #${saved.trackingCode}\n\n` +
+            `👤 ${userName}\n` +
+            `🛒 ${order.product || '—'}` +
+            (order.price ? `\n💰 ${order.price} دج` : '') +
+            (order.address ? `\n📍 ${order.address}` : '') +
+            `\n\nأدرها من لوحة AuraBot.`);
+        } catch (e) {
+          console.warn('[Handler] Merchant self-notify failed:', e.message);
+        }
       }).catch(e => console.error('[Handler] Save order error:', e.message));
     }
 

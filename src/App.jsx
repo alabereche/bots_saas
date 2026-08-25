@@ -1,10 +1,11 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Sidebar from './components/Sidebar';
 import AmbientBackground from './components/AmbientBackground';
+import BotLoader from './components/BotLoader';
 
 // Lazy-loaded routes for optimal bundle code-splitting
 const Landing = lazy(() => import('./pages/Landing'));
@@ -17,24 +18,14 @@ const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const TermsOfService = lazy(() => import('./pages/TermsOfService'));
 
 function PageLoader() {
-  return (
-    <div className="page-loader" style={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem', position: 'relative', zIndex: 20 }}>
-      <div className="spinner spinner-lg" />
-      <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>جاري التحميل...</span>
-    </div>
-  );
+  return <BotLoader />;
 }
 
 function AppLayout() {
   const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="page-loader" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem', position: 'relative', zIndex: 20 }}>
-        <div className="spinner spinner-lg" />
-        <span style={{ color: 'var(--text-secondary)' }}>جاري التحميل...</span>
-      </div>
-    );
+    return <BotLoader fullscreen />;
   }
 
   return (
@@ -84,6 +75,16 @@ function AppLayout() {
 }
 
 export default function App() {
+  // Fade out the pre-JS boot loader from index.html — runs only after
+  // React has committed its first paint, so there is never a blank flash
+  useEffect(() => {
+    const boot = document.getElementById('boot-loader');
+    if (!boot) return undefined;
+    boot.classList.add('boot-done');
+    const t = setTimeout(() => boot.remove(), 500);
+    return () => clearTimeout(t);
+  }, []);
+
   return (
     <BrowserRouter>
       <AuthProvider>

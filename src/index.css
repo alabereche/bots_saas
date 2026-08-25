@@ -3366,3 +3366,141 @@ html, body {
 .chat-contact.active .chat-contact-name {
   color: #ffffff;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Boot loader — "the bot wakes up" (self-drawing bubble + typing)
+   ═══════════════════════════════════════════════════════════════ */
+.bloader {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+  width: 100%;
+  overflow: hidden;
+}
+.bloader--fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  min-height: 100vh;
+  background:
+    radial-gradient(900px 520px at 50% 36%, rgba(16, 185, 129, 0.10), transparent 65%),
+    radial-gradient(720px 440px at 50% 62%, rgba(34, 211, 238, 0.05), transparent 60%),
+    #040711;
+}
+.bloader-glow {
+  position: absolute;
+  width: 230px;
+  height: 230px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.16) 0%, transparent 70%);
+  animation: bloaderBreathe 3s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+.bloader-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.bloader-svg {
+  width: 118px;
+  height: 118px;
+}
+.bloader-bubble {
+  stroke-dasharray: 340;
+  stroke-dashoffset: 340;
+  animation: bloaderDraw 1.5s cubic-bezier(0.65, 0, 0.35, 1) 0.15s forwards;
+  filter: drop-shadow(0 0 7px rgba(52, 211, 153, 0.35));
+}
+.bloader-dot {
+  opacity: 0;
+  transform-origin: center;
+  transform-box: fill-box;
+  animation:
+    bloaderDotIn 0.45s ease forwards,
+    bloaderTyping 1.2s ease-in-out infinite;
+}
+.bloader-dot--1 { animation-delay: 1.35s, 1.95s; }
+.bloader-dot--2 { animation-delay: 1.5s, 2.1s; }
+.bloader-dot--3 { animation-delay: 1.65s, 2.25s; }
+.bloader-word {
+  display: flex;
+  direction: ltr;
+  gap: 1px;
+  font-family: 'Cairo', 'Tajawal', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+  margin-top: 1.05rem;
+}
+.bloader-word span {
+  opacity: 0;
+  animation: bloaderLetter 0.55s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+.bloader-word span:nth-child(1) { animation-delay: 1.45s; }
+.bloader-word span:nth-child(2) { animation-delay: 1.53s; }
+.bloader-word span:nth-child(3) { animation-delay: 1.61s; }
+.bloader-word span:nth-child(4) { animation-delay: 1.69s; }
+.bloader-word span:nth-child(5) { animation-delay: 1.77s; }
+.bloader-word span:nth-child(6) { animation-delay: 1.85s; }
+.bloader-word span:nth-child(7) { animation-delay: 1.93s; }
+.bloader-word--bot { color: #34d399; }
+.bloader-bar {
+  direction: ltr;
+  width: 180px;
+  height: 3px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  margin-top: 1rem;
+  opacity: 0;
+  animation: bloaderFadeIn 0.5s ease 1.95s forwards;
+}
+.bloader-bar-fill {
+  width: 40%;
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, transparent, #34d399 35%, #22d3ee 65%, transparent);
+  animation: bloaderSlide 1.4s ease-in-out 2.05s infinite;
+}
+.bloader-label {
+  margin-top: 0.9rem;
+  font-size: 0.82rem;
+  color: var(--text-secondary, #94a3b8);
+  opacity: 0;
+  animation: bloaderFadeIn 0.6s ease 2.15s forwards;
+}
+@keyframes bloaderDraw { to { stroke-dashoffset: 0; } }
+@keyframes bloaderDotIn {
+  from { opacity: 0; transform: scale(0.3); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes bloaderTyping {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-3.5px); }
+}
+@keyframes bloaderLetter {
+  from { opacity: 0; transform: translateY(10px); filter: blur(6px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+@keyframes bloaderSlide {
+  from { transform: translateX(160px); }
+  to { transform: translateX(-190px); }
+}
+@keyframes bloaderFadeIn { to { opacity: 1; } }
+@keyframes bloaderBreathe {
+  from { transform: scale(0.9); opacity: 0.7; }
+  to { transform: scale(1.1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bloader-bubble { stroke-dashoffset: 0; animation: none; }
+  .bloader-dot { opacity: 1; animation: none; }
+  .bloader-word span { opacity: 1; animation: none; }
+  .bloader-bar, .bloader-label { opacity: 1; animation: none; }
+  .bloader-bar-fill { animation: none; transform: translateX(-60px); }
+  .bloader-glow { animation: none; }
+}

@@ -15,6 +15,106 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Tajawal:wght@400;500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   </head>
   <body>
+    <!-- Boot loader: paints instantly, before the JS bundle parses. Removed by main.jsx on mount. -->
+    <div id="boot-loader" aria-label="جاري تجهيز منصتك...">
+      <style>
+        #boot-loader {
+          position: fixed; inset: 0; z-index: 9999;
+          display: flex; align-items: center; justify-content: center;
+          background:
+            radial-gradient(900px 520px at 50% 36%, rgba(16, 185, 129, 0.10), transparent 65%),
+            radial-gradient(720px 440px at 50% 62%, rgba(34, 211, 238, 0.05), transparent 60%),
+            #040711;
+          transition: opacity 0.45s ease;
+        }
+        #boot-loader.boot-done { opacity: 0; pointer-events: none; }
+        #boot-loader * { box-sizing: border-box; }
+        .boot-glow {
+          position: absolute; width: 230px; height: 230px; border-radius: 50%;
+          background: radial-gradient(circle, rgba(52, 211, 153, 0.16) 0%, transparent 70%);
+          animation: bootBreathe 3s ease-in-out infinite alternate;
+        }
+        .boot-stage { position: relative; display: flex; flex-direction: column; align-items: center; }
+        .boot-svg { width: 118px; height: 118px; }
+        .boot-bubble {
+          stroke-dasharray: 340; stroke-dashoffset: 340;
+          animation: bootDraw 1.5s cubic-bezier(0.65, 0, 0.35, 1) 0.15s forwards;
+          filter: drop-shadow(0 0 7px rgba(52, 211, 153, 0.35));
+        }
+        .boot-dot { opacity: 0; transform-origin: center; transform-box: fill-box;
+          animation: bootDotIn 0.45s ease forwards, bootTyping 1.2s ease-in-out infinite; }
+        .boot-dot--1 { animation-delay: 1.35s, 1.95s; }
+        .boot-dot--2 { animation-delay: 1.5s, 2.1s; }
+        .boot-dot--3 { animation-delay: 1.65s, 2.25s; }
+        .boot-word {
+          display: flex; direction: ltr; gap: 1px;
+          font-family: 'Cairo', 'Tajawal', sans-serif;
+          font-size: 1.5rem; font-weight: 900; color: #ffffff; letter-spacing: 0.5px;
+          margin-top: 1.05rem;
+        }
+        .boot-word span { opacity: 0; animation: bootLetter 0.55s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+        .boot-word span:nth-child(1) { animation-delay: 1.45s; }
+        .boot-word span:nth-child(2) { animation-delay: 1.53s; }
+        .boot-word span:nth-child(3) { animation-delay: 1.61s; }
+        .boot-word span:nth-child(4) { animation-delay: 1.69s; }
+        .boot-word span:nth-child(5) { animation-delay: 1.77s; }
+        .boot-word span:nth-child(6) { animation-delay: 1.85s; }
+        .boot-word span:nth-child(7) { animation-delay: 1.93s; }
+        .boot-word--bot { color: #34d399; }
+        .boot-bar {
+          direction: ltr; width: 180px; height: 3px; border-radius: 99px;
+          background: rgba(255, 255, 255, 0.08); overflow: hidden; margin-top: 1rem;
+          opacity: 0; animation: bootFadeIn 0.5s ease 1.95s forwards;
+        }
+        .boot-bar-fill {
+          width: 40%; height: 100%; border-radius: 99px;
+          background: linear-gradient(90deg, transparent, #34d399 35%, #22d3ee 65%, transparent);
+          animation: bootSlide 1.4s ease-in-out 2.05s infinite;
+        }
+        .boot-label {
+          margin-top: 0.9rem; font-size: 0.82rem; color: #94a3b8;
+          opacity: 0; animation: bootFadeIn 0.6s ease 2.15s forwards;
+          font-family: 'Cairo', 'Tajawal', sans-serif;
+        }
+        @keyframes bootDraw { to { stroke-dashoffset: 0; } }
+        @keyframes bootDotIn { from { opacity: 0; transform: scale(0.3); } to { opacity: 1; transform: scale(1); } }
+        @keyframes bootTyping { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-3.5px); } }
+        @keyframes bootLetter { from { opacity: 0; transform: translateY(10px); filter: blur(6px); } to { opacity: 1; transform: translateY(0); filter: blur(0); } }
+        @keyframes bootSlide { from { transform: translateX(160px); } to { transform: translateX(-190px); } }
+        @keyframes bootFadeIn { to { opacity: 1; } }
+        @keyframes bootBreathe { from { transform: scale(0.9); opacity: 0.7; } to { transform: scale(1.1); opacity: 1; } }
+        @media (prefers-reduced-motion: reduce) {
+          .boot-bubble { stroke-dashoffset: 0; animation: none; }
+          .boot-dot { opacity: 1; animation: none; }
+          .boot-word span { opacity: 1; animation: none; }
+          .boot-bar, .boot-label { opacity: 1; animation: none; }
+          .boot-bar-fill { animation: none; transform: translateX(-60px); }
+          .boot-glow { animation: none; }
+        }
+      </style>
+      <div class="boot-glow"></div>
+      <div class="boot-stage">
+        <svg class="boot-svg" viewBox="0 0 120 120" fill="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="boot-grad" x1="25" y1="30" x2="95" y2="85" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#34d399"/>
+              <stop offset="1" stop-color="#22d3ee"/>
+            </linearGradient>
+          </defs>
+          <path class="boot-bubble"
+            d="M39 72 L32 85 L48 72 H81 Q95 72 95 58 V44 Q95 30 81 30 H39 Q25 30 25 44 V58 Q25 72 39 72 Z"
+            stroke="url(#boot-grad)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle class="boot-dot boot-dot--1" cx="45" cy="51" r="4.5" fill="#34d399"/>
+          <circle class="boot-dot boot-dot--2" cx="60" cy="51" r="4.5" fill="#10b981"/>
+          <circle class="boot-dot boot-dot--3" cx="75" cy="51" r="4.5" fill="#22d3ee"/>
+        </svg>
+        <div class="boot-word" aria-hidden="true">
+          <span>A</span><span>u</span><span>r</span><span>a</span><span class="boot-word--bot">B</span><span class="boot-word--bot">o</span><span class="boot-word--bot">t</span>
+        </div>
+        <div class="boot-bar"><div class="boot-bar-fill"></div></div>
+        <div class="boot-label">جاري تجهيز منصتك...</div>
+      </div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

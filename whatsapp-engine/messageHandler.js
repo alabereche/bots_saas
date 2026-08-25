@@ -146,23 +146,134 @@ async function resolveWhatsAppMedia(mediaUrl) {
   return await MessageMedia.fromUrl(mediaUrl, { unsafeMime: true }).catch(() => null);
 }
 
-// ─── Robust Media Downloader with Asynchronous Polling ────────
-async function downloadMediaWithRetry(msg, maxRetries = 6, delayMs = 600) {
+// ─── Multi-Strategy WhatsApp Audio Extractor ─────────────────
+async function extractWhatsAppAudio(msg, maxRetries = 5, delayMs = 600) {
+  if (!msg) return null;
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const media = await msg.downloadMedia();
-      if (media && media.data && typeof media.data === 'string' && media.data.length > 0) {
-        console.log(`[Handler] ✅ Voice note decrypted successfully on attempt ${attempt}/${maxRetries} (${media.mimetype}, ${Math.round(media.data.length / 1024)}KB base64)`);
-        return media;
+      // 1. Direct In-Page Evaluation (Fastest & Most Reliable: Bypasses WWebJS bugs)
+      if (msg.client && msg.client.pupPage) {
+        const pageResult = await msg.client.pupPage.evaluate(async (msgId) => {
+          try {
+            const m = window.Store.Msg.get(msgId) || (await window.Store.Msg.getMessagesById([msgId]))?.messages?.[0];
+            if (!m) return null;
+
+            // Trigger download in background if not already started
+            if (m.mediaData && m.mediaData.mediaStage !== 'RESOLVED') {
+              try {
+                await m.downloadMedia({ downloadEvenIfExpensive: true, rmrReason: 1 });
+              } catch (e) {}
+            }
+
+            // Strategy A: Direct Blob URL (renderableUrl / streamUrl / fullsizeUrl)
+            const blobUrl = m.mediaData?.renderableUrl || m.mediaData?.fullsizeUrl || m.mediaData?.streamUrl;
+            if (blobUrl) {
+              try {
+                const response = await fetch(blobUrl);
+                const blob = await response.blob();
+                const b64 = await new Promise((resolve) => {
+                  const reader = new FileReader();
+                  reader.onloadend = () => {
+                    const resStr = reader.result;
+                    resolve(typeof resStr === 'string' ? resStr.split(',')[1] : null);
+                  };
+                  reader.onerror = () => resolve(null);
+                  reader.readAsDataURL(blob);
+                });
+                if (b64) {
+                  return {
+                    data: b64,
+                    mimetype: m.mimetype || 'audio/ogg',
+                  };
+                }
+              } catch (blobErr) {}
+            }
+
+            // Strategy B: DownloadManager with normalized type ('audio' instead of 'ptt')
+            if (window.Store.DownloadManager && m.directPath && m.mediaKey) {
+              try {
+                const normalizedType = m.type === 'ptt' ? 'audio' : (m.type || 'audio');
+                const decrypted = await window.Store.DownloadManager.downloadAndMaybeDecrypt({
+                  directPath: m.directPath,
+                  encFilehash: m.encFilehash,
+                  filehash: m.filehash,
+                  mediaKey: m.mediaKey,
+                  mediaKeyTimestamp: m.mediaKeyTimestamp,
+                  type: normalizedType,
+                  signal: (new AbortController()).signal,
+                });
+
+                if (decrypted) {
+                  const bytes = new Uint8Array(decrypted);
+                  let binary = '';
+                  const len = bytes.byteLength;
+                  for (let i = 0; i < len; i++) {
+                    binary += String.fromCharCode(bytes[i]);
+                  }
+                  const b64 = btoa(binary);
+                  return {
+                    data: b64,
+                    mimetype: m.mimetype || 'audio/ogg',
+                  };
+                }
+              } catch (decErr) {}
+            }
+
+            // Strategy C: Memory BlobCache
+            if (window.Store.BlobCache && m.filehash) {
+              try {
+                const cachedBlob = window.Store.BlobCache.get(m.filehash);
+                if (cachedBlob) {
+                  const b64 = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                      const resStr = reader.result;
+                      resolve(typeof resStr === 'string' ? resStr.split(',')[1] : null);
+                    };
+                    reader.onerror = () => resolve(null);
+                    reader.readAsDataURL(cachedBlob);
+                  });
+                  if (b64) {
+                    return {
+                      data: b64,
+                      mimetype: m.mimetype || 'audio/ogg',
+                    };
+                  }
+                }
+              } catch (cacheErr) {}
+            }
+
+            return null;
+          } catch (innerErr) {
+            return null;
+          }
+        }, msg.id._serialized);
+
+        if (pageResult && pageResult.data) {
+          console.log(`[Handler] ✅ Voice note extracted via In-Page Engine on attempt ${attempt}/${maxRetries} (${pageResult.mimetype}, ${Math.round(pageResult.data.length / 1024)}KB base64)`);
+          return pageResult;
+        }
+      }
+
+      // 2. Standard WWebJS downloadMedia fallback
+      const stdMedia = await msg.downloadMedia();
+      if (stdMedia && stdMedia.data && typeof stdMedia.data === 'string' && stdMedia.data.length > 0) {
+        console.log(`[Handler] ✅ Voice note downloaded via WWebJS on attempt ${attempt}/${maxRetries} (${stdMedia.mimetype})`);
+        return {
+          data: stdMedia.data,
+          mimeType: stdMedia.mimetype || 'audio/ogg',
+        };
       }
     } catch (err) {
-      console.warn(`[Handler] Media download attempt ${attempt}/${maxRetries} notice:`, err.message);
+      console.warn(`[Handler] Audio extraction attempt ${attempt}/${maxRetries} notice:`, err.message);
     }
-    // Wait for Chromium DownloadManager to resolve mediaStage from FETCHING to RESOLVED
+
     if (attempt < maxRetries) {
       await new Promise(resolve => setTimeout(resolve, delayMs));
     }
   }
+
   return null;
 }
 
@@ -196,14 +307,14 @@ async function handleMessage(msg, config) {
     userId = msg.from;
     userName = msg._data?.notifyName || msg.notifyName || 'زبون واتساب';
 
-    // Download audio data with robust asynchronous retry polling
+    // Download audio data with multi-strategy extractor
     let audioData = null;
     if (isAudio) {
-      const media = await downloadMediaWithRetry(msg, 6, 600);
-      if (media && media.data) {
+      const extracted = await extractWhatsAppAudio(msg, 5, 600);
+      if (extracted && extracted.data) {
         audioData = {
-          data: media.data,
-          mimeType: media.mimetype || 'audio/ogg',
+          data: extracted.data,
+          mimeType: extracted.mimetype || extracted.mimeType || 'audio/ogg',
         };
       }
     }

@@ -121,8 +121,6 @@ export default function Sidebar() {
             </div>
           </div>
 
-          <NotificationBell variant="desktop" />
-
           <button
             type="button"
             className="sidebar-collapse-btn"

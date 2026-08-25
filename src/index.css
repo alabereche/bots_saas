@@ -3653,3 +3653,14 @@ html, body {
   left: 10px;
   width: auto;
 }
+
+/* Desktop notification bell — pinned to the content header's far (left) corner */
+.desktop-topbar {
+  position: absolute;
+  top: 1.7rem;
+  left: 2.5rem;
+  z-index: 60;
+}
+@media (max-width: 768px) {
+  .desktop-topbar { display: none; }
+}

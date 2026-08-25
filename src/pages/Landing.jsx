@@ -246,6 +246,8 @@ export default function Landing() {
 
       {/* ─── Hero: story on one side, the living phone on the other ─── */}
       <section className="landing-hero-section">
+        {/* 3D receding grid floor */}
+        <div className="hero-grid-floor" aria-hidden="true" />
         <div className="landing-container hero-split">
 
           <div className="hero-content-block">

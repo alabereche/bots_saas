@@ -146,6 +146,26 @@ async function resolveWhatsAppMedia(mediaUrl) {
   return await MessageMedia.fromUrl(mediaUrl, { unsafeMime: true }).catch(() => null);
 }
 
+// ─── Robust Media Downloader with Asynchronous Polling ────────
+async function downloadMediaWithRetry(msg, maxRetries = 6, delayMs = 600) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const media = await msg.downloadMedia();
+      if (media && media.data && typeof media.data === 'string' && media.data.length > 0) {
+        console.log(`[Handler] ✅ Voice note decrypted successfully on attempt ${attempt}/${maxRetries} (${media.mimetype}, ${Math.round(media.data.length / 1024)}KB base64)`);
+        return media;
+      }
+    } catch (err) {
+      console.warn(`[Handler] Media download attempt ${attempt}/${maxRetries} notice:`, err.message);
+    }
+    // Wait for Chromium DownloadManager to resolve mediaStage from FETCHING to RESOLVED
+    if (attempt < maxRetries) {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+  return null;
+}
+
 // ─── Message Handler ─────────────────────────────────────────
 async function handleMessage(msg, config) {
   let userId = null;
@@ -163,7 +183,9 @@ async function handleMessage(msg, config) {
     }
 
     // Check if message is a voice note / audio
-    const isAudio = msg.type === 'ptt' || msg.type === 'audio' || (msg.hasMedia && (msg.type === 'ptt' || msg.type === 'audio'));
+    const isAudio = msg.type === 'ptt' ||
+                    msg.type === 'audio' ||
+                    (msg.hasMedia && (msg.type === 'ptt' || msg.type === 'audio' || (msg._data?.mimetype && msg._data.mimetype.includes('audio'))));
     const userMessage = (msg.body || '').trim();
 
     // Skip empty or non-text messages unless it is an audio/voice note
@@ -174,19 +196,15 @@ async function handleMessage(msg, config) {
     userId = msg.from;
     userName = msg._data?.notifyName || msg.notifyName || 'زبون واتساب';
 
-    // Download audio data in-memory without storing on disk
+    // Download audio data with robust asynchronous retry polling
     let audioData = null;
     if (isAudio) {
-      try {
-        const media = await msg.downloadMedia();
-        if (media && media.data) {
-          audioData = {
-            data: media.data,
-            mimeType: media.mimetype || 'audio/ogg',
-          };
-        }
-      } catch (audioDownloadErr) {
-        console.warn('[Handler] Failed to download audio note:', audioDownloadErr.message);
+      const media = await downloadMediaWithRetry(msg, 6, 600);
+      if (media && media.data) {
+        audioData = {
+          data: media.data,
+          mimeType: media.mimetype || 'audio/ogg',
+        };
       }
     }
 

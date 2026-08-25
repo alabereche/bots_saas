@@ -3549,7 +3549,7 @@ html, body {
 .notif-panel {
   position: absolute;
   top: calc(100% + 10px);
-  left: 0;
+  right: 0;
   width: min(340px, calc(100vw - 32px));
   background: #0d1526;
   border: 1px solid var(--border-bright, rgba(255, 255, 255, 0.12));
@@ -3593,18 +3593,18 @@ html, body {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  width: 100%;
-  padding: 0.8rem 1rem;
+  width: auto;
+  margin: 5px 8px;
+  padding: 0.7rem 0.75rem;
   background: none;
-  border: none;
-  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.05));
+  border: 1px solid transparent;
+  border-radius: 12px;
   cursor: pointer;
   text-align: right;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
-.notif-item:last-child { border-bottom: none; }
-.notif-item:hover { background: rgba(255, 255, 255, 0.04); }
-.notif-item--unread { background: rgba(16, 185, 129, 0.05); }
+.notif-item:hover { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.08); }
+.notif-item--unread { background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.2); }
 .notif-item-icon {
   width: 30px;
   height: 30px;
@@ -3644,11 +3644,12 @@ html, body {
   margin-top: 4px;
   box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
 }
+.notif-bell--desktop .notif-bell-btn { width: 32px; height: 32px; border-radius: 9px; }
 .notif-bell--mobile .notif-bell-btn { width: 30px; height: 30px; border-radius: 9px; }
 .notif-bell--mobile .notif-panel {
-  left: auto;
-  right: 8px;
   position: fixed;
-  top: 54px;
-  width: min(340px, calc(100vw - 24px));
+  top: 56px;
+  right: 10px;
+  left: 10px;
+  width: auto;
 }

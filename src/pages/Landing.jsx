@@ -443,13 +443,23 @@ export default function Landing() {
           </div>
 
           <div className="features-bento-grid">
-            <div className="bento-card bento-wide">
-              <div className="bento-icon-box"><IconDialect /></div>
-              <h3 className="bento-title">يفهم دارجتك الجزائرية بدقة</h3>
-              <p className="bento-desc">
-                "شحال"، "واه"، "كاين"، "حبيت نكوموندي" — يفهم المصطلحات الدارجة وأسماء الولايات،
-                ويرد بأسلوب تاجر محترف يبيع فعلاً.
-              </p>
+            <div className="bento-card bento-wide bento-dialect">
+              <div className="bento-dialect-text">
+                <div className="bento-icon-box"><IconDialect /></div>
+                <h3 className="bento-title">يفهم دارجتك الجزائرية بدقة</h3>
+                <p className="bento-desc">
+                  "شحال"، "واه"، "كاين"، "حبيت نكوموندي" — يفهم المصطلحات الدارجة وأسماء الولايات،
+                  ويرد بأسلوب تاجر محترف يبيع فعلاً.
+                </p>
+              </div>
+              <div className="dialect-cloud" aria-hidden="true">
+                <span className="dialect-chip dialect-chip--hot dc-1">شحال هادي؟</span>
+                <span className="dialect-chip dc-2">واه</span>
+                <span className="dialect-chip dc-3">كاين؟</span>
+                <span className="dialect-chip dc-4">حبيت نكومندي</span>
+                <span className="dialect-chip dc-5">صحا!</span>
+                <span className="dialect-chip dc-6">برك</span>
+              </div>
             </div>
 
             <div className="bento-card">
@@ -458,6 +468,12 @@ export default function Landing() {
               <p className="bento-desc">
                 صورة رئيسية + 4 زوايا إضافية، ضغط تلقائي يوفر 85% من الحجم، وترسل للزبون كألبوم فوري.
               </p>
+              <div className="format-badges">
+                <span className="format-badge format-badge--hot">WebP</span>
+                <span className="format-badge">JPG</span>
+                <span className="format-badge">PNG</span>
+                <span className="format-badge">+4 زوايا</span>
+              </div>
             </div>
 
             <div className="bento-card">
@@ -484,12 +500,15 @@ export default function Landing() {
               </p>
             </div>
 
-            <div className="bento-card">
+            <div className="bento-card bento-strip">
               <div className="bento-icon-box"><IconShield /></div>
-              <h3 className="bento-title">أمان Zero-Trust وعزل تام</h3>
-              <p className="bento-desc">
-                تحقق مشفر بهوية Firebase، وكل تاجر معزول بالكامل عن الآخرين — بياناتك لك وحدك.
-              </p>
+              <div className="bento-strip-text">
+                <h3 className="bento-title">أمان Zero-Trust وعزل تام</h3>
+                <p className="bento-desc">
+                  تحقق مشفر بهوية Firebase، وكل تاجر معزول بالكامل عن الآخرين — بياناتك لك وحدك.
+                </p>
+              </div>
+              <div className="bento-strip-mark"><IconShield /></div>
             </div>
           </div>
         </div>

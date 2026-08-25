@@ -76,13 +76,24 @@ function AppLayout() {
 
 export default function App() {
   // Fade out the pre-JS boot loader from index.html — runs only after
-  // React has committed its first paint, so there is never a blank flash
+  // React has committed its first paint, so there is never a blank flash.
+  // The splash is also held for a minimum duration so the entrance
+  // sequence (bubble draw → typing dots → wordmark) is actually seen
+  // even when the bundle parses instantly from cache.
   useEffect(() => {
     const boot = document.getElementById('boot-loader');
     if (!boot) return undefined;
-    boot.classList.add('boot-done');
-    const t = setTimeout(() => boot.remove(), 500);
-    return () => clearTimeout(t);
+    const MIN_SPLASH_MS = 2600;
+    const wait = Math.max(0, MIN_SPLASH_MS - performance.now());
+    let fadeTimer;
+    const holdTimer = setTimeout(() => {
+      boot.classList.add('boot-done');
+      fadeTimer = setTimeout(() => boot.remove(), 500);
+    }, wait);
+    return () => {
+      clearTimeout(holdTimer);
+      clearTimeout(fadeTimer);
+    };
   }, []);
 
   return (

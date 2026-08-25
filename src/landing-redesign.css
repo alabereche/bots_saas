@@ -673,30 +673,3 @@
     padding-top: 7.5rem;
   }
 }
-
-/* ─── 3D perspective grid floor — the hero stands on a receding plane ─── */
-.landing-hero-section .landing-container {
-  position: relative;
-  z-index: 2;
-}
-.hero-grid-floor {
-  position: absolute;
-  left: -18%;
-  right: -18%;
-  bottom: -4%;
-  height: 85%;
-  z-index: 1;
-  pointer-events: none;
-  background-image:
-    linear-gradient(rgba(52, 211, 153, 0.17) 1.5px, transparent 1.5px),
-    linear-gradient(90deg, rgba(52, 211, 153, 0.17) 1.5px, transparent 1.5px);
-  background-size: 54px 54px;
-  transform: perspective(620px) rotateX(57deg);
-  transform-origin: center top;
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.5) 34%, black 68%, black 84%, transparent 100%);
-  mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.5) 34%, black 68%, black 84%, transparent 100%);
-  opacity: 0.5;
-}
-@media (max-width: 768px) {
-  .hero-grid-floor { opacity: 0.35; height: 70%; }
-}

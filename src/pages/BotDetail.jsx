@@ -2445,9 +2445,9 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
   };
 
   const PRIORITY_CONFIG = {
-    hot: { label: 'ساخن (أولوية عالية)', bg: 'rgba(239, 68, 68, 0.2)', color: '#fca5a5', border: 'rgba(239, 68, 68, 0.4)' },
-    warm: { label: 'مهتم (متوسط)', bg: 'rgba(245, 158, 11, 0.2)', color: '#fcd34d', border: 'rgba(245, 158, 11, 0.4)' },
-    cold: { label: 'مستفسر (عادي)', bg: 'rgba(100, 116, 139, 0.2)', color: '#cbd5e1', border: 'rgba(100, 116, 139, 0.4)' },
+    hot: { label: 'ساخن (أولوية قصوى)', bg: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: 'rgba(239, 68, 68, 0.35)' },
+    warm: { label: 'مهتم (متوسط)', bg: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', border: 'rgba(245, 158, 11, 0.35)' },
+    cold: { label: 'مستفسر (عادي)', bg: 'rgba(148, 163, 184, 0.12)', color: '#cbd5e1', border: 'rgba(148, 163, 184, 0.25)' },
   };
 
   const filteredLeads = leads.filter(lead => {
@@ -2524,13 +2524,14 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       {/* Header & Stats */}
-      <div className="card">
+      <div className="card" style={{ padding: '1.5rem', background: '#0a101d', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '1.25rem' }}>
           <div>
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ffffff', margin: 0 }}>
-              العملاء المحتملين وإدارة الليدات (CRM)
+            <h3 style={{ fontSize: '1.18rem', fontWeight: 800, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <span>العملاء المحتملين وإدارة الليدات (CRM)</span>
             </h3>
-            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
+            <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: '5px 0 0 0' }}>
               الذكاء الاصطناعي يستخرج بيانات المهتمين والخدمات والميزانيات تلقائياً من المحادثات ويسجلها هنا وفي Google Sheets.
             </p>
           </div>
@@ -2538,7 +2539,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
             type="button"
             className="btn btn-secondary btn-sm"
             onClick={exportCSV}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.5rem 1rem', borderRadius: '10px' }}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             <span>تصدير Excel / CSV</span>
@@ -2546,98 +2547,137 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
         </div>
 
         {/* Stats Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
-          <div style={{ background: '#090e1a', padding: '0.85rem 1rem', borderRadius: '10px', border: '1px solid var(--border-default)' }}>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>إجمالي العملاء المستخرجين</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#ffffff' }}>{leads.length}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+          <div style={{ background: '#060a12', padding: '1rem 1.15rem', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '6px', fontWeight: 600 }}>إجمالي العملاء المستخرجين</div>
+            <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#ffffff' }}>{leads.length}</div>
           </div>
-          <div style={{ background: '#090e1a', padding: '0.85rem 1rem', borderRadius: '10px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
-            <div style={{ fontSize: '0.75rem', color: '#fca5a5', marginBottom: '4px' }}>عملاء ساخنون (أولوية قصوى)</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#ef4444' }}>{hotCount}</div>
+          <div style={{ background: '#060a12', padding: '1rem 1.15rem', borderRadius: '12px', border: '1px solid rgba(239, 68, 68, 0.25)' }}>
+            <div style={{ fontSize: '0.78rem', color: '#fca5a5', marginBottom: '6px', fontWeight: 600 }}>عملاء ساخنون (أولوية قصوى)</div>
+            <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#ef4444' }}>{hotCount}</div>
           </div>
-          <div style={{ background: '#090e1a', padding: '0.85rem 1rem', borderRadius: '10px', border: '1px solid rgba(34, 197, 94, 0.3)' }}>
-            <div style={{ fontSize: '0.75rem', color: '#86efac', marginBottom: '4px' }}>تم التواصل والمتابعة</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#22c55e' }}>{contactedCount}</div>
+          <div style={{ background: '#060a12', padding: '1rem 1.15rem', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+            <div style={{ fontSize: '0.78rem', color: '#6ee7b7', marginBottom: '6px', fontWeight: 600 }}>تم التواصل والمتابعة</div>
+            <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#10b981' }}>{contactedCount}</div>
           </div>
         </div>
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="card" style={{ padding: '1rem' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', gap: '8px', flex: 1, minWidth: '240px' }}>
+      <div className="card" style={{ padding: '1rem 1.25rem', background: '#0a101d', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', justifyContent: 'space-between' }}>
+          {/* Search Box */}
+          <div style={{ position: 'relative', flex: 1, minWidth: '260px' }}>
+            <div style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </div>
             <input
               type="text"
-              className="form-control"
-              placeholder="بحث بالاسم، رقم الهاتف، الخدمة أو الشركة..."
+              className="form-input"
+              placeholder="بحث بالاسم، الهاتف، الخدمة المطلوبة، أو الشركة..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{ fontSize: '0.85rem' }}
+              style={{
+                paddingRight: '2.5rem',
+                minHeight: '44px',
+                fontSize: '0.88rem',
+                background: '#060a12',
+                borderRadius: '10px',
+              }}
             />
           </div>
 
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+          {/* Filter Buttons & Status Select */}
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
             <button
               type="button"
-              className={`btn btn-sm ${!hotOnly ? 'btn-secondary' : 'btn-ghost'}`}
               onClick={() => setHotOnly(false)}
-              style={{ fontSize: '0.78rem' }}
+              style={{
+                padding: '0.45rem 0.95rem',
+                borderRadius: '10px',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                background: !hotOnly ? 'rgba(16, 185, 129, 0.15)' : '#060a12',
+                color: !hotOnly ? '#34d399' : 'var(--text-secondary)',
+                border: `1px solid ${!hotOnly ? 'rgba(16, 185, 129, 0.4)' : 'rgba(255, 255, 255, 0.08)'}`,
+              }}
             >
               الكل ({leads.length})
             </button>
             <button
               type="button"
-              className={`btn btn-sm ${hotOnly ? 'btn-danger' : 'btn-ghost'}`}
               onClick={() => setHotOnly(true)}
-              style={{ fontSize: '0.78rem' }}
+              style={{
+                padding: '0.45rem 0.95rem',
+                borderRadius: '10px',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                background: hotOnly ? 'rgba(239, 68, 68, 0.15)' : '#060a12',
+                color: hotOnly ? '#f87171' : 'var(--text-secondary)',
+                border: `1px solid ${hotOnly ? 'rgba(239, 68, 68, 0.4)' : 'rgba(255, 255, 255, 0.08)'}`,
+              }}
             >
               الساخنون فقط ({hotCount})
             </button>
 
             <select
-              className="form-control"
+              className="form-select"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              style={{ fontSize: '0.78rem', padding: '4px 8px', width: 'auto', background: '#090e1a' }}
+              style={{
+                fontSize: '0.82rem',
+                padding: '0.45rem 1rem',
+                borderRadius: '10px',
+                background: '#060a12',
+                color: '#ffffff',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                minHeight: '42px',
+                cursor: 'pointer',
+                fontWeight: 600,
+              }}
             >
-              <option value="all">كل الحالات</option>
-              <option value="new">جديد</option>
-              <option value="contacted">تم التواصل</option>
-              <option value="qualified">مؤهل</option>
-              <option value="closed">تم التعاقد</option>
-              <option value="lost">ملغي</option>
+              <option value="all" style={{ background: '#0b111e', color: '#fff' }}>كل الحالات</option>
+              <option value="new" style={{ background: '#0b111e', color: '#60a5fa' }}>جديد</option>
+              <option value="contacted" style={{ background: '#0b111e', color: '#facc15' }}>تم التواصل</option>
+              <option value="qualified" style={{ background: '#0b111e', color: '#c084fc' }}>مؤهل</option>
+              <option value="closed" style={{ background: '#0b111e', color: '#4ade80' }}>تم التعاقد</option>
+              <option value="lost" style={{ background: '#0b111e', color: '#f87171' }}>ملغي</option>
             </select>
           </div>
         </div>
       </div>
 
       {/* Leads Table / List */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      <div className="card" style={{ padding: 0, overflow: 'hidden', background: '#0a101d', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
         {filteredLeads.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-tertiary)' }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)', color: '#60a5fa', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <div style={{ textAlign: 'center', padding: '3.5rem 1.5rem', color: 'var(--text-tertiary)' }}>
+            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.25)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             </div>
-            <p style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>
+            <p style={{ fontSize: '1rem', fontWeight: 700, color: '#ffffff', marginBottom: '0.35rem' }}>
               {search || statusFilter !== 'all' || hotOnly ? 'لا توجد نتائج مطابقة لفلتر البحث' : 'لا يوجد عملاء محتملين مسجلين بعد'}
             </p>
-            <p style={{ fontSize: '0.82rem', maxWidth: '420px', margin: '0 auto' }}>
+            <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', maxWidth: '440px', margin: '0 auto', lineHeight: 1.6 }}>
               يقوم مساعد الذكاء الاصطناعي تلقائياً بالتعرف على العملاء المهتمين أثناء المحادثات واستخراج بياناتهم وخدماتهم المطلوبة وحفظها هنا.
             </p>
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', textAlign: 'right' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.86rem', textAlign: 'right' }}>
               <thead>
-                <tr style={{ background: '#090e1a', borderBottom: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>
-                  <th style={{ padding: '0.75rem 1rem' }}>العميل / النشاط</th>
-                  <th style={{ padding: '0.75rem 1rem' }}>الهاتف والتواصل</th>
-                  <th style={{ padding: '0.75rem 1rem' }}>الخدمة المطلوبة</th>
-                  <th style={{ padding: '0.75rem 1rem' }}>الميزانية</th>
-                  <th style={{ padding: '0.75rem 1rem' }}>تقييم الذكاء الاصطناعي</th>
-                  <th style={{ padding: '0.75rem 1rem' }}>حالة المتابعة</th>
-                  <th style={{ padding: '0.75rem 1rem' }}>التاريخ</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>إجراءات</th>
+                <tr style={{ background: '#060a12', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', color: 'var(--text-secondary)' }}>
+                  <th style={{ padding: '0.85rem 1.15rem', fontWeight: 700 }}>العميل / النشاط</th>
+                  <th style={{ padding: '0.85rem 1.15rem', fontWeight: 700 }}>الهاتف والتواصل</th>
+                  <th style={{ padding: '0.85rem 1.15rem', fontWeight: 700 }}>الخدمة المطلوبة</th>
+                  <th style={{ padding: '0.85rem 1.15rem', fontWeight: 700 }}>الميزانية</th>
+                  <th style={{ padding: '0.85rem 1.15rem', fontWeight: 700 }}>تقييم الذكاء الاصطناعي</th>
+                  <th style={{ padding: '0.85rem 1.15rem', fontWeight: 700 }}>حالة المتابعة</th>
+                  <th style={{ padding: '0.85rem 1.15rem', fontWeight: 700 }}>التاريخ</th>
+                  <th style={{ padding: '0.85rem 1.15rem', textAlign: 'center', fontWeight: 700 }}>إجراءات</th>
                 </tr>
               </thead>
               <tbody>
@@ -2650,23 +2690,23 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                     <tr
                       key={lead.id}
                       style={{
-                        borderBottom: '1px solid var(--border-default)',
+                        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
                         transition: 'background 0.15s',
-                        background: lead.leadStatus === 'hot' ? 'rgba(239, 68, 68, 0.03)' : 'transparent',
+                        background: lead.leadStatus === 'hot' ? 'rgba(239, 68, 68, 0.02)' : 'transparent',
                       }}
                     >
-                      <td style={{ padding: '0.75rem 1rem' }}>
+                      <td style={{ padding: '0.85rem 1.15rem' }}>
                         <div style={{ fontWeight: 700, color: '#ffffff' }}>
                           {lead.customerName || lead.name || 'عميل'}
                         </div>
                         {lead.company && (
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                          <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
                             {lead.company}
                           </div>
                         )}
                       </td>
 
-                      <td style={{ padding: '0.75rem 1rem' }}>
+                      <td style={{ padding: '0.85rem 1.15rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <span style={{ fontFamily: 'monospace', color: '#60a5fa', fontWeight: 600 }}>
                             {lead.phone || '—'}
@@ -2679,8 +2719,8 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                                 rel="noreferrer"
                                 title="مراسلة على واتساب"
                                 style={{
-                                  width: '24px',
-                                  height: '24px',
+                                  width: '26px',
+                                  height: '26px',
                                   borderRadius: '50%',
                                   background: 'rgba(34, 197, 94, 0.15)',
                                   color: '#22c55e',
@@ -2696,8 +2736,8 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                                 href={`tel:${cleanPhone}`}
                                 title="اتصال هاتفي"
                                 style={{
-                                  width: '24px',
-                                  height: '24px',
+                                  width: '26px',
+                                  height: '26px',
                                   borderRadius: '50%',
                                   background: 'rgba(59, 130, 246, 0.15)',
                                   color: '#60a5fa',
@@ -2714,7 +2754,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                         </div>
                       </td>
 
-                      <td style={{ padding: '0.75rem 1rem' }}>
+                      <td style={{ padding: '0.85rem 1.15rem' }}>
                         <div style={{ color: '#ffffff', fontWeight: 600 }}>{lead.service || '—'}</div>
                         {lead.notes && (
                           <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: '2px', maxWidth: '240px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={lead.notes}>
@@ -2723,17 +2763,17 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                         )}
                       </td>
 
-                      <td style={{ padding: '0.75rem 1rem', color: '#10b981', fontWeight: 600 }}>
+                      <td style={{ padding: '0.85rem 1.15rem', color: '#10b981', fontWeight: 700 }}>
                         {lead.budget ? `${lead.budget} ${bot?.currency || 'دج'}` : '—'}
                       </td>
 
-                      <td style={{ padding: '0.75rem 1rem' }}>
+                      <td style={{ padding: '0.85rem 1.15rem' }}>
                         <span
                           style={{
                             display: 'inline-block',
-                            padding: '3px 8px',
-                            borderRadius: '12px',
-                            fontSize: '0.72rem',
+                            padding: '4px 10px',
+                            borderRadius: '20px',
+                            fontSize: '0.74rem',
                             fontWeight: 700,
                             background: prioConf.bg,
                             color: prioConf.color,
@@ -2744,41 +2784,42 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                         </span>
                       </td>
 
-                      <td style={{ padding: '0.75rem 1rem' }}>
+                      <td style={{ padding: '0.85rem 1.15rem' }}>
                         <select
-                          className="form-control"
+                          className="form-select"
                           value={lead.status || 'new'}
                           disabled={updatingId === lead.id}
                           onChange={(e) => handleStatusChange(lead.id, e.target.value)}
                           style={{
-                            fontSize: '0.76rem',
-                            padding: '3px 8px',
-                            borderRadius: '6px',
+                            fontSize: '0.78rem',
+                            padding: '4px 8px',
+                            borderRadius: '8px',
                             background: statusConf.bg,
                             color: statusConf.color,
                             border: `1px solid ${statusConf.border}`,
-                            fontWeight: 600,
+                            fontWeight: 700,
                             cursor: 'pointer',
+                            minHeight: '32px',
                           }}
                         >
-                          <option value="new">جديد</option>
-                          <option value="contacted">تم التواصل</option>
-                          <option value="qualified">مؤهل للشراء</option>
-                          <option value="closed">تم التعاقد</option>
-                          <option value="lost">ملغي / غير مهتم</option>
+                          <option value="new" style={{ background: '#0b111e', color: '#60a5fa' }}>جديد</option>
+                          <option value="contacted" style={{ background: '#0b111e', color: '#facc15' }}>تم التواصل</option>
+                          <option value="qualified" style={{ background: '#0b111e', color: '#c084fc' }}>مؤهل للشراء</option>
+                          <option value="closed" style={{ background: '#0b111e', color: '#4ade80' }}>تم التعاقد</option>
+                          <option value="lost" style={{ background: '#0b111e', color: '#f87171' }}>ملغي / غير مهتم</option>
                         </select>
                       </td>
 
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                      <td style={{ padding: '0.85rem 1.15rem', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
                         {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('ar-DZ') : '—'}
                       </td>
 
-                      <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
+                      <td style={{ padding: '0.85rem 1.15rem', textAlign: 'center' }}>
                         <button
                           type="button"
                           className="btn btn-ghost btn-sm"
                           onClick={() => handleDelete(lead.id)}
-                          style={{ color: '#ef4444', padding: '4px 6px' }}
+                          style={{ color: '#ef4444', padding: '6px' }}
                           title="حذف العميل"
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
@@ -2907,130 +2948,145 @@ function GoogleSheetsTab({ bot, onUpdateBot }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       {/* Header Banner */}
-      <div className="card">
-        <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ffffff', margin: 0 }}>
-          المزامنة التلقائية مع Google Sheets
+      <div className="card" style={{ padding: '1.5rem', background: '#0a101d', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+        <h3 style={{ fontSize: '1.18rem', fontWeight: 800, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+          <span>المزامنة التلقائية مع Google Sheets</span>
         </h3>
-        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
+        <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: '6px 0 0 0', lineHeight: 1.6 }}>
           اربط هذا البوت بجدول Google Sheets الخاص بك لتسجيل كل طلبية شراء جديدة وكل عميل محتمل (Lead) في شيت منظم بشكل لحظي ودون الحاجة لأي خدمات وسيطة مدفوعة.
         </p>
       </div>
 
       {/* Webhook Configuration Form */}
-      <div className="card">
+      <div className="card" style={{ padding: '1.5rem', background: '#0a101d', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
         <form onSubmit={handleSave}>
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#ffffff', marginBottom: '6px' }}>
+          <div style={{ marginBottom: '1.25rem' }}>
+            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: '#ffffff', marginBottom: '8px' }}>
               رابط Google Apps Script Webhook URL
             </label>
             <input
               type="url"
-              className="form-control"
+              className="form-input"
               placeholder="https://script.google.com/macros/s/.../exec"
               value={webhookUrl}
               onChange={(e) => setWebhookUrl(e.target.value)}
-              style={{ direction: 'ltr', textAlign: 'left', fontFamily: 'monospace', fontSize: '0.82rem' }}
+              style={{
+                direction: 'ltr',
+                textAlign: 'left',
+                fontFamily: 'monospace',
+                fontSize: '0.86rem',
+                minHeight: '48px',
+                background: '#060a12',
+                borderRadius: '10px',
+              }}
             />
-            <p style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
-              الرابط الذي يتم الحصول عليه عند نشر السكريبت كـ Web App من Google Sheets.
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '6px 0 0 0' }}>
+              الرابط الذي تحصل عليه عند نشر السكريبت كـ Web App من داخل Google Sheets.
             </p>
           </div>
 
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             <button
               type="submit"
-              className="btn btn-primary btn-sm"
+              className="btn btn-primary"
               disabled={saving}
+              style={{ minHeight: '42px', padding: '0.5rem 1.25rem', borderRadius: '10px', fontWeight: 700 }}
             >
               {saving ? 'جارٍ الحفظ...' : 'حفظ الإعدادات'}
             </button>
 
             <button
               type="button"
-              className="btn btn-secondary btn-sm"
+              className="btn btn-secondary"
               onClick={handleTestSync}
               disabled={testing || !webhookUrl.trim()}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              style={{ minHeight: '42px', padding: '0.5rem 1.25rem', borderRadius: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
               <span>{testing ? 'جارٍ إرسال الاختبار...' : 'إرسال اختبار فوري للجدول'}</span>
             </button>
           </div>
         </form>
       </div>
 
-      {/* Ready-to-use Script Card */}
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
+      {/* Code Snippet Box */}
+      <div className="card" style={{ padding: '1.5rem', background: '#0a101d', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <div>
-            <h4 style={{ fontSize: '0.98rem', fontWeight: 700, color: '#ffffff', margin: 0 }}>
+            <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#ffffff', margin: 0 }}>
               الكود البرمجي الجاهز لـ Google Apps Script
             </h4>
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
-              انسخ هذا الكود والصقه داخل محرر السكريبت في Google Sheets.
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
+              انسخ هذا الكود والصقه داخل محرر السكريبت في Google Sheets (Extensions ← Apps Script).
             </p>
           </div>
           <button
             type="button"
-            className={`btn btn-sm ${copied ? 'btn-success' : 'btn-secondary'}`}
+            className="btn btn-secondary btn-sm"
             onClick={copyScript}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '8px' }}
           >
-            {copied ? (
-              <>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>تم النسخ!</span>
-              </>
-            ) : (
-              <>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                <span>نسخ الكود</span>
-              </>
-            )}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            <span>{copied ? 'تم النسخ!' : 'نسخ الكود'}</span>
           </button>
         </div>
 
-        <div style={{ background: '#090e1a', borderRadius: '8px', border: '1px solid var(--border-default)', padding: '0.85rem', overflowX: 'auto' }}>
-          <pre style={{ margin: 0, fontSize: '0.78rem', color: '#38bdf8', fontFamily: 'Consolas, monospace', lineHeight: 1.45, direction: 'ltr', textAlign: 'left' }}>
-            {APPS_SCRIPT_CODE}
-          </pre>
-        </div>
+        <pre
+          style={{
+            background: '#040711',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '10px',
+            padding: '1rem',
+            color: '#93c5fd',
+            fontFamily: 'monospace',
+            fontSize: '0.78rem',
+            lineHeight: 1.6,
+            maxHeight: '320px',
+            overflowY: 'auto',
+            direction: 'ltr',
+            textAlign: 'left',
+          }}
+        >
+          <code>{APPS_SCRIPT_CODE}</code>
+        </pre>
       </div>
 
       {/* Step by Step Setup Instructions */}
-      <div className="card">
-        <h4 style={{ fontSize: '0.98rem', fontWeight: 700, color: '#ffffff', marginBottom: '0.85rem' }}>
-          خطوات الربط خطوة بخطوة في دقيقتين:
+      <div className="card" style={{ padding: '1.5rem', background: '#0a101d', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+        <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#ffffff', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+          <span>خطوات الربط في دقيقتين</span>
         </h4>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
-          <div style={{ background: '#090e1a', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-default)' }}>
-            <strong style={{ color: '#60a5fa', display: 'block', marginBottom: '4px', fontSize: '0.85rem' }}>1. أنشئ الشيت</strong>
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+          <div style={{ background: '#060a12', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+            <strong style={{ color: '#60a5fa', display: 'block', marginBottom: '6px', fontSize: '0.88rem' }}>1. أنشئ الشيت</strong>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
               افتح Google Sheets وأنشئ جدولاً جديداً بأي اسم تريده.
             </p>
           </div>
-          <div style={{ background: '#090e1a', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-default)' }}>
-            <strong style={{ color: '#10b981', display: 'block', marginBottom: '4px', fontSize: '0.85rem' }}>2. افتح Apps Script</strong>
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+          <div style={{ background: '#060a12', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+            <strong style={{ color: '#10b981', display: 'block', marginBottom: '6px', fontSize: '0.88rem' }}>2. افتح Apps Script</strong>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
               من القائمة العلوية اضغط على <strong>الإضافات (Extensions)</strong> ثم <strong>Apps Script</strong>.
             </p>
           </div>
-          <div style={{ background: '#090e1a', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-default)' }}>
-            <strong style={{ color: '#facc15', display: 'block', marginBottom: '4px', fontSize: '0.85rem' }}>3. الصق الكود</strong>
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-              امسح الكود الافتراضي والصق الكود الموجود في الأعلى واضغط حفظ (Save).
+          <div style={{ background: '#060a12', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+            <strong style={{ color: '#facc15', display: 'block', marginBottom: '6px', fontSize: '0.88rem' }}>3. الصق الكود</strong>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
+              امسح الكود الافتراضي والصق الكود الموجود في الأعلى واضغط حفظ.
             </p>
           </div>
-          <div style={{ background: '#090e1a', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-default)' }}>
-            <strong style={{ color: '#a78bfa', display: 'block', marginBottom: '4px', fontSize: '0.85rem' }}>4. نشر كتطبيق ويب</strong>
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+          <div style={{ background: '#060a12', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+            <strong style={{ color: '#c084fc', display: 'block', marginBottom: '6px', fontSize: '0.88rem' }}>4. نشر كتطبيق ويب</strong>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
               اضغط <strong>Deploy</strong> ثم <strong>New deployment</strong> واختر <strong>Web app</strong>، واجعل من يملك الإذن: <strong>Anyone</strong>.
             </p>
           </div>
-          <div style={{ background: '#090e1a', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-default)' }}>
-            <strong style={{ color: '#38bdf8', display: 'block', marginBottom: '4px', fontSize: '0.85rem' }}>5. الصق الرابط واختبر</strong>
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-              انسخ الـ Web App URL والصقه في الخانة أعلاه واضغط "إرسال اختبار فوري".
+          <div style={{ background: '#060a12', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+            <strong style={{ color: '#38bdf8', display: 'block', marginBottom: '6px', fontSize: '0.88rem' }}>5. الصق الرابط واختبر</strong>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
+              انسخ الرابط الناتج والصقه في الخانة أعلاه واضغط "إرسال اختبار فوري".
             </p>
           </div>
         </div>

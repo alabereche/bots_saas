@@ -11,9 +11,11 @@ const { askOpenRouter } = require('./openrouter');
 const firestore = require('./firestore');
 const { isTakeoverActive } = require('./takeover');
 const trackingHelper = require('./tracking-helper');
+const { syncToGoogleSheets } = require('./sheetsSync');
 
-// ─── Smart Order & Booking Extraction ─────────────────────────
+// ─── Smart Order & Lead Extraction ───────────────────────────
 const ORDER_TAG = '[ORDER_CONFIRMED]';
+const LEAD_TAG = '[LEAD_QUALIFIED]';
 
 function extractOrder(rawReply) {
   const tagIndex = rawReply.indexOf(ORDER_TAG);
@@ -30,6 +32,39 @@ function extractOrder(rawReply) {
     console.error('[Handler] Failed to parse order JSON:', e.message);
     return { reply: cleanReply, orderData: null };
   }
+}
+
+function extractLead(rawReply) {
+  const tagIndex = rawReply.indexOf(LEAD_TAG);
+  if (tagIndex === -1) return { reply: rawReply, leadData: null };
+
+  const jsonStart = tagIndex + LEAD_TAG.length;
+  const jsonStr = rawReply.slice(jsonStart).trim();
+  const cleanReply = rawReply.slice(0, tagIndex).trim();
+
+  try {
+    const leadData = JSON.parse(jsonStr);
+    return { reply: cleanReply, leadData };
+  } catch (e) {
+    console.error('[Handler] Failed to parse lead JSON:', e.message);
+    return { reply: cleanReply, leadData: null };
+  }
+}
+
+function sanitizeLead(leadData) {
+  if (!leadData || typeof leadData !== 'object') return null;
+  const str = v => (typeof v === 'string' ? v.trim().slice(0, 300) : '');
+  const sanitized = {
+    name: str(leadData.name),
+    phone: str(leadData.phone),
+    company: str(leadData.company),
+    service: str(leadData.service),
+    budget: str(leadData.budget),
+    leadStatus: ['hot', 'warm', 'cold'].includes(leadData.leadStatus) ? leadData.leadStatus : 'warm',
+    notes: str(leadData.notes),
+  };
+  if (!sanitized.name && !sanitized.phone && !sanitized.service) return null;
+  return sanitized;
 }
 
 // ─── Zero-Trust Product Media Resolution (ID-Based) ───────────
@@ -417,10 +452,12 @@ async function handleMessage(msg, config) {
 
     // Extract order if present
     const { reply: replyWithoutOrder, orderData } = extractOrder(rawReply);
+    // Extract lead if present
+    const { reply: replyWithoutTags, leadData } = extractLead(replyWithoutOrder);
 
     // Extract Zero-Trust product media tags
-    const { cleanReply: finalReplyText, mediaToSend } = extractProductMedia(replyWithoutOrder, liveConfig.products);
-    const reply = finalReplyText || replyWithoutOrder;
+    const { cleanReply: finalReplyText, mediaToSend } = extractProductMedia(replyWithoutTags, liveConfig.products);
+    const reply = finalReplyText || replyWithoutTags;
 
     // Send reply with media (Primary Image / Gallery) or Fallback to Text
     if (mediaToSend.length > 0) {
@@ -451,9 +488,7 @@ async function handleMessage(msg, config) {
       await sendTextReply(msg, userId, reply);
     }
 
-
-    console.log(`[Handler] 🤖 Sent AI reply to ${userName}: "${reply.slice(0, 50)}..."`);
-
+    console.log(`[Handler] Sent AI reply to ${userName}: "${reply.slice(0, 50)}..."`);
 
     // Log the bot's reply on its own
     firestore.logBotMessage({
@@ -464,7 +499,7 @@ async function handleMessage(msg, config) {
       message: reply,
     }).catch(e => console.error('[Handler] Log error:', e.message));
 
-    // Save order / booking if confirmed (validated: whitelisted fields only)
+    // 1) Save order / booking if confirmed
     const order = sanitizeOrder(orderData);
     if (order) {
       firestore.saveOrder({
@@ -479,9 +514,26 @@ async function handleMessage(msg, config) {
         price: order.price,
         orderSummary: reply.slice(-500),
       }).then(async (saved) => {
-        if (!saved || config.notificationsEnabled === false) return;
+        if (!saved) return;
 
-        // 1) In-app bell notification (dashboard listens in realtime)
+        // Sync to Google Sheets / Webhook
+        syncToGoogleSheets(liveConfig, {
+          event: 'new_order',
+          orderId: saved.id,
+          trackingCode: saved.trackingCode,
+          customerName: userName,
+          phone: order.phone,
+          address: order.address,
+          product: order.product,
+          price: order.price,
+          orderSummary: reply.slice(-500),
+          platform: 'whatsapp',
+          createdAt: new Date().toISOString(),
+        }).catch(err => console.warn('[Handler] Sheets sync error:', err.message));
+
+        if (config.notificationsEnabled === false) return;
+
+        // In-app bell notification
         firestore.createNotification({
           userId: config.userId,
           botId: config.id,
@@ -491,20 +543,84 @@ async function handleMessage(msg, config) {
           meta: { orderId: saved.id, trackingCode: saved.trackingCode },
         }).catch(() => {});
 
-        // 2) WhatsApp self-message to the merchant's own chat
+        // WhatsApp self-message to the merchant
         try {
           const selfJid = msg.client.info.wid._serialized;
           await msg.client.sendMessage(selfJid,
-            `📦 *طلبية جديدة!* #${saved.trackingCode}\n\n` +
-            `👤 ${userName}\n` +
-            `🛒 ${order.product || '—'}` +
-            (order.price ? `\n💰 ${order.price} دج` : '') +
-            (order.address ? `\n📍 ${order.address}` : '') +
-            `\n\nأدرها من لوحة AuraBot.`);
+            `*طلبية جديدة!* #${saved.trackingCode}\n\n` +
+            `الزبون: ${userName}\n` +
+            `المنتج: ${order.product || '—'}` +
+            (order.price ? `\nالسعر: ${order.price} دج` : '') +
+            (order.address ? `\nالعنوان: ${order.address}` : '') +
+            (order.phone ? `\nالهاتف: ${order.phone}` : '') +
+            `\n\nتم التسجيل في AuraBot وGoogle Sheets.`);
         } catch (e) {
           console.warn('[Handler] Merchant self-notify failed:', e.message);
         }
       }).catch(e => console.error('[Handler] Save order error:', e.message));
+    }
+
+    // 2) Save Qualified Lead if detected
+    const lead = sanitizeLead(leadData);
+    if (lead) {
+      firestore.saveLead({
+        botId: config.id,
+        ownerUserId: config.userId,
+        platform: 'whatsapp',
+        customerId: String(userId),
+        customerName: lead.name || userName,
+        phone: lead.phone,
+        company: lead.company,
+        service: lead.service,
+        budget: lead.budget,
+        leadStatus: lead.leadStatus,
+        notes: lead.notes || reply.slice(-300),
+      }).then(async (savedLead) => {
+        if (!savedLead) return;
+
+        // Sync Lead to Google Sheets / Webhook
+        syncToGoogleSheets(liveConfig, {
+          event: 'new_lead',
+          leadId: savedLead.id,
+          customerName: lead.name || userName,
+          phone: lead.phone,
+          company: lead.company,
+          service: lead.service,
+          budget: lead.budget,
+          leadStatus: lead.leadStatus,
+          notes: lead.notes,
+          platform: 'whatsapp',
+          createdAt: new Date().toISOString(),
+        }).catch(err => console.warn('[Handler] Sheets lead sync error:', err.message));
+
+        if (config.notificationsEnabled === false) return;
+
+        // In-app bell notification
+        firestore.createNotification({
+          userId: config.userId,
+          botId: config.id,
+          type: 'lead',
+          title: `عميل محتمل جديد (${lead.leadStatus === 'hot' ? 'هام ومستعجل' : 'مهتم'})`,
+          body: `${lead.name || userName} — ${lead.service || 'استفسار مخصص'}${lead.phone ? ` (${lead.phone})` : ''}`,
+          meta: { leadId: savedLead.id },
+        }).catch(() => {});
+
+        // WhatsApp self-message to the merchant
+        try {
+          const selfJid = msg.client.info.wid._serialized;
+          await msg.client.sendMessage(selfJid,
+            `*عميل محتمل جديد (Lead)!*\n\n` +
+            `الاسم: ${lead.name || userName}\n` +
+            (lead.phone ? `الهاتف: ${lead.phone}\n` : '') +
+            (lead.company ? `الشركة: ${lead.company}\n` : '') +
+            (lead.service ? `الخدمة: ${lead.service}\n` : '') +
+            (lead.budget ? `الميزانية: ${lead.budget}\n` : '') +
+            `درجة الاهتمام: ${lead.leadStatus}\n\n` +
+            `أدر العميل من لوحة AuraBot.`);
+        } catch (e) {
+          console.warn('[Handler] Merchant lead self-notify failed:', e.message);
+        }
+      }).catch(e => console.error('[Handler] Save lead error:', e.message));
     }
 
     firestore.incrementMessageCount(config.id)
@@ -512,10 +628,9 @@ async function handleMessage(msg, config) {
 
   } catch (err) {
     console.error(`[Handler] Error for WhatsApp bot "${config?.botName}":`, err.message);
-    // Never leave the customer in silence when the AI fails
     if (userId) {
       try {
-        await msg.reply('عذراً، حدث خطأ مؤقت في المعالجة. يرجى إعادة إرسال رسالتك بعد قليل. 🙏');
+        await msg.reply('عذراً، حدث خطأ مؤقت في المعالجة. يرجى إعادة إرسال رسالتك بعد قليل.');
       } catch {}
     }
   }

@@ -457,16 +457,47 @@ async function findAbandonedLeads(botId, delayHours = 2) {
   }
 }
 
-async function recordAbandonedReminder(botId, customerId) {
+async function saveLead(leadData) {
   try {
-    await db.collection('abandoned_reminders').add({
-      botId,
-      customerId: String(customerId),
-      remindedAt: new Date().toISOString(),
+    const userId = await resolveOwnerUserId(leadData.botId, leadData.ownerUserId);
+    const now = new Date().toISOString();
+
+    const docRef = await db.collection('leads').add({
+      botId: leadData.botId,
+      userId: userId || '',
+      platform: leadData.platform || 'whatsapp',
+      customerId: String(leadData.customerId || ''),
+      customerName: leadData.customerName || leadData.name || 'عميل محتمل',
+      phone: leadData.phone || '',
+      company: leadData.company || '',
+      service: leadData.service || '',
+      budget: leadData.budget || '',
+      leadStatus: leadData.leadStatus || 'warm', // hot, warm, cold
+      status: leadData.status || 'new', // new, contacted, qualified, closed, lost
+      notes: leadData.notes || '',
+      createdAt: now,
       timestamp: FieldValue.serverTimestamp(),
     });
+
+    console.log(`[Firestore] Lead saved: ${leadData.customerName || leadData.name} | Service: ${leadData.service} | Status: ${leadData.leadStatus}`);
+    return { id: docRef.id, ...leadData };
   } catch (e) {
-    console.error('[Firestore] Record abandoned reminder error:', e.message);
+    console.error('[Firestore] Save lead error:', e.message);
+    return null;
+  }
+}
+
+async function findLeads(botId) {
+  try {
+    const snap = await db.collection('leads')
+      .where('botId', '==', botId)
+      .orderBy('createdAt', 'desc')
+      .limit(100)
+      .get();
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    console.error('[Firestore] Find leads error:', e.message);
+    return [];
   }
 }
 
@@ -490,4 +521,6 @@ module.exports = {
   getConversationHistory,
   findAbandonedLeads,
   recordAbandonedReminder,
+  saveLead,
+  findLeads,
 };

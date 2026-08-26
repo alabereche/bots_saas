@@ -318,6 +318,39 @@ export async function updateOrderStatus(orderId, status) {
   await updateDoc(orderRef, { status, updatedAt: serverTimestamp() });
 }
 
+// ─── Qualified Leads & CRM (Firestore) ─────────────────────────
+
+// Subscribe to leads in realtime
+export function subscribeLeads(botId, callback) {
+  if (!botId) return () => {};
+  const uid = auth.currentUser?.uid;
+  if (!uid) return () => {};
+  const q = query(
+    collection(db, 'leads'),
+    where('botId', '==', botId),
+    where('userId', '==', uid)
+  );
+  return onSnapshot(q, (snapshot) => {
+    const leads = snapshot.docs.map(d => ({
+      id: d.id,
+      ...d.data(),
+    })).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    callback(leads);
+  });
+}
+
+// Update lead status
+export async function updateLeadStatus(leadId, status) {
+  const leadRef = doc(db, 'leads', leadId);
+  await updateDoc(leadRef, { status, updatedAt: serverTimestamp() });
+}
+
+// Delete a lead
+export async function deleteLead(leadId) {
+  const leadRef = doc(db, 'leads', leadId);
+  await deleteDoc(leadRef);
+}
+
 // ─── Modular Commerce & Delivery Management ───────────────────
 
 export function sanitizeBotFeatures(features = {}) {

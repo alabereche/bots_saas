@@ -326,6 +326,43 @@ app.get('/api/takeover/:botId', async (req, res) => {
   res.json({ takeovers: getTakeoverMap(req.params.botId) });
 });
 
+// POST /api/sheets/test-sync — Send a test event to verify Google Sheets Webhook connection
+app.post('/api/sheets/test-sync', async (req, res) => {
+  const { botId, webhookUrl } = req.body;
+  if (!botId) {
+    return res.status(400).json({ error: 'botId مطلوب' });
+  }
+  const bot = await requireBotAccess(res, req.uid, botId);
+  if (!bot) return;
+
+  const targetUrl = webhookUrl || bot.googleSheetsWebhookUrl || bot.webhookUrl;
+  if (!targetUrl) {
+    return res.status(400).json({ error: 'يرجى إدخال رابط Google Sheets Webhook أولاً' });
+  }
+
+  const { syncToGoogleSheets } = require('./sheetsSync');
+  const testPayload = {
+    event: 'test_ping',
+    trackingCode: 'DZ-TEST01',
+    customerName: 'تجربة AuraBot',
+    phone: '0660000000',
+    address: 'الجزائر - تجربة المزامنة',
+    product: 'منتج تجريبي / Lead Test',
+    price: '1000',
+    service: 'خدمة تجريبية',
+    budget: '5000',
+    leadStatus: 'hot',
+    notes: 'تم إرسال هذا السطر لاختبار نجاح الربط مع Google Sheets',
+  };
+
+  const success = await syncToGoogleSheets({ id: botId, botName: bot.botName, googleSheetsWebhookUrl: targetUrl }, testPayload);
+  if (success) {
+    res.json({ success: true, message: 'تم إرسال سطر التجربة بنجاح إلى Google Sheets' });
+  } else {
+    res.status(502).json({ error: 'تعذر الاتصال بالرابط، تأكد من صحة رابط الـ Webhook ونشره كـ Web App' });
+  }
+});
+
 // ─── Order Tracking & Delivery Management ─────────────────────
 
 // POST /api/orders/:id/delivery-status — Update delivery status and send idempotent notification

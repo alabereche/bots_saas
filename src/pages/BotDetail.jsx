@@ -7,6 +7,9 @@ import {
   subscribeConversations,
   clearBotMessages,
   subscribeOrders,
+  subscribeLeads,
+  updateLeadStatus,
+  deleteLead,
   updateOrderStatus as fbUpdateOrderStatus,
   updateOrderDelivery,
   sanitizeBotFeatures,
@@ -82,7 +85,8 @@ export default function BotDetail() {
   const [loading, setLoading] = useState(true);
   const [allMessages, setAllMessages] = useState([]);
   const [orders, setOrders] = useState([]);
-  const [activeTab, setActiveTab] = useState('chat'); // 'chat' | 'orders' | 'info'
+  const [leads, setLeads] = useState([]);
+  const [activeTab, setActiveTab] = useState('chat'); // 'chat' | 'orders' | 'leads' | 'sheets' | 'catalog' | 'widget' | 'channels' | 'info'
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [replyText, setReplyText] = useState('');
   const [sending, setSending] = useState(false);
@@ -144,10 +148,15 @@ export default function BotDetail() {
       setOrders(ords || []);
     });
 
+    const unsubLeads = subscribeLeads(id, (lds) => {
+      setLeads(lds || []);
+    });
+
     return () => {
       unsubBot();
       unsubMsgs();
       unsubOrders();
+      unsubLeads();
     };
   }, [id, navigate, toast]);
 
@@ -531,6 +540,33 @@ export default function BotDetail() {
                 <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
                 <line x1="3" y1="6" x2="21" y2="6"/>
                 <path d="M16 10a4 4 0 0 1-8 0"/>
+              </svg>
+            ),
+          },
+          {
+            key: 'leads',
+            label: 'العملاء المحتملين (CRM)',
+            count: leads.length || null,
+            icon: (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+            ),
+          },
+          {
+            key: 'sheets',
+            label: 'ربط Google Sheets',
+            count: null,
+            icon: (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <line x1="3" y1="9" x2="21" y2="9"/>
+                <line x1="3" y1="15" x2="21" y2="15"/>
+                <line x1="9" y1="3" x2="9" y2="21"/>
+                <line x1="15" y1="3" x2="15" y2="21"/>
               </svg>
             ),
           },
@@ -935,6 +971,27 @@ export default function BotDetail() {
             </div>
           )}
         </div>
+      )}
+
+      {/* ─── Tab 2.5: Qualified Leads CRM Tab ─── */}
+      {activeTab === 'leads' && (
+        <LeadsTab
+          bot={bot}
+          leads={leads}
+          onUpdateBot={async (data) => {
+            await updateBot(id, data);
+          }}
+        />
+      )}
+
+      {/* ─── Tab 2.8: Google Sheets & Webhook Hub ─── */}
+      {activeTab === 'sheets' && (
+        <GoogleSheetsTab
+          bot={bot}
+          onUpdateBot={async (data) => {
+            await updateBot(id, data);
+          }}
+        />
       )}
 
       {/* ─── Tab 3: Product Catalog Tab ─── */}
@@ -2362,6 +2419,618 @@ function WebWidgetTab({ bot, onUpdateBot }) {
             <strong style={{ color: '#a78bfa', display: 'block', marginBottom: '4px', fontSize: '0.85rem' }}>WordPress / WooCommerce</strong>
             <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
               استخدم إضافة (WPCode أو Insert Headers and Footers) والصق الكود في قسم Footer Scripts.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Component: Qualified Leads & CRM Tab ─────────────────────
+function LeadsTab({ bot, leads = [], onUpdateBot }) {
+  const toast = useToast();
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [hotOnly, setHotOnly] = useState(false);
+  const [updatingId, setUpdatingId] = useState(null);
+
+  // Status mapping and colors
+  const STATUS_CONFIG = {
+    new: { label: 'جديد', bg: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', border: 'rgba(59, 130, 246, 0.3)' },
+    contacted: { label: 'تم التواصل', bg: 'rgba(234, 179, 8, 0.15)', color: '#facc15', border: 'rgba(234, 179, 8, 0.3)' },
+    qualified: { label: 'مؤهل للشراء', bg: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', border: 'rgba(168, 85, 247, 0.3)' },
+    closed: { label: 'تم التعاقد / البيع', bg: 'rgba(34, 197, 94, 0.15)', color: '#4ade80', border: 'rgba(34, 197, 94, 0.3)' },
+    lost: { label: 'ملغي / غير مهتم', bg: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: 'rgba(239, 68, 68, 0.3)' },
+  };
+
+  const PRIORITY_CONFIG = {
+    hot: { label: 'ساخن (أولوية عالية)', bg: 'rgba(239, 68, 68, 0.2)', color: '#fca5a5', border: 'rgba(239, 68, 68, 0.4)' },
+    warm: { label: 'مهتم (متوسط)', bg: 'rgba(245, 158, 11, 0.2)', color: '#fcd34d', border: 'rgba(245, 158, 11, 0.4)' },
+    cold: { label: 'مستفسر (عادي)', bg: 'rgba(100, 116, 139, 0.2)', color: '#cbd5e1', border: 'rgba(100, 116, 139, 0.4)' },
+  };
+
+  const filteredLeads = leads.filter(lead => {
+    if (hotOnly && lead.leadStatus !== 'hot') return false;
+    if (statusFilter !== 'all' && (lead.status || 'new') !== statusFilter) return false;
+    if (search.trim()) {
+      const q = search.toLowerCase().trim();
+      const matchName = (lead.customerName || lead.name || '').toLowerCase().includes(q);
+      const matchPhone = (lead.phone || '').includes(q);
+      const matchService = (lead.service || '').toLowerCase().includes(q);
+      const matchCompany = (lead.company || '').toLowerCase().includes(q);
+      const matchNotes = (lead.notes || '').toLowerCase().includes(q);
+      if (!matchName && !matchPhone && !matchService && !matchCompany && !matchNotes) return false;
+    }
+    return true;
+  });
+
+  const hotCount = leads.filter(l => l.leadStatus === 'hot').length;
+  const contactedCount = leads.filter(l => l.status === 'contacted' || l.status === 'closed' || l.status === 'qualified').length;
+
+  const handleStatusChange = async (leadId, newStatus) => {
+    setUpdatingId(leadId);
+    try {
+      await updateLeadStatus(leadId, newStatus);
+      toast.success('تم تحديث حالة العميل بنجاح');
+    } catch (err) {
+      toast.error('فشل تحديث الحالة: ' + err.message);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleDelete = async (leadId) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذا العميل من السجل؟')) return;
+    try {
+      await deleteLead(leadId);
+      toast.success('تم حذف العميل بنجاح');
+    } catch (err) {
+      toast.error('فشل حذف العميل: ' + err.message);
+    }
+  };
+
+  const exportCSV = () => {
+    if (leads.length === 0) {
+      toast.error('لا توجد بيانات لتصديرها');
+      return;
+    }
+    const headers = ['التاريخ', 'اسم العميل', 'رقم الهاتف', 'الشركة / النشاط', 'الخدمة المطلوبة', 'الميزانية', 'تصنيف الذكاء الاصطناعي', 'حالة المتابعة', 'الملاحظات', 'المنصة'];
+    const rows = leads.map(l => [
+      l.createdAt ? new Date(l.createdAt).toLocaleDateString('ar-DZ') : '-',
+      `"${(l.customerName || l.name || '').replace(/"/g, '""')}"`,
+      `"${(l.phone || '').replace(/"/g, '""')}"`,
+      `"${(l.company || '').replace(/"/g, '""')}"`,
+      `"${(l.service || '').replace(/"/g, '""')}"`,
+      `"${(l.budget || '').replace(/"/g, '""')}"`,
+      l.leadStatus === 'hot' ? 'ساخن (عالي)' : (l.leadStatus === 'warm' ? 'مهتم' : 'بارد'),
+      STATUS_CONFIG[l.status || 'new']?.label || 'جديد',
+      `"${(l.notes || '').replace(/"/g, '""')}"`,
+      l.platform || 'whatsapp',
+    ]);
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `leads_${bot?.botName || 'bot'}_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('تم تصدير ملف CSV بنجاح');
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      {/* Header & Stats */}
+      <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '1.25rem' }}>
+          <div>
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ffffff', margin: 0 }}>
+              العملاء المحتملين وإدارة الليدات (CRM)
+            </h3>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
+              الذكاء الاصطناعي يستخرج بيانات المهتمين والخدمات والميزانيات تلقائياً من المحادثات ويسجلها هنا وفي Google Sheets.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={exportCSV}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>تصدير Excel / CSV</span>
+          </button>
+        </div>
+
+        {/* Stats Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+          <div style={{ background: '#090e1a', padding: '0.85rem 1rem', borderRadius: '10px', border: '1px solid var(--border-default)' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>إجمالي العملاء المستخرجين</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#ffffff' }}>{leads.length}</div>
+          </div>
+          <div style={{ background: '#090e1a', padding: '0.85rem 1rem', borderRadius: '10px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+            <div style={{ fontSize: '0.75rem', color: '#fca5a5', marginBottom: '4px' }}>عملاء ساخنون (أولوية قصوى)</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#ef4444' }}>{hotCount}</div>
+          </div>
+          <div style={{ background: '#090e1a', padding: '0.85rem 1rem', borderRadius: '10px', border: '1px solid rgba(34, 197, 94, 0.3)' }}>
+            <div style={{ fontSize: '0.75rem', color: '#86efac', marginBottom: '4px' }}>تم التواصل والمتابعة</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#22c55e' }}>{contactedCount}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filter & Search Bar */}
+      <div className="card" style={{ padding: '1rem' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', gap: '8px', flex: 1, minWidth: '240px' }}>
+            <input
+              type="text"
+              className="form-control"
+              placeholder="بحث بالاسم، رقم الهاتف، الخدمة أو الشركة..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ fontSize: '0.85rem' }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <button
+              type="button"
+              className={`btn btn-sm ${!hotOnly ? 'btn-secondary' : 'btn-ghost'}`}
+              onClick={() => setHotOnly(false)}
+              style={{ fontSize: '0.78rem' }}
+            >
+              الكل ({leads.length})
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${hotOnly ? 'btn-danger' : 'btn-ghost'}`}
+              onClick={() => setHotOnly(true)}
+              style={{ fontSize: '0.78rem' }}
+            >
+              الساخنون فقط ({hotCount})
+            </button>
+
+            <select
+              className="form-control"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              style={{ fontSize: '0.78rem', padding: '4px 8px', width: 'auto', background: '#090e1a' }}
+            >
+              <option value="all">كل الحالات</option>
+              <option value="new">جديد</option>
+              <option value="contacted">تم التواصل</option>
+              <option value="qualified">مؤهل</option>
+              <option value="closed">تم التعاقد</option>
+              <option value="lost">ملغي</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Leads Table / List */}
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        {filteredLeads.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-tertiary)' }}>
+            <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)', color: '#60a5fa', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <p style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>
+              {search || statusFilter !== 'all' || hotOnly ? 'لا توجد نتائج مطابقة لفلتر البحث' : 'لا يوجد عملاء محتملين مسجلين بعد'}
+            </p>
+            <p style={{ fontSize: '0.82rem', maxWidth: '420px', margin: '0 auto' }}>
+              يقوم مساعد الذكاء الاصطناعي تلقائياً بالتعرف على العملاء المهتمين أثناء المحادثات واستخراج بياناتهم وخدماتهم المطلوبة وحفظها هنا.
+            </p>
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', textAlign: 'right' }}>
+              <thead>
+                <tr style={{ background: '#090e1a', borderBottom: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>
+                  <th style={{ padding: '0.75rem 1rem' }}>العميل / النشاط</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>الهاتف والتواصل</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>الخدمة المطلوبة</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>الميزانية</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>تقييم الذكاء الاصطناعي</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>حالة المتابعة</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>التاريخ</th>
+                  <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>إجراءات</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredLeads.map((lead) => {
+                  const statusConf = STATUS_CONFIG[lead.status || 'new'] || STATUS_CONFIG.new;
+                  const prioConf = PRIORITY_CONFIG[lead.leadStatus] || PRIORITY_CONFIG.warm;
+                  const cleanPhone = (lead.phone || '').replace(/[^\d+]/g, '');
+
+                  return (
+                    <tr
+                      key={lead.id}
+                      style={{
+                        borderBottom: '1px solid var(--border-default)',
+                        transition: 'background 0.15s',
+                        background: lead.leadStatus === 'hot' ? 'rgba(239, 68, 68, 0.03)' : 'transparent',
+                      }}
+                    >
+                      <td style={{ padding: '0.75rem 1rem' }}>
+                        <div style={{ fontWeight: 700, color: '#ffffff' }}>
+                          {lead.customerName || lead.name || 'عميل'}
+                        </div>
+                        {lead.company && (
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                            {lead.company}
+                          </div>
+                        )}
+                      </td>
+
+                      <td style={{ padding: '0.75rem 1rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontFamily: 'monospace', color: '#60a5fa', fontWeight: 600 }}>
+                            {lead.phone || '—'}
+                          </span>
+                          {cleanPhone && (
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              <a
+                                href={`https://wa.me/${cleanPhone.startsWith('+') ? cleanPhone.slice(1) : (cleanPhone.startsWith('0') ? '213' + cleanPhone.slice(1) : cleanPhone)}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                title="مراسلة على واتساب"
+                                style={{
+                                  width: '24px',
+                                  height: '24px',
+                                  borderRadius: '50%',
+                                  background: 'rgba(34, 197, 94, 0.15)',
+                                  color: '#22c55e',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  textDecoration: 'none',
+                                }}
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                              </a>
+                              <a
+                                href={`tel:${cleanPhone}`}
+                                title="اتصال هاتفي"
+                                style={{
+                                  width: '24px',
+                                  height: '24px',
+                                  borderRadius: '50%',
+                                  background: 'rgba(59, 130, 246, 0.15)',
+                                  color: '#60a5fa',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  textDecoration: 'none',
+                                }}
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      <td style={{ padding: '0.75rem 1rem' }}>
+                        <div style={{ color: '#ffffff', fontWeight: 600 }}>{lead.service || '—'}</div>
+                        {lead.notes && (
+                          <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: '2px', maxWidth: '240px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={lead.notes}>
+                            {lead.notes}
+                          </div>
+                        )}
+                      </td>
+
+                      <td style={{ padding: '0.75rem 1rem', color: '#10b981', fontWeight: 600 }}>
+                        {lead.budget ? `${lead.budget} ${bot?.currency || 'دج'}` : '—'}
+                      </td>
+
+                      <td style={{ padding: '0.75rem 1rem' }}>
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            padding: '3px 8px',
+                            borderRadius: '12px',
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            background: prioConf.bg,
+                            color: prioConf.color,
+                            border: `1px solid ${prioConf.border}`,
+                          }}
+                        >
+                          {prioConf.label}
+                        </span>
+                      </td>
+
+                      <td style={{ padding: '0.75rem 1rem' }}>
+                        <select
+                          className="form-control"
+                          value={lead.status || 'new'}
+                          disabled={updatingId === lead.id}
+                          onChange={(e) => handleStatusChange(lead.id, e.target.value)}
+                          style={{
+                            fontSize: '0.76rem',
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            background: statusConf.bg,
+                            color: statusConf.color,
+                            border: `1px solid ${statusConf.border}`,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <option value="new">جديد</option>
+                          <option value="contacted">تم التواصل</option>
+                          <option value="qualified">مؤهل للشراء</option>
+                          <option value="closed">تم التعاقد</option>
+                          <option value="lost">ملغي / غير مهتم</option>
+                        </select>
+                      </td>
+
+                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                        {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('ar-DZ') : '—'}
+                      </td>
+
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => handleDelete(lead.id)}
+                          style={{ color: '#ef4444', padding: '4px 6px' }}
+                          title="حذف العميل"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Component: Google Sheets & Webhook Hub Tab ───────────────
+function GoogleSheetsTab({ bot, onUpdateBot }) {
+  const toast = useToast();
+  const [webhookUrl, setWebhookUrl] = useState(bot?.googleSheetsWebhookUrl || bot?.webhookUrl || '');
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const APPS_SCRIPT_CODE = `function doPost(e) {
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var data = JSON.parse(e.postData.contents);
+    
+    // إنشاء عناوين الأعمدة تلقائياً إذا كان الجدول فارغاً
+    if (sheet.getLastRow() === 0) {
+      sheet.appendRow([
+        "التاريخ والوقت",
+        "النوع",
+        "كود التتبع / المعرف",
+        "اسم العميل",
+        "الهاتف",
+        "المنتج / الخدمة",
+        "السعر / الميزانية",
+        "العنوان / الشركة",
+        "درجة الاهتمام / الملاحظات",
+        "المنصة"
+      ]);
+      // تنسيق السطر الأول بلون مميز
+      sheet.getRange(1, 1, 1, 10).setFontWeight("bold").setBackground("#1e293b").setFontColor("#ffffff");
+    }
+    
+    var row = [
+      new Date().toLocaleString("ar-DZ", { timeZone: "Africa/Algiers" }),
+      data.event === "new_order" ? "طلبية شراء" : (data.event === "new_lead" ? "عميل محتمل (Lead)" : "اختبار مزامنة"),
+      data.trackingCode || data.leadId || data.orderId || "-",
+      data.customerName || "-",
+      data.phone || "-",
+      data.product || data.service || "-",
+      data.price || data.budget || "-",
+      data.address || data.company || "-",
+      (data.leadStatus ? "درجة الاهتمام: " + data.leadStatus + " | " : "") + (data.notes || data.orderSummary || "-"),
+      data.platform || "whatsapp"
+    ];
+    
+    sheet.appendRow(row);
+    return ContentService.createTextOutput(JSON.stringify({ status: "success", rowAdded: true }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.message }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}`;
+
+  const handleSave = async (e) => {
+    e?.preventDefault();
+    setSaving(true);
+    try {
+      await onUpdateBot({
+        googleSheetsWebhookUrl: webhookUrl.trim(),
+      });
+      toast.success('تم حفظ رابط Google Sheets بنجاح');
+    } catch (err) {
+      toast.error('فشل الحفظ: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTestSync = async () => {
+    const url = webhookUrl.trim();
+    if (!url) {
+      toast.error('يرجى إدخال رابط Webhook أولاً');
+      return;
+    }
+
+    setTesting(true);
+    try {
+      const headers = await engineHeaders(true);
+      const endpoint = `${engineUrlFor(bot?.platform)}/api/sheets/test-sync`;
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          botId: bot.id,
+          webhookUrl: url,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success('تم إرسال سطر تجريبي بنجاح! تفقد جدول Google Sheets الخاص بك');
+      } else {
+        throw new Error(data.error || 'فشل الاتصال بالرابط');
+      }
+    } catch (err) {
+      toast.error('فشل الاختبار: ' + err.message);
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const copyScript = () => {
+    navigator.clipboard.writeText(APPS_SCRIPT_CODE);
+    setCopied(true);
+    toast.success('تم نسخ الكود البرمجي بنجاح');
+    setTimeout(() => setCopied(false), 2500);
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      {/* Header Banner */}
+      <div className="card">
+        <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ffffff', margin: 0 }}>
+          المزامنة التلقائية مع Google Sheets
+        </h3>
+        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
+          اربط هذا البوت بجدول Google Sheets الخاص بك لتسجيل كل طلبية شراء جديدة وكل عميل محتمل (Lead) في شيت منظم بشكل لحظي ودون الحاجة لأي خدمات وسيطة مدفوعة.
+        </p>
+      </div>
+
+      {/* Webhook Configuration Form */}
+      <div className="card">
+        <form onSubmit={handleSave}>
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#ffffff', marginBottom: '6px' }}>
+              رابط Google Apps Script Webhook URL
+            </label>
+            <input
+              type="url"
+              className="form-control"
+              placeholder="https://script.google.com/macros/s/.../exec"
+              value={webhookUrl}
+              onChange={(e) => setWebhookUrl(e.target.value)}
+              style={{ direction: 'ltr', textAlign: 'left', fontFamily: 'monospace', fontSize: '0.82rem' }}
+            />
+            <p style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
+              الرابط الذي يتم الحصول عليه عند نشر السكريبت كـ Web App من Google Sheets.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <button
+              type="submit"
+              className="btn btn-primary btn-sm"
+              disabled={saving}
+            >
+              {saving ? 'جارٍ الحفظ...' : 'حفظ الإعدادات'}
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={handleTestSync}
+              disabled={testing || !webhookUrl.trim()}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              <span>{testing ? 'جارٍ إرسال الاختبار...' : 'إرسال اختبار فوري للجدول'}</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Ready-to-use Script Card */}
+      <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
+          <div>
+            <h4 style={{ fontSize: '0.98rem', fontWeight: 700, color: '#ffffff', margin: 0 }}>
+              الكود البرمجي الجاهز لـ Google Apps Script
+            </h4>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
+              انسخ هذا الكود والصقه داخل محرر السكريبت في Google Sheets.
+            </p>
+          </div>
+          <button
+            type="button"
+            className={`btn btn-sm ${copied ? 'btn-success' : 'btn-secondary'}`}
+            onClick={copyScript}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem' }}
+          >
+            {copied ? (
+              <>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>تم النسخ!</span>
+              </>
+            ) : (
+              <>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <span>نسخ الكود</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        <div style={{ background: '#090e1a', borderRadius: '8px', border: '1px solid var(--border-default)', padding: '0.85rem', overflowX: 'auto' }}>
+          <pre style={{ margin: 0, fontSize: '0.78rem', color: '#38bdf8', fontFamily: 'Consolas, monospace', lineHeight: 1.45, direction: 'ltr', textAlign: 'left' }}>
+            {APPS_SCRIPT_CODE}
+          </pre>
+        </div>
+      </div>
+
+      {/* Step by Step Setup Instructions */}
+      <div className="card">
+        <h4 style={{ fontSize: '0.98rem', fontWeight: 700, color: '#ffffff', marginBottom: '0.85rem' }}>
+          خطوات الربط خطوة بخطوة في دقيقتين:
+        </h4>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
+          <div style={{ background: '#090e1a', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-default)' }}>
+            <strong style={{ color: '#60a5fa', display: 'block', marginBottom: '4px', fontSize: '0.85rem' }}>1. أنشئ الشيت</strong>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+              افتح Google Sheets وأنشئ جدولاً جديداً بأي اسم تريده.
+            </p>
+          </div>
+          <div style={{ background: '#090e1a', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-default)' }}>
+            <strong style={{ color: '#10b981', display: 'block', marginBottom: '4px', fontSize: '0.85rem' }}>2. افتح Apps Script</strong>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+              من القائمة العلوية اضغط على <strong>الإضافات (Extensions)</strong> ثم <strong>Apps Script</strong>.
+            </p>
+          </div>
+          <div style={{ background: '#090e1a', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-default)' }}>
+            <strong style={{ color: '#facc15', display: 'block', marginBottom: '4px', fontSize: '0.85rem' }}>3. الصق الكود</strong>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+              امسح الكود الافتراضي والصق الكود الموجود في الأعلى واضغط حفظ (Save).
+            </p>
+          </div>
+          <div style={{ background: '#090e1a', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-default)' }}>
+            <strong style={{ color: '#a78bfa', display: 'block', marginBottom: '4px', fontSize: '0.85rem' }}>4. نشر كتطبيق ويب</strong>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+              اضغط <strong>Deploy</strong> ثم <strong>New deployment</strong> واختر <strong>Web app</strong>، واجعل من يملك الإذن: <strong>Anyone</strong>.
+            </p>
+          </div>
+          <div style={{ background: '#090e1a', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-default)' }}>
+            <strong style={{ color: '#38bdf8', display: 'block', marginBottom: '4px', fontSize: '0.85rem' }}>5. الصق الرابط واختبر</strong>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+              انسخ الـ Web App URL والصقه في الخانة أعلاه واضغط "إرسال اختبار فوري".
             </p>
           </div>
         </div>

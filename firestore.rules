@@ -75,6 +75,14 @@ service cloud.firestore {
       allow delete: if isDataOwner();
     }
 
+    // ─── Qualified Leads & CRM (leads collection) ─────────────────
+    match /leads/{leadId} {
+      allow read: if isDataOwner();
+      allow create: if isCreatingOwnData();
+      allow update: if isDataOwner() && keepsIdentityData();
+      allow delete: if isDataOwner();
+    }
+
     // ─── Notifications (in-app bell) ──────────────────────────────
     // Written ONLY by the engines via the Admin SDK (client create is
     // denied); the owner reads and marks his own as read.

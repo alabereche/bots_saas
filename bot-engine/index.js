@@ -24,6 +24,7 @@ import {
   PROVIDER_NAMES,
 } from './tracking-helper.js';
 import { encrypt, decrypt } from './encryption.js';
+import { syncToGoogleSheets } from './sheetsSync.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -229,6 +230,34 @@ async function saveOrderToFirestore(orderData) {
   }
 }
 
+async function saveLeadToFirestore(leadData) {
+  try {
+    const now = new Date().toISOString();
+    const docRef = await db.collection('leads').add({
+      botId: leadData.botId,
+      userId: leadData.ownerUserId || '',
+      platform: leadData.platform || 'telegram',
+      customerId: String(leadData.customerId || ''),
+      customerName: leadData.customerName || leadData.name || 'عميل محتمل',
+      phone: leadData.phone || '',
+      company: leadData.company || '',
+      service: leadData.service || '',
+      budget: leadData.budget || '',
+      leadStatus: leadData.leadStatus || 'warm',
+      status: leadData.status || 'new',
+      notes: leadData.notes || '',
+      createdAt: now,
+      timestamp: FieldValue.serverTimestamp(),
+    });
+
+    console.log(`[Engine] Lead saved in Firestore: ${leadData.customerName || leadData.name} | Service: ${leadData.service}`);
+    return { id: docRef.id, ...leadData };
+  } catch (e) {
+    console.error('[Engine] Save lead error:', e.message);
+    return null;
+  }
+}
+
 // Zero-IDOR Scoped Tracking Lookup
 async function findOrdersForTracking(botId, customerId, specificCode = null) {
   try {
@@ -317,8 +346,9 @@ async function updateOrderDeliveryStatus(orderId, newDeliveryStatus, providerInf
   }
 }
 
-// ─── Smart Order Extraction ──────────────────────────────────
+// ─── Smart Order & Lead Extraction ───────────────────────────
 const ORDER_TAG = '[ORDER_CONFIRMED]';
+const LEAD_TAG = '[LEAD_QUALIFIED]';
 
 function extractAndSaveOrder(botId, ownerUserId, customerId, customerName, rawReply, platform = 'telegram', catalogProducts = [], config = null) {
   const tagIndex = rawReply.indexOf(ORDER_TAG);
@@ -330,12 +360,10 @@ function extractAndSaveOrder(botId, ownerUserId, customerId, customerName, rawRe
 
   try {
     const orderData = JSON.parse(jsonStr);
-    // AI output is untrusted: whitelist fields and clamp length
     const str = v => (typeof v === 'string' ? v.trim().slice(0, 300) : '');
     const phone = str(orderData?.phone);
     const product = str(orderData?.product);
 
-    // Validate price against official product catalog (F13 Prompt Injection Defense)
     let validatedPrice = str(orderData?.price);
     if (Array.isArray(catalogProducts) && catalogProducts.length > 0 && product) {
       const matchedProd = catalogProducts.find(p => p && (
@@ -360,7 +388,26 @@ function extractAndSaveOrder(botId, ownerUserId, customerId, customerName, rawRe
         price: validatedPrice,
         orderSummary: cleanReply.slice(-500),
       }).then((saved) => {
-        if (!saved || !config || config.notificationsEnabled === false) return;
+        if (!saved) return;
+
+        // Sync to Google Sheets
+        if (config) {
+          syncToGoogleSheets(config, {
+            event: 'new_order',
+            orderId: saved.id,
+            trackingCode: saved.trackingCode,
+            customerName: customerName || 'زبون',
+            phone,
+            address: str(orderData?.address),
+            product,
+            price: validatedPrice,
+            orderSummary: cleanReply.slice(-500),
+            platform,
+            createdAt: new Date().toISOString(),
+          }).catch(() => {});
+        }
+
+        if (!config || config.notificationsEnabled === false) return;
         createNotification({
           userId: ownerUserId,
           botId,
@@ -376,6 +423,79 @@ function extractAndSaveOrder(botId, ownerUserId, customerId, customerName, rawRe
   } catch (e) {
     console.error('[Engine] Order JSON parse error:', e.message);
     return { reply: cleanReply, orderFound: false };
+  }
+}
+
+function extractAndSaveLead(botId, ownerUserId, customerId, customerName, rawReply, platform = 'telegram', config = null) {
+  const tagIndex = rawReply.indexOf(LEAD_TAG);
+  if (tagIndex === -1) return { reply: rawReply, leadFound: false };
+
+  const jsonStart = tagIndex + LEAD_TAG.length;
+  const jsonStr = rawReply.slice(jsonStart).trim();
+  const cleanReply = rawReply.slice(0, tagIndex).trim();
+
+  try {
+    const leadData = JSON.parse(jsonStr);
+    const str = v => (typeof v === 'string' ? v.trim().slice(0, 300) : '');
+    const lead = {
+      name: str(leadData?.name) || customerName,
+      phone: str(leadData?.phone),
+      company: str(leadData?.company),
+      service: str(leadData?.service),
+      budget: str(leadData?.budget),
+      leadStatus: ['hot', 'warm', 'cold'].includes(leadData?.leadStatus) ? leadData.leadStatus : 'warm',
+      notes: str(leadData?.notes) || cleanReply.slice(-300),
+    };
+
+    if (lead.name || lead.phone || lead.service) {
+      saveLeadToFirestore({
+        botId,
+        ownerUserId,
+        platform,
+        customerId: String(customerId),
+        customerName: lead.name,
+        phone: lead.phone,
+        company: lead.company,
+        service: lead.service,
+        budget: lead.budget,
+        leadStatus: lead.leadStatus,
+        notes: lead.notes,
+      }).then((savedLead) => {
+        if (!savedLead) return;
+
+        // Sync Lead to Google Sheets
+        if (config) {
+          syncToGoogleSheets(config, {
+            event: 'new_lead',
+            leadId: savedLead.id,
+            customerName: lead.name,
+            phone: lead.phone,
+            company: lead.company,
+            service: lead.service,
+            budget: lead.budget,
+            leadStatus: lead.leadStatus,
+            notes: lead.notes,
+            platform,
+            createdAt: new Date().toISOString(),
+          }).catch(() => {});
+        }
+
+        if (!config || config.notificationsEnabled === false) return;
+        createNotification({
+          userId: ownerUserId,
+          botId,
+          type: 'lead',
+          title: `عميل محتمل جديد (${lead.leadStatus === 'hot' ? 'هام ومستعجل' : 'مهتم'})`,
+          body: `${lead.name} — ${lead.service || 'استفسار مخصص'}${lead.phone ? ` (${lead.phone})` : ''}`,
+          meta: { leadId: savedLead.id },
+        }).catch(() => {});
+      }).catch(() => {});
+      return { reply: cleanReply, leadFound: true };
+    }
+    return { reply: cleanReply, leadFound: false };
+  } catch (e) {
+    console.error('[Engine] Lead JSON parse error:', e.message);
+    return { reply: cleanReply, leadFound: false };
   }
 }
 
@@ -713,8 +833,17 @@ async function startBot(config) {
           currentConfig.products,
           currentConfig
         );
-        const { cleanReply: finalReplyText, mediaToSend } = extractProductMedia(replyWithoutOrder, currentConfig.products);
-        const reply = finalReplyText || replyWithoutOrder;
+        const { reply: replyWithoutTags, leadFound } = extractAndSaveLead(
+          currentConfig.id,
+          currentConfig.userId,
+          userId,
+          userName,
+          replyWithoutOrder,
+          'telegram',
+          currentConfig
+        );
+        const { cleanReply: finalReplyText, mediaToSend } = extractProductMedia(replyWithoutTags, currentConfig.products);
+        const reply = finalReplyText || replyWithoutTags;
 
 
         if (mediaToSend.length > 1) {
@@ -968,6 +1097,42 @@ app.post('/api/takeover', async (req, res) => {
   const key = `${botId}_${targetId}`;
   humanTakeoverMap.set(key, !!enabled);
   res.json({ success: true, takeover: !!enabled });
+});
+
+// POST /api/sheets/test-sync — Send test event to verify Google Sheets Webhook
+app.post('/api/sheets/test-sync', async (req, res) => {
+  const { botId, webhookUrl } = req.body;
+  if (!botId) {
+    return res.status(400).json({ error: 'botId مطلوب' });
+  }
+  const botConfig = await requireBotAccess(res, req.uid, botId);
+  if (!botConfig) return;
+
+  const targetUrl = webhookUrl || botConfig.googleSheetsWebhookUrl || botConfig.webhookUrl;
+  if (!targetUrl) {
+    return res.status(400).json({ error: 'يرجى إدخال رابط Google Sheets Webhook أولاً' });
+  }
+
+  const testPayload = {
+    event: 'test_ping',
+    trackingCode: 'DZ-TEST01',
+    customerName: 'تجربة AuraBot',
+    phone: '0660000000',
+    address: 'الجزائر - تجربة المزامنة',
+    product: 'منتج تجريبي / Lead Test',
+    price: '1000',
+    service: 'خدمة تجريبية',
+    budget: '5000',
+    leadStatus: 'hot',
+    notes: 'تم إرسال هذا السطر لاختبار نجاح الربط مع Google Sheets',
+  };
+
+  const success = await syncToGoogleSheets({ id: botId, botName: botConfig.botName, googleSheetsWebhookUrl: targetUrl }, testPayload);
+  if (success) {
+    res.json({ success: true, message: 'تم إرسال سطر التجربة بنجاح إلى Google Sheets' });
+  } else {
+    res.status(502).json({ error: 'تعذر الاتصال بالرابط، تأكد من صحة رابط الـ Webhook ونشره كـ Web App' });
+  }
 });
 
 // ─── Order Tracking & Delivery Management ─────────────────────

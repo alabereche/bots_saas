@@ -1600,8 +1600,144 @@ h1, h2, h3, h4, h5, h6 {
   align-items: center;
   gap: 8px;
   padding: 0.85rem 1rem;
-  border-top: 1px solid var(--border-subtle);
   background: var(--bg-card);
+}
+
+/* ─── Chat Takeover Lock / Active Bar ─── */
+.chat-header-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.chat-header-mode-badge.bot {
+  background: rgba(19, 45, 36, 0.85);
+  color: #34d399;
+  border: 1px solid rgba(28, 75, 60, 0.9);
+}
+
+.chat-header-mode-badge.manual {
+  background: rgba(45, 35, 15, 0.85);
+  color: #f59e0b;
+  border: 1px solid rgba(84, 59, 18, 0.9);
+}
+
+.chat-takeover-locked-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0.9rem 1.25rem;
+  background: #0f172a;
+  border-top: 1px solid rgba(52, 211, 153, 0.2);
+  border-bottom-left-radius: var(--radius-lg);
+  border-bottom-right-radius: var(--radius-lg);
+  flex-wrap: wrap;
+}
+
+.chat-takeover-locked-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 260px;
+}
+
+.chat-takeover-badge-bot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(19, 45, 36, 0.9);
+  color: #34d399;
+  border: 1px solid rgba(28, 75, 60, 0.9);
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.bot-pulse-dot {
+  width: 7px;
+  height: 7px;
+  background: #34d399;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #34d399;
+  animation: pulseGreen 2s infinite;
+}
+
+@keyframes pulseGreen {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+.chat-takeover-locked-text {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.chat-takeover-activate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
+}
+
+.chat-input-area-wrapper {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid rgba(245, 158, 11, 0.25);
+  background: var(--bg-card);
+}
+
+.chat-takeover-active-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.45rem 1rem;
+  background: rgba(245, 158, 11, 0.08);
+  border-bottom: 1px solid rgba(245, 158, 11, 0.15);
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.manual-pulse-dot {
+  width: 7px;
+  height: 7px;
+  background: #f59e0b;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #f59e0b;
+  animation: pulseAmber 1.8s infinite;
+}
+
+@keyframes pulseAmber {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.85); }
+}
+
+.chat-takeover-resume-link {
+  background: none;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #fbbf24;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.chat-takeover-resume-link:hover {
+  background: rgba(245, 158, 11, 0.2);
+  color: #ffffff;
+  border-color: #f59e0b;
 }
 
 /* ─── Order Cards ─── */

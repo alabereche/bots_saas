@@ -88,6 +88,7 @@ export default function BotDetail() {
   const [sending, setSending] = useState(false);
   const [takeoverMap, setTakeoverMap] = useState({});
   const chatEndRef = useRef(null);
+  const replyInputRef = useRef(null);
 
   // Modals state
   const [showEditModal, setShowEditModal] = useState(false);
@@ -743,12 +744,29 @@ export default function BotDetail() {
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', gap: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {takeoverMap[selectedUserId] ? (
+                      <span className="chat-header-mode-badge manual">
+                        <span className="manual-pulse-dot" />
+                        <span>الوضع اليدوي مفعّل</span>
+                      </span>
+                    ) : (
+                      <span className="chat-header-mode-badge bot">
+                        <span className="bot-pulse-dot" />
+                        <span>البوت يرد تلقائياً</span>
+                      </span>
+                    )}
                     <button
-                      className={`btn btn-sm ${takeoverMap[selectedUserId] ? 'btn-primary' : 'btn-secondary'}`}
-                      onClick={() => toggleTakeover(selectedUserId)}
+                      className={`btn btn-sm ${takeoverMap[selectedUserId] ? 'btn-secondary' : 'btn-primary'}`}
+                      onClick={() => {
+                        toggleTakeover(selectedUserId);
+                        if (!takeoverMap[selectedUserId]) {
+                          setTimeout(() => replyInputRef.current?.focus(), 150);
+                        }
+                      }}
+                      style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem' }}
                     >
-                      {takeoverMap[selectedUserId] ? 'إعادة البوت' : 'تولي الرد يدوياً'}
+                      {takeoverMap[selectedUserId] ? '🤖 إعادة تشغيل البوت' : '✋ تولي الرد يدوياً'}
                     </button>
                   </div>
                 </div>
@@ -771,22 +789,66 @@ export default function BotDetail() {
                   <div ref={chatEndRef} />
                 </div>
 
-                {/* Reply Input Bar */}
-                <div className="chat-input-area">
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="اكتب ردك هنا..."
-                    value={replyText}
-                    onChange={e => setReplyText(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleReply()}
-                    disabled={sending}
-                    style={{ flex: 1 }}
-                  />
-                  <button className="btn btn-primary" onClick={handleReply} disabled={sending || !replyText.trim()}>
-                    {sending ? <span className="spinner" /> : 'إرسال'}
-                  </button>
-                </div>
+                {/* Reply Input Bar / Takeover Guard */}
+                {!takeoverMap[selectedUserId] ? (
+                  <div className="chat-takeover-locked-bar">
+                    <div className="chat-takeover-locked-info">
+                      <div className="chat-takeover-badge-bot">
+                        <span className="bot-pulse-dot" />
+                        <span>البوت نشط تلقائياً</span>
+                      </div>
+                      <span className="chat-takeover-locked-text">
+                        الذكاء الاصطناعي يتولى الرد حالياً على هذا الزبون. لتفادي تداخل الرسائل، يرجى تفعيل الرد اليدوي للكتابة بنفسك.
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm chat-takeover-activate-btn"
+                      onClick={() => {
+                        toggleTakeover(selectedUserId);
+                        setTimeout(() => replyInputRef.current?.focus(), 150);
+                      }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>
+                      <span>تولي الرد يدوياً</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="chat-input-area-wrapper">
+                    <div className="chat-takeover-active-indicator">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span className="manual-pulse-dot" />
+                        <span style={{ fontWeight: 700, color: '#f59e0b', fontSize: '0.78rem' }}>
+                          أنت تتحدث مباشرة مع الزبون الآن (البوت متوقف عن هذه المحادثة)
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="chat-takeover-resume-link"
+                        onClick={() => toggleTakeover(selectedUserId)}
+                        title="إعادة تشغيل البوت للرد تلقائياً"
+                      >
+                        <span>إعادة تشغيل البوت 🤖</span>
+                      </button>
+                    </div>
+                    <div className="chat-input-area">
+                      <input
+                        ref={replyInputRef}
+                        type="text"
+                        className="form-input"
+                        placeholder="اكتب ردك المباشر هنا... (اضغط Enter للإرسال)"
+                        value={replyText}
+                        onChange={e => setReplyText(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleReply()}
+                        disabled={sending}
+                        style={{ flex: 1 }}
+                      />
+                      <button className="btn btn-primary" onClick={handleReply} disabled={sending || !replyText.trim()}>
+                        {sending ? <span className="spinner" /> : 'إرسال'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>

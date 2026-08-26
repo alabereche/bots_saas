@@ -285,27 +285,14 @@ app.post('/api/widget/chat', async (req, res) => {
       return res.json({ success: true, takeover: true });
     }
 
-    // Build system prompt
-    const { buildSystemPrompt } = require('./promptGenerator');
+    // Build AI config and call Gemini
     const { askOpenRouter } = require('./openrouter');
-    const systemPrompt = buildSystemPrompt(bot);
+    const aiConfig = {
+      id: botId,
+      ...bot,
+    };
 
-    // Fetch conversation context from Firestore
-    const history = await firestore.getConversationHistory(botId, sessionId, 8);
-    const messages = history.map(h => ({
-      role: h.role === 'bot' || h.role === 'owner' ? 'assistant' : 'user',
-      content: h.content,
-    }));
-
-    // Add current user message
-    messages.push({ role: 'user', content: String(message).slice(0, 1000) });
-
-    // Call LLM
-    const aiReply = await askOpenRouter({
-      systemPrompt,
-      messages,
-      model: bot.model || undefined,
-    });
+    const aiReply = await askOpenRouter(aiConfig, sessionId, String(message).slice(0, 1000));
 
     if (aiReply) {
       // Save bot reply to Firestore

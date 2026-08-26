@@ -146,15 +146,15 @@ async function logMessage({ botId, ownerUserId, from, userName, userAvatar = nul
 
 // Bot reply logged on its own (the customer's message is logged
 // immediately on arrival, before the AI call, so it is never lost)
-async function logBotMessage({ botId, ownerUserId, to, userName, message }) {
+async function logBotMessage({ botId, ownerUserId, to, userName, message, platform }) {
   try {
     const userId = await resolveOwnerUserId(botId, ownerUserId);
     await db.collection('conversations').add({
       botId,
-      platform: 'whatsapp',
+      platform: platform || 'whatsapp',
       userId: userId || '',
       telegramUserId: String(to),
-      userName: userName || 'زبون واتساب',
+      userName: userName || (platform === 'web' ? 'زائر الموقع' : 'زبون واتساب'),
       content: String(message).slice(0, 1000),
       role: 'bot',
       createdAt: new Date().toISOString(),

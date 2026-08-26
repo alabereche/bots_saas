@@ -4085,10 +4085,10 @@ html, body {
   to { opacity: 1; transform: translateY(0); }
 }
 .public-chat-msg-user {
-  align-self: flex-end;
+  align-self: flex-start;
 }
 .public-chat-msg-bot {
-  align-self: flex-start;
+  align-self: flex-end;
 }
 .public-chat-msg-user .public-chat-bubble {
   background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);

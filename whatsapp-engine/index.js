@@ -645,16 +645,27 @@ async function runAbandonedRecoveryCron() {
   }
 }
 
+// Process Crash Guards (Prevent unhandled Puppeteer errors from crashing the engine)
+process.on('unhandledRejection', (reason) => {
+  console.warn('[Process] Caught unhandledRejection:', reason?.message || reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[Process] Caught uncaughtException:', err.message);
+});
+
 // Start Server
-app.listen(PORT, async () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log('');
   console.log('══════════════════════════════════════════════════');
   console.log('  BotForge WhatsApp Engine (Admin SDK + ID-token auth)');
-  console.log(`  Running on port ${PORT}`);
+  console.log(`  Running on http://0.0.0.0:${PORT}`);
   console.log('══════════════════════════════════════════════════');
   console.log('');
 
-  await restoreBotsOnStartup();
+  restoreBotsOnStartup().catch(err => {
+    console.error('[Startup] Restore error:', err.message);
+  });
 
   // Run abandoned lead recovery check every 10 minutes
   setInterval(runAbandonedRecoveryCron, 10 * 60 * 1000);

@@ -1319,6 +1319,15 @@ async function runTelegramAbandonedRecoveryCron() {
   }
 }
 
+// Process Crash Guards
+process.on('unhandledRejection', (reason) => {
+  console.warn('[Process] Caught unhandledRejection:', reason?.message || reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[Process] Caught uncaughtException:', err.message);
+});
+
 // Start Express and Firestore Listener
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[Engine] HTTP API running on port ${PORT} (0.0.0.0)`);

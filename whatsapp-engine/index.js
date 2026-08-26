@@ -5,13 +5,20 @@
 // Bearer) AND ownership of the botId it touches.
 // ═══════════════════════════════════════════════════════════════
 
-require('dotenv').config();
-
 const path = require('path');
 const fs = require('fs');
+require('dotenv').config();
+require('dotenv').config({ path: path.join(__dirname, '.env') });
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+
 const crypto = require('crypto');
 const multer = require('multer');
-const sharp = require('sharp');
+let sharp = null;
+try {
+  sharp = require('sharp');
+} catch (e) {
+  console.warn('[Engine] Sharp optional image optimization not loaded:', e.message);
+}
 const express = require('express');
 const cors = require('cors');
 const {

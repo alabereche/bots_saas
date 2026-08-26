@@ -6,6 +6,12 @@
 // GOOGLE_APPLICATION_CREDENTIALS (key file path).
 // ═══════════════════════════════════════════════════════════════
 
+const path = require('path');
+const fs = require('fs');
+require('dotenv').config();
+require('dotenv').config({ path: path.join(__dirname, '.env') });
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+
 const admin = require('firebase-admin');
 
 const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_B64
@@ -13,10 +19,14 @@ const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_B64
   : null;
 
 if (!admin.apps.length) {
-  const credential = serviceAccountJson
-    ? admin.credential.cert(JSON.parse(serviceAccountJson))
-    : admin.credential.applicationDefault();
-  admin.initializeApp({ credential });
+  try {
+    const credential = serviceAccountJson
+      ? admin.credential.cert(JSON.parse(serviceAccountJson))
+      : admin.credential.applicationDefault();
+    admin.initializeApp({ credential });
+  } catch (err) {
+    console.error('[Firestore] Admin initialization error:', err.message);
+  }
 }
 
 const db = admin.firestore();
@@ -439,7 +449,6 @@ async function findAbandonedLeads(botId, delayHours = 2) {
       if (r.remindedAt && r.remindedAt >= maxLookbackDate) {
         if (r.customerId) remindedCustomers.add(String(r.customerId));
       }
-    });
     });
 
     const eligible = [];

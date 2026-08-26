@@ -358,6 +358,118 @@ async function createNotification({ userId, botId, type = 'system', title, body 
   }
 }
 
+async function getConversationHistory(botId, customerId, limitCount = 10) {
+  try {
+    const snap = await db.collection('conversations')
+      .where('botId', '==', botId)
+      .where('telegramUserId', '==', String(customerId))
+      .orderBy('createdAt', 'desc')
+      .limit(limitCount)
+      .get();
+    
+    return snap.docs.map(d => d.data()).reverse();
+  } catch (e) {
+    console.error('[Firestore] Get conversation history error:', e.message);
+    return [];
+  }
+}
+
+async function findAbandonedLeads(botId, delayHours = 2) {
+  try {
+    const cutoffDate = new Date(Date.now() - delayHours * 3600 * 1000).toISOString();
+    const maxLookbackDate = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
+
+    // 1. Fetch recent conversations in the last 48h
+    const convSnap = await db.collection('conversations')
+      .where('botId', '==', botId)
+      .where('createdAt', '>=', maxLookbackDate)
+      .orderBy('createdAt', 'desc')
+      .limit(150)
+      .get();
+
+    if (convSnap.empty) return [];
+
+    // Group by customer
+    const threads = {};
+    convSnap.docs.forEach(d => {
+      const data = d.data();
+      const cid = data.telegramUserId || data.customerId;
+      if (!cid) return;
+      if (!threads[cid]) {
+        threads[cid] = {
+          customerId: cid,
+          userName: data.userName || 'زبون',
+          platform: data.platform || 'whatsapp',
+          lastMessageAt: data.createdAt,
+          messages: [],
+        };
+      }
+      threads[cid].messages.push(data);
+    });
+
+    // 2. Fetch existing orders in the last 48h
+    const orderSnap = await db.collection('orders')
+      .where('botId', '==', botId)
+      .where('createdAt', '>=', maxLookbackDate)
+      .get();
+    
+    const customersWithOrders = new Set();
+    orderSnap.docs.forEach(d => {
+      const o = d.data();
+      if (o.customerId) customersWithOrders.add(String(o.customerId));
+      if (o.phone) customersWithOrders.add(String(o.phone));
+    });
+
+    // 3. Fetch past reminders in the last 48h
+    const reminderSnap = await db.collection('abandoned_reminders')
+      .where('botId', '==', botId)
+      .where('remindedAt', '>=', maxLookbackDate)
+      .get();
+    
+    const remindedCustomers = new Set();
+    reminderSnap.docs.forEach(d => {
+      const r = d.data();
+      if (r.customerId) remindedCustomers.add(String(r.customerId));
+    });
+
+    const eligible = [];
+    for (const cid of Object.keys(threads)) {
+      const t = threads[cid];
+      // Criteria:
+      // - Customer sent at least 1 message
+      // - Last message older than cutoffDate
+      // - No order placed
+      // - No reminder sent yet
+      if (
+        t.lastMessageAt <= cutoffDate &&
+        !customersWithOrders.has(cid) &&
+        !remindedCustomers.has(cid) &&
+        t.messages.length >= 1
+      ) {
+        eligible.push(t);
+      }
+    }
+
+    return eligible;
+  } catch (e) {
+    console.error('[Firestore] Find abandoned leads error:', e.message);
+    return [];
+  }
+}
+
+async function recordAbandonedReminder(botId, customerId) {
+  try {
+    await db.collection('abandoned_reminders').add({
+      botId,
+      customerId: String(customerId),
+      remindedAt: new Date().toISOString(),
+      timestamp: FieldValue.serverTimestamp(),
+    });
+  } catch (e) {
+    console.error('[Firestore] Record abandoned reminder error:', e.message);
+  }
+}
+
 module.exports = {
   admin,
   db,
@@ -375,4 +487,7 @@ module.exports = {
   findOrdersForTracking,
   updateOrderDeliveryStatus,
   createNotification,
+  getConversationHistory,
+  findAbandonedLeads,
+  recordAbandonedReminder,
 };

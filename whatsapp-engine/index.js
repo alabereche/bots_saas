@@ -260,22 +260,86 @@ app.get('/api/whatsapp/all', async (req, res) => {
 
 // ─── Manual Reply & Human Takeover (dashboard) ────────────────
 
+// ─── Web Widget Public Chat API ──────────────────────────────
+app.post('/api/widget/chat', async (req, res) => {
+  const { botId, sessionId, userName, message, lang } = req.body;
+  if (!botId || !sessionId || !message) {
+    return res.status(400).json({ error: 'Missing required parameters (botId, sessionId, message)' });
+  }
+
+  try {
+    const bot = await firestore.getBot(botId);
+    if (!bot) {
+      return res.status(404).json({ error: 'Bot not found' });
+    }
+    if (!bot.isActive) {
+      return res.status(403).json({ error: 'Bot is currently inactive' });
+    }
+    if (bot.features && bot.features.webWidget === false) {
+      return res.status(403).json({ error: 'Web Widget is disabled for this bot' });
+    }
+
+    // Check if human takeover is active for this visitor
+    if (isTakeoverActive(botId, sessionId)) {
+      console.log(`[Widget] Human takeover active for visitor ${sessionId} in bot ${botId}`);
+      return res.json({ success: true, takeover: true });
+    }
+
+    // Build system prompt
+    const { buildSystemPrompt } = require('./promptGenerator');
+    const { askOpenRouter } = require('./openrouter');
+    const systemPrompt = buildSystemPrompt(bot);
+
+    // Fetch conversation context from Firestore
+    const history = await firestore.getConversationHistory(botId, sessionId, 8);
+    const messages = history.map(h => ({
+      role: h.role === 'bot' || h.role === 'owner' ? 'assistant' : 'user',
+      content: h.content,
+    }));
+
+    // Add current user message
+    messages.push({ role: 'user', content: String(message).slice(0, 1000) });
+
+    // Call LLM
+    const aiReply = await askOpenRouter({
+      systemPrompt,
+      messages,
+      model: bot.model || undefined,
+    });
+
+    if (aiReply) {
+      // Save bot reply to Firestore
+      await firestore.logBotMessage({
+        botId,
+        ownerUserId: bot.userId,
+        to: sessionId,
+        userName: userName || 'زائر الموقع',
+        message: aiReply,
+        platform: 'web',
+      });
+
+      firestore.incrementMessageCount(botId);
+    }
+
+    res.json({ success: true, reply: aiReply || '' });
+  } catch (err) {
+    console.error('[Widget] Chat processing error:', err.message);
+    res.status(500).json({ error: 'Failed to process chat message' });
+  }
+});
+
+// ─── Manual Reply & Human Takeover (dashboard) ────────────────
+
 // POST /api/reply — Owner manual reply via dashboard
 app.post('/api/reply', async (req, res) => {
-  const { botId, telegramUserId, message } = req.body;
+  const { botId, telegramUserId, message, platform } = req.body;
   if (!telegramUserId || !message) {
     return res.status(400).json({ error: 'معطيات ناقصة (telegramUserId, message)' });
   }
   const bot = await requireBotAccess(res, req.uid, botId);
   if (!bot) return;
 
-  const state = getBotState(botId);
-  if (!state) {
-    return res.status(404).json({ error: 'البوت غير مشغل على محرك واتساب — أعد ربط واتساب من صفحة الإعدادات' });
-  }
-  if (state.status !== 'connected') {
-    return res.status(409).json({ error: `واتساب غير متصل حالياً (الحالة: ${state.status})` });
-  }
+  const isWeb = platform === 'web' || String(telegramUserId).startsWith('web_');
 
   try {
     // A manual reply implies manual mode: pause the AI for this customer.
@@ -284,20 +348,30 @@ app.post('/api/reply', async (req, res) => {
       setTakeover(botId, telegramUserId, true);
     }
 
-    await state.client.sendMessage(String(telegramUserId), String(message).slice(0, 1000));
+    if (!isWeb) {
+      const state = getBotState(botId);
+      if (!state) {
+        return res.status(404).json({ error: 'البوت غير مشغل على محرك واتساب — أعد ربط واتساب من صفحة الإعدادات' });
+      }
+      if (state.status !== 'connected') {
+        return res.status(409).json({ error: `واتساب غير متصل حالياً (الحالة: ${state.status})` });
+      }
+      await state.client.sendMessage(String(telegramUserId), String(message).slice(0, 1000));
+    }
 
     await firestore.logOwnerMessage({
       botId,
       ownerUserId: bot.userId,
       to: telegramUserId,
       message: String(message),
+      platform: isWeb ? 'web' : 'whatsapp',
     });
 
-    console.log(`[API] ✉️ Manual reply sent for bot ${botId}`);
+    console.log(`[API] Manual reply sent for bot ${botId} (${isWeb ? 'Web' : 'WhatsApp'})`);
     res.json({ success: true, takeover: true });
   } catch (err) {
     console.error('[API] Reply error:', err.message);
-    res.status(500).json({ error: 'فشل إرسال الرسالة عبر واتساب — يرجى المحاولة لاحقاً' });
+    res.status(500).json({ error: 'فشل إرسال الرسالة — يرجى المحاولة لاحقاً' });
   }
 });
 
@@ -545,6 +619,53 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'حدث خطأ داخلي' });
 });
 
+// ─── Abandoned Lead Recovery Background Worker ─────────────────
+async function runAbandonedRecoveryCron() {
+  try {
+    const bots = await firestore.getActiveBots();
+    for (const bot of bots) {
+      const isRecoveryEnabled = bot.features?.abandonedRecovery === true || bot.abandonedRecoveryEnabled === true;
+      if (!isRecoveryEnabled) continue;
+
+      const delayHours = Number(bot.abandonedRecoveryDelayHours) || 2;
+      const leads = await firestore.findAbandonedLeads(bot.id, delayHours);
+      if (!leads || leads.length === 0) continue;
+
+      const state = getBotState(bot.id);
+      if (!state || state.status !== 'connected' || !state.client) continue;
+
+      for (const lead of leads) {
+        // Skip if manual takeover is currently active
+        const { isTakeoverActive } = require('./takeover');
+        if (isTakeoverActive(bot.id, lead.customerId)) continue;
+
+        const reminderMsg = bot.abandonedRecoveryMessage ||
+          `مرحباً بك ${lead.userName || 'أخي الكريم'}، لاحظنا أنك كنت مهتماً بخدماتنا واستفسرت سابقاً. هل ما زلت بحاجة لأي استفسار أو ترغب في إتمام طلبك؟ نحن في خدمتك دائماً.`;
+
+        try {
+          await state.client.sendMessage(String(lead.customerId), reminderMsg);
+
+          await firestore.logBotMessage({
+            botId: bot.id,
+            ownerUserId: bot.userId,
+            to: lead.customerId,
+            userName: lead.userName,
+            message: reminderMsg,
+            platform: 'whatsapp',
+          });
+
+          await firestore.recordAbandonedReminder(bot.id, lead.customerId);
+          console.log(`[Recovery] Sent abandoned reminder to ${lead.customerId} for bot ${bot.id}`);
+        } catch (sendErr) {
+          console.warn(`[Recovery] Failed to send reminder to ${lead.customerId}:`, sendErr.message);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[Recovery] Cron execution error:', err.message);
+  }
+}
+
 // Start Server
 app.listen(PORT, async () => {
   console.log('');
@@ -555,4 +676,8 @@ app.listen(PORT, async () => {
   console.log('');
 
   await restoreBotsOnStartup();
+
+  // Run abandoned lead recovery check every 10 minutes
+  setInterval(runAbandonedRecoveryCron, 10 * 60 * 1000);
+  setTimeout(runAbandonedRecoveryCron, 30 * 1000); // Initial check after 30s
 });

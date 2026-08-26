@@ -329,6 +329,8 @@ export function sanitizeBotFeatures(features = {}) {
     notifications: features.notifications ?? false,
     bookings: features.bookings ?? false,
     webhooks: features.webhooks ?? false,
+    webWidget: features.webWidget ?? true,
+    abandonedRecovery: features.abandonedRecovery ?? false,
     ...features,
   };
 

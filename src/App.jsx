@@ -17,6 +17,7 @@ const BotDetail = lazy(() => import('./pages/BotDetail'));
 const Billing = lazy(() => import('./pages/Billing'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const TermsOfService = lazy(() => import('./pages/TermsOfService'));
+const PublicChat = lazy(() => import('./pages/PublicChat'));
 
 function PageLoader() {
   return <BotLoader />;
@@ -33,6 +34,9 @@ function AppLayout() {
     <div style={{ position: 'relative', zIndex: 5, minHeight: '100vh' }}>
       <Suspense fallback={<PageLoader />}>
         <Routes>
+          {/* Public Standalone Chat for Web Widgets and Flutter Apps */}
+          <Route path="/chat/:botId" element={<PublicChat />} />
+
           {/* Public Landing Page & Legal */}
           <Route path="/" element={<Landing />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />

@@ -1035,8 +1035,110 @@ app.post('/api/orders/:id/delivery-status', async (req, res) => {
   });
 });
 
+// ─── Telegram Abandoned Lead Recovery Background Worker ────────
+async function runTelegramAbandonedRecoveryCron() {
+  try {
+    for (const [botId, entry] of activeBots.entries()) {
+      const config = entry.config;
+      const isRecoveryEnabled = config.features?.abandonedRecovery === true || config.abandonedRecoveryEnabled === true;
+      if (!isRecoveryEnabled || !entry.bot) continue;
+
+      const delayHours = Number(config.abandonedRecoveryDelayHours) || 2;
+      const cutoffDate = new Date(Date.now() - delayHours * 3600 * 1000).toISOString();
+      const maxLookbackDate = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
+
+      // Fetch recent messages
+      const convSnap = await db.collection('conversations')
+        .where('botId', '==', botId)
+        .where('platform', '==', 'telegram')
+        .where('createdAt', '>=', maxLookbackDate)
+        .orderBy('createdAt', 'desc')
+        .limit(100)
+        .get();
+
+      if (convSnap.empty) continue;
+
+      const threads = {};
+      convSnap.docs.forEach(d => {
+        const data = d.data();
+        const cid = data.telegramUserId || data.customerId;
+        if (!cid) return;
+        if (!threads[cid]) {
+          threads[cid] = {
+            customerId: cid,
+            userName: data.userName || 'زبون',
+            lastMessageAt: data.createdAt,
+            messages: [],
+          };
+        }
+        threads[cid].messages.push(data);
+      });
+
+      // Orders check
+      const orderSnap = await db.collection('orders')
+        .where('botId', '==', botId)
+        .where('createdAt', '>=', maxLookbackDate)
+        .get();
+      
+      const customersWithOrders = new Set();
+      orderSnap.docs.forEach(d => {
+        const o = d.data();
+        if (o.customerId) customersWithOrders.add(String(o.customerId));
+      });
+
+      // Past reminders check
+      const reminderSnap = await db.collection('abandoned_reminders')
+        .where('botId', '==', botId)
+        .where('remindedAt', '>=', maxLookbackDate)
+        .get();
+      
+      const remindedCustomers = new Set();
+      reminderSnap.docs.forEach(d => {
+        const r = d.data();
+        if (r.customerId) remindedCustomers.add(String(r.customerId));
+      });
+
+      for (const cid of Object.keys(threads)) {
+        const t = threads[cid];
+        const takeoverKey = `${botId}_${cid}`;
+        if (humanTakeoverMap.get(takeoverKey)) continue;
+
+        if (
+          t.lastMessageAt <= cutoffDate &&
+          !customersWithOrders.has(cid) &&
+          !remindedCustomers.has(cid) &&
+          t.messages.length >= 1
+        ) {
+          const reminderMsg = config.abandonedRecoveryMessage ||
+            `مرحباً بك ${t.userName || 'أخي الكريم'}، لاحظنا أنك كنت مهتماً بخدماتنا واستفسرت سابقاً. هل ما زلت بحاجة لأي استفسار أو ترغب في إتمام طلبك؟ نحن في خدمتك دائماً.`;
+
+          try {
+            await entry.bot.api.sendMessage(cid, reminderMsg);
+            await saveMessage(botId, config.userId, cid, t.userName, reminderMsg, 'bot', 'telegram');
+            await db.collection('abandoned_reminders').add({
+              botId,
+              customerId: String(cid),
+              remindedAt: new Date().toISOString(),
+              timestamp: FieldValue.serverTimestamp(),
+            });
+            console.log(`[Telegram Recovery] Sent abandoned reminder to ${cid} for bot ${botId}`);
+          } catch (sendErr) {
+            console.warn(`[Telegram Recovery] Failed to send reminder to ${cid}:`, sendErr.message);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[Telegram Recovery] Cron error:', err.message);
+  }
+}
+
 // Start Express and Firestore Listener
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[Engine] HTTP API running on port ${PORT} (0.0.0.0)`);
   listenToBots();
+
+  // Run abandoned recovery cron every 10 minutes
+  setInterval(runTelegramAbandonedRecoveryCron, 10 * 60 * 1000);
+  setTimeout(runTelegramAbandonedRecoveryCron, 45 * 1000);
 });

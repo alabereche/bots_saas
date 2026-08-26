@@ -548,6 +548,18 @@ export default function BotDetail() {
             ),
           },
           {
+            key: 'widget',
+            label: 'ودجت الموقع والتطبيقات',
+            count: null,
+            icon: (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                <line x1="8" y1="21" x2="16" y2="21"/>
+                <line x1="12" y1="17" x2="12" y2="21"/>
+              </svg>
+            ),
+          },
+          {
             key: 'channels',
             label: 'قنوات الربط',
             count: null,
@@ -935,7 +947,17 @@ export default function BotDetail() {
         />
       )}
 
-      {/* ─── Tab 4: Channels Matrix Hub ─── */}
+      {/* ─── Tab 4: Web & Mobile Widget Hub ─── */}
+      {activeTab === 'widget' && (
+        <WebWidgetTab
+          bot={bot}
+          onUpdateBot={async (data) => {
+            await updateBot(id, data);
+          }}
+        />
+      )}
+
+      {/* ─── Tab 5: Channels Matrix Hub ─── */}
       {activeTab === 'channels' && (
         <ChannelsManager
           bot={bot}
@@ -945,11 +967,19 @@ export default function BotDetail() {
         />
       )}
 
-      {/* ─── Tab 5: Bot Info & Capabilities Tab ─── */}
+      {/* ─── Tab 6: Bot Info & Capabilities Tab ─── */}
       {activeTab === 'info' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {/* Card 0: Merchant Notifications Toggle */}
           <MerchantNotificationsCard
+            bot={bot}
+            onUpdateBot={async (data) => {
+              await updateBot(id, data);
+            }}
+          />
+
+          {/* Card 0.5: Abandoned Lead Recovery Settings */}
+          <AbandonedRecoveryCard
             bot={bot}
             onUpdateBot={async (data) => {
               await updateBot(id, data);
@@ -1692,6 +1722,26 @@ function BotCapabilitiesManager({ bot, onUpdateBot }) {
         </svg>
       )
     },
+    {
+      key: 'webWidget',
+      title: 'ودجت الشات للمواقع وتطبيقات فلاتر',
+      desc: 'تمكين زوار موقعك أو متجرك أو مستخدمي تطبيقك من التحدث مع البوت مباشرة.',
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+        </svg>
+      )
+    },
+    {
+      key: 'abandonedRecovery',
+      title: 'استرجاع الزبائن والمحادثات المتروكة',
+      desc: 'إرسال تذكير آلي ذكي للزبائن الذين توقفوا عن الرد قبل إتمام الطلب أو الحجز لرفع المبيعات.',
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21.5 2v6h-6"/><path d="M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+        </svg>
+      )
+    },
   ];
 
   return (
@@ -1781,6 +1831,336 @@ function InfoRow({ label, value }) {
     <div className="info-item">
       <span className="info-item-label">{label}</span>
       <span className="info-item-value">{value}</span>
+    </div>
+  );
+}
+
+function AbandonedRecoveryCard({ bot, onUpdateBot }) {
+  const [enabled, setEnabled] = useState(bot?.features?.abandonedRecovery === true || bot?.abandonedRecoveryEnabled === true);
+  const [delayHours, setDelayHours] = useState(bot?.abandonedRecoveryDelayHours || 2);
+  const [message, setMessage] = useState(bot?.abandonedRecoveryMessage || '');
+  const [saving, setSaving] = useState(false);
+  const toast = useToast();
+
+  const handleToggle = async () => {
+    const nextState = !enabled;
+    setEnabled(nextState);
+    setSaving(true);
+    try {
+      await onUpdateBot({
+        abandonedRecoveryEnabled: nextState,
+        abandonedRecoveryDelayHours: Number(delayHours),
+        abandonedRecoveryMessage: message,
+        features: sanitizeBotFeatures({
+          ...(bot?.features || {}),
+          abandonedRecovery: nextState,
+        }),
+      });
+      toast.success(nextState ? 'تم تفعيل نظام استرجاع الزبائن المتروكين' : 'تم تعطيل نظام استرجاع الزبائن');
+    } catch (e) {
+      toast.error('فشل حفظ الإعدادات: ' + e.message);
+      setEnabled(!nextState);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveSettings = async (e) => {
+    e?.preventDefault();
+    setSaving(true);
+    try {
+      await onUpdateBot({
+        abandonedRecoveryEnabled: enabled,
+        abandonedRecoveryDelayHours: Number(delayHours),
+        abandonedRecoveryMessage: message,
+        features: sanitizeBotFeatures({
+          ...(bot?.features || {}),
+          abandonedRecovery: enabled,
+        }),
+      });
+      toast.success('تم حفظ إعدادات الاسترجاع بنجاح');
+    } catch (e) {
+      toast.error('فشل الحفظ: ' + e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="card" style={{ border: enabled ? '1px solid rgba(245, 158, 11, 0.35)' : '1px solid var(--border-default)' }}>
+      <div className="card-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21.5 2v6h-6"/><path d="M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+          </svg>
+          استرجاع الزبائن والمحادثات المتروكة (Abandoned Recovery)
+        </h3>
+
+        <button
+          type="button"
+          className={`btn btn-sm ${enabled ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={handleToggle}
+          disabled={saving}
+          style={{ minWidth: '85px', fontSize: '0.78rem' }}
+        >
+          {enabled ? 'مفعل' : 'معطل'}
+        </button>
+      </div>
+
+      <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1rem', lineHeight: 1.5 }}>
+        عندما يبدأ الزبون محادثة ولا يكمل طلبه أو حجزه، يقوم النظام تلقائياً بإرسال رسالة تذكيرية واحدة لطيفة بعد مهلة تحددها لإعادة تنشيط الزبون.
+      </p>
+
+      {enabled && (
+        <form onSubmit={handleSaveSettings} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', marginTop: '0.75rem', borderTop: '1px solid var(--border-subtle)', paddingTop: '0.85rem' }}>
+          <div className="form-group">
+            <label className="form-label">مهلة إرسال التذكير بعد انقطاع الرد</label>
+            <select
+              className="form-select"
+              value={delayHours}
+              onChange={(e) => setDelayHours(Number(e.target.value))}
+            >
+              <option value="1">بعد 1 ساعة من آخر رسالة</option>
+              <option value="2">بعد 2 ساعتان (موصى به)</option>
+              <option value="4">بعد 4 ساعات</option>
+              <option value="6">بعد 6 ساعات</option>
+              <option value="12">بعد 12 ساعة</option>
+              <option value="24">بعد 24 ساعة (يوم كامل)</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">نص رسالة التذكير المخصصة (اختياري)</label>
+            <textarea
+              className="form-textarea"
+              rows="2"
+              placeholder="مرحباً بك مجدداً، لاحظنا أنك كنت مهتماً بخدماتنا واستفسرت سابقاً. هل ما زلت بحاجة لأي استفسار أو ترغب في إتمام طلبك؟ نحن في خدمتك دائماً."
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+            />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>
+              {saving ? 'جاري الحفظ...' : 'حفظ إعدادات التذكير'}
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
+
+function WebWidgetTab({ bot, onUpdateBot }) {
+  const [copiedScript, setCopiedScript] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
+  const [position, setPosition] = useState(bot?.webWidgetPosition || 'right');
+  const [color, setColor] = useState(bot?.webWidgetColor || '#2563eb');
+  const [greeting, setGreeting] = useState(bot?.webWidgetGreeting || '');
+  const [saving, setSaving] = useState(false);
+  const toast = useToast();
+
+  const isWidgetEnabled = bot?.features?.webWidget !== false && bot?.webWidgetEnabled !== false;
+
+  const scriptTag = `<script src="https://aurabot.pages.dev/widget.js" data-bot-id="${bot?.id}" data-position="${position}" data-color="${color}"></script>`;
+  const directUrl = `https://aurabot.pages.dev/chat/${bot?.id}`;
+
+  const handleCopyScript = () => {
+    navigator.clipboard.writeText(scriptTag);
+    setCopiedScript(true);
+    toast.success('تم نسخ كود الودجت بنجاح');
+    setTimeout(() => setCopiedScript(false), 2500);
+  };
+
+  const handleCopyUrl = () => {
+    navigator.clipboard.writeText(directUrl);
+    setCopiedUrl(true);
+    toast.success('تم نسخ الرابط المباشر بنجاح');
+    setTimeout(() => setCopiedUrl(false), 2500);
+  };
+
+  const handleSaveSettings = async (e) => {
+    e?.preventDefault();
+    setSaving(true);
+    try {
+      await onUpdateBot({
+        webWidgetPosition: position,
+        webWidgetColor: color,
+        webWidgetGreeting: greeting,
+      });
+      toast.success('تم حفظ تخصيصات الودجت بنجاح');
+    } catch (e) {
+      toast.error('فشل حفظ الإعدادات: ' + e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleToggleWidget = async () => {
+    const nextState = !isWidgetEnabled;
+    try {
+      await onUpdateBot({
+        webWidgetEnabled: nextState,
+        features: sanitizeBotFeatures({
+          ...(bot?.features || {}),
+          webWidget: nextState,
+        }),
+      });
+      toast.success(nextState ? 'تم تفعيل ودجت الموقع' : 'تم تعطيل ودجت الموقع');
+    } catch (e) {
+      toast.error('فشل تغيير الحالة: ' + e.message);
+    }
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      {/* Header Banner Card */}
+      <div className="card" style={{ background: 'linear-gradient(145deg, #131d33 0%, #0d1526 100%)', border: '1px solid var(--border-default)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '0.75rem' }}>
+          <div>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2.2">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                <line x1="8" y1="21" x2="16" y2="21"/>
+                <line x1="12" y1="17" x2="12" y2="21"/>
+              </svg>
+              ودجت الشات للمواقع وتطبيقات فلاتر (Web & App Widget)
+            </h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '4px', margin: 0 }}>
+              أضف شات ذكي عائم لمتجرك أو موقعك (Shopify, YouCan, WordPress, React, HTML) أو تطبيق هاتفك بسطر كود واحد.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className={`btn ${isWidgetEnabled ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={handleToggleWidget}
+            style={{ minWidth: '100px' }}
+          >
+            {isWidgetEnabled ? 'الودجت مفعل' : 'الودجت معطل'}
+          </button>
+        </div>
+      </div>
+
+      {/* Integration Code Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' }}>
+        {/* Option 1: Web Script */}
+        <div className="card">
+          <div className="card-header-row" style={{ marginBottom: '0.5rem' }}>
+            <h4 style={{ fontSize: '0.98rem', fontWeight: 700, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              كود التضمين للمواقع والمتاجر (Websites)
+            </h4>
+          </div>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
+            انسخ هذا السطر والصقه في إعدادات متجرك أو موقعك (قبل إغلاق وسام body أو في Custom Header):
+          </p>
+          <div style={{ background: '#070b14', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid var(--border-default)', fontFamily: 'monospace', fontSize: '0.78rem', color: '#38bdf8', wordBreak: 'break-all', direction: 'ltr', textAlign: 'left', marginBottom: '0.85rem' }}>
+            {scriptTag}
+          </div>
+          <button type="button" className="btn btn-primary btn-sm" onClick={handleCopyScript} style={{ width: '100%' }}>
+            {copiedScript ? 'تم نسخ الكود بنجاح' : 'نسخ كود الودجت بضغطة زر'}
+          </button>
+        </div>
+
+        {/* Option 2: Mobile / Flutter URL */}
+        <div className="card">
+          <div className="card-header-row" style={{ marginBottom: '0.5rem' }}>
+            <h4 style={{ fontSize: '0.98rem', fontWeight: 700, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+              الرابط المباشر وتطبيقات فلاتر (Flutter / Mobile)
+            </h4>
+          </div>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
+            رابط مباشر نظيف لفتح الشات في المتصفح أو تضمينه داخل تطبيق Flutter عبر webview_flutter:
+          </p>
+          <div style={{ background: '#070b14', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid var(--border-default)', fontFamily: 'monospace', fontSize: '0.78rem', color: '#a78bfa', wordBreak: 'break-all', direction: 'ltr', textAlign: 'left', marginBottom: '0.85rem' }}>
+            {directUrl}
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={handleCopyUrl} style={{ flex: 1 }}>
+              {copiedUrl ? 'تم النسخ' : 'نسخ الرابط'}
+            </button>
+            <a href={directUrl} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm" style={{ padding: '0.35rem 0.75rem', textDecoration: 'none' }}>
+              فتح وتجربة
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {/* Widget Customization and Live Preview Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' }}>
+        {/* Customizer Form */}
+        <div className="card">
+          <div className="card-header-row" style={{ marginBottom: '0.75rem' }}>
+            <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#ffffff', margin: 0 }}>
+              تخصيص مظهر وموقع الودجت
+            </h4>
+          </div>
+
+          <form onSubmit={handleSaveSettings} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+            <div className="form-group">
+              <label className="form-label">موقع زر الشات على الشاشة</label>
+              <select className="form-select" value={position} onChange={(e) => setPosition(e.target.value)}>
+                <option value="right">أسفل اليمين (موصى به للمواقع العربية)</option>
+                <option value="left">أسفل اليسار</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">لون الودجت الرئيسي</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="color"
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                  style={{ width: '40px', height: '38px', borderRadius: '8px', border: '1px solid var(--border-default)', background: 'transparent', cursor: 'pointer' }}
+                />
+                <input
+                  type="text"
+                  className="form-input"
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                  style={{ direction: 'ltr', textAlign: 'left', flex: 1 }}
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">رسالة ترحيبية خاصة عند فتح الودجت (اختياري)</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="مرحباً بك! كيف يمكنني مساعدتك اليوم؟"
+                value={greeting}
+                onChange={(e) => setGreeting(e.target.value)}
+              />
+            </div>
+
+            <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>
+              {saving ? 'جاري الحفظ...' : 'حفظ تخصيصات المظهر'}
+            </button>
+          </form>
+        </div>
+
+        {/* Live Interactive Preview */}
+        <div className="card">
+          <div className="card-header-row" style={{ marginBottom: '0.75rem' }}>
+            <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
+              معاينة حية وتفاعلية للودجت (Live Interactive Preview)
+            </h4>
+          </div>
+
+          <div style={{ width: '100%', height: '380px', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-default)', background: '#070b14', position: 'relative' }}>
+            <iframe
+              src={`/chat/${bot?.id}?embedded=true`}
+              style={{ width: '100%', height: '100%', border: 'none', background: '#0d1526' }}
+              title="Live Chat Preview"
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

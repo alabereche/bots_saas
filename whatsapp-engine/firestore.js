@@ -42,11 +42,14 @@ async function resolveOwnerUserId(botId, provided) {
 
 async function getActiveBots() {
   try {
-    const snap = await db.collection('bots')
-      .where('platform', '==', 'whatsapp')
-      .where('isActive', '==', true)
-      .get();
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const snap = await db.collection('bots').get();
+    return snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(b => {
+        const isWhatsapp = b.whatsappEnabled === true || b.platform === 'whatsapp' || (Array.isArray(b.channels) && b.channels.includes('whatsapp'));
+        const notDisabled = b.whatsappStatus !== 'disabled' && b.status !== 'disabled';
+        return isWhatsapp && notDisabled;
+      });
   } catch (e) {
     console.error('[Firestore] Get active bots error:', e.message);
     return [];

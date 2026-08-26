@@ -316,7 +316,12 @@ function getQRCode(botId) {
 async function restoreBotsOnStartup() {
   try {
     const bots = await firestore.getActiveBots();
-    const whatsappBots = bots.filter(b => b.whatsappEnabled && b.whatsappStatus === 'connected');
+    const whatsappBots = bots.filter(b => {
+      const sessionDir = path.join(__dirname, 'sessions', `session-${b.id}`);
+      const hasSavedSession = fs.existsSync(sessionDir);
+      const isConnected = b.whatsappStatus === 'connected' || b.status === 'connected' || b.isActive === true;
+      return isConnected || hasSavedSession;
+    });
     console.log(`[BotManager] Found ${whatsappBots.length} WhatsApp bot(s) to restore.`);
 
     // Restore in small staggered groups: each bot boots its own

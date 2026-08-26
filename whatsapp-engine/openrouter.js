@@ -132,11 +132,12 @@ async function askOpenRouter(config, userId, userMessage, audioData = null) {
   let reply = null;
 
   try {
-    if (!GEMINI_API_KEY) {
-      throw new Error('GEMINI_API_KEY غير مضبوط على المحرك');
+    const apiKey = config.customApiKey || config.geminiApiKey || config.apiKey || process.env.GEMINI_API_KEY || GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error('GEMINI_API_KEY غير مضبوط على المحرك أو إعدادات البوت');
     }
-    const model = config.aiModel || process.env.DEFAULT_AI_MODEL || 'gemini-3.5-flash-lite';
-    reply = await callGemini(GEMINI_API_KEY, model, messages, audioData);
+    const model = config.aiModel || config.model || process.env.DEFAULT_AI_MODEL || 'gemini-2.5-flash-lite';
+    reply = await callGemini(apiKey, model, messages, audioData);
   } catch (err) {
     // The attempt failed: drop the user message from history so a
     // retry doesn't carry a phantom turn

@@ -263,6 +263,8 @@ app.get('/api/whatsapp/all', async (req, res) => {
 // ─── Web Widget Public Chat API ──────────────────────────────
 app.post('/api/widget/chat', async (req, res) => {
   const { botId, sessionId, userName, message, lang } = req.body;
+  console.log(`[Widget API] Incoming message for bot ${botId}, session: ${sessionId}, text: "${message}"`);
+  
   if (!botId || !sessionId || !message) {
     return res.status(400).json({ error: 'Missing required parameters (botId, sessionId, message)' });
   }
@@ -270,18 +272,21 @@ app.post('/api/widget/chat', async (req, res) => {
   try {
     const bot = await firestore.getBot(botId);
     if (!bot) {
+      console.warn(`[Widget API] Bot not found: ${botId}`);
       return res.status(404).json({ error: 'Bot not found' });
     }
     if (bot.status === 'inactive' || bot.status === 'paused' || bot.status === 'disabled') {
+      console.warn(`[Widget API] Bot ${botId} is inactive/disabled`);
       return res.status(403).json({ error: 'Bot is currently inactive' });
     }
     if (bot.features && bot.features.webWidget === false) {
+      console.warn(`[Widget API] Web Widget is disabled in features for bot ${botId}`);
       return res.status(403).json({ error: 'Web Widget is disabled for this bot' });
     }
 
     // Check if human takeover is active for this visitor
     if (isTakeoverActive(botId, sessionId)) {
-      console.log(`[Widget] Human takeover active for visitor ${sessionId} in bot ${botId}`);
+      console.log(`[Widget API] Human takeover active for visitor ${sessionId} in bot ${botId}`);
       return res.json({ success: true, takeover: true });
     }
 
@@ -292,7 +297,9 @@ app.post('/api/widget/chat', async (req, res) => {
       ...bot,
     };
 
+    console.log(`[Widget API] Requesting AI reply for session ${sessionId}...`);
     const aiReply = await askOpenRouter(aiConfig, sessionId, String(message).slice(0, 1000));
+    console.log(`[Widget API] AI reply generated: "${aiReply?.slice(0, 80)}..."`);
 
     if (aiReply) {
       // Save bot reply to Firestore
@@ -310,8 +317,8 @@ app.post('/api/widget/chat', async (req, res) => {
 
     res.json({ success: true, reply: aiReply || '' });
   } catch (err) {
-    console.error('[Widget] Chat processing error:', err.message);
-    res.status(500).json({ error: 'Failed to process chat message' });
+    console.error('[Widget API] Chat processing error:', err.message, err.stack);
+    res.status(500).json({ error: 'Failed to process chat message', details: err.message });
   }
 });
 

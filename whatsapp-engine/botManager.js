@@ -171,8 +171,10 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
     botState.pairingCode = null;
     botState.pairingCodeExpiresAt = null;
 
+    const phoneNum = client.info?.wid?.user || '';
     await firestore.updateBotStatus(botId, 'connected', {
       whatsappConnectedAt: new Date().toISOString(),
+      ...(phoneNum ? { whatsappNumber: phoneNum, phoneNumber: phoneNum } : {}),
     }).catch(() => {});
   });
 

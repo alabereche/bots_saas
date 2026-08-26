@@ -1953,17 +1953,35 @@ function AbandonedRecoveryCard({ bot, onUpdateBot }) {
 
 function WebWidgetTab({ bot, onUpdateBot }) {
   const [copiedScript, setCopiedScript] = useState(false);
-  const [copiedUrl, setCopiedUrl] = useState(false);
+  const [whatsappNumber, setWhatsappNumber] = useState(bot?.whatsappNumber || bot?.phoneNumber || '');
+  const [telegramUsername, setTelegramUsername] = useState(bot?.telegramUsername || bot?.botUsername || '');
   const [position, setPosition] = useState(bot?.webWidgetPosition || 'right');
   const [color, setColor] = useState(bot?.webWidgetColor || '#2563eb');
-  const [greeting, setGreeting] = useState(bot?.webWidgetGreeting || '');
+  const [greeting, setGreeting] = useState(bot?.webWidgetGreeting || 'تواصل معنا مباشرة عبر المنصة المفضلة لديك');
+  const [defaultText, setDefaultText] = useState(bot?.webWidgetText || 'مرحباً، أود الاستفسار عن الخدمات والأسعار');
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const toast = useToast();
 
   const isWidgetEnabled = bot?.features?.webWidget !== false && bot?.webWidgetEnabled !== false;
+  const botDisplayName = bot?.botName || bot?.businessName || 'خدمة العملاء';
 
-  const scriptTag = `<script src="https://aurabot.pages.dev/widget.js" data-bot-id="${bot?.id}" data-position="${position}" data-color="${color}"></script>`;
-  const directUrl = `https://aurabot.pages.dev/chat/${bot?.id}`;
+  // Build clean script tag
+  const cleanWa = whatsappNumber.replace(/[^0-9]/g, '');
+  const cleanTg = telegramUsername.replace(/^@/, '').trim();
+
+  let scriptAttrs = [
+    `src="https://aurabot.pages.dev/widget.js"`,
+    `data-name="${botDisplayName}"`,
+  ];
+  if (cleanWa) scriptAttrs.push(`data-whatsapp="${cleanWa}"`);
+  if (cleanTg) scriptAttrs.push(`data-telegram="${cleanTg}"`);
+  if (color !== '#2563eb') scriptAttrs.push(`data-color="${color}"`);
+  if (position !== 'right') scriptAttrs.push(`data-position="${position}"`);
+  if (greeting) scriptAttrs.push(`data-greeting="${greeting}"`);
+  if (defaultText) scriptAttrs.push(`data-text="${defaultText}"`);
+
+  const scriptTag = `<script ${scriptAttrs.join(' ')}></script>`;
 
   const handleCopyScript = () => {
     navigator.clipboard.writeText(scriptTag);
@@ -1972,23 +1990,19 @@ function WebWidgetTab({ bot, onUpdateBot }) {
     setTimeout(() => setCopiedScript(false), 2500);
   };
 
-  const handleCopyUrl = () => {
-    navigator.clipboard.writeText(directUrl);
-    setCopiedUrl(true);
-    toast.success('تم نسخ الرابط المباشر بنجاح');
-    setTimeout(() => setCopiedUrl(false), 2500);
-  };
-
   const handleSaveSettings = async (e) => {
     e?.preventDefault();
     setSaving(true);
     try {
       await onUpdateBot({
+        whatsappNumber: cleanWa,
+        telegramUsername: cleanTg,
         webWidgetPosition: position,
         webWidgetColor: color,
         webWidgetGreeting: greeting,
+        webWidgetText: defaultText,
       });
-      toast.success('تم حفظ تخصيصات الودجت بنجاح');
+      toast.success('تم حفظ إعدادات الودجت بنجاح');
     } catch (e) {
       toast.error('فشل حفظ الإعدادات: ' + e.message);
     } finally {
@@ -2024,10 +2038,10 @@ function WebWidgetTab({ bot, onUpdateBot }) {
                 <line x1="8" y1="21" x2="16" y2="21"/>
                 <line x1="12" y1="17" x2="12" y2="21"/>
               </svg>
-              ودجت الشات للمواقع وتطبيقات فلاتر (Web & App Widget)
+              ودجت الدردشة العائم للمواقع والمتاجر (Web Chat Launcher)
             </h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '4px', margin: 0 }}>
-              أضف شات ذكي عائم لمتجرك أو موقعك (Shopify, YouCan, WordPress, React, HTML) أو تطبيق هاتفك بسطر كود واحد.
+              زر عائم ذكي ينبثق منه خيارات التواصل المباشر (واتساب أو تيليغرام أو كلاهما) لفتح التطبيق والرد الفوري عبر الذكاء الاصطناعي.
             </p>
           </div>
 
@@ -2042,65 +2056,76 @@ function WebWidgetTab({ bot, onUpdateBot }) {
         </div>
       </div>
 
-      {/* Integration Code Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' }}>
-        {/* Option 1: Web Script */}
-        <div className="card">
-          <div className="card-header-row" style={{ marginBottom: '0.5rem' }}>
-            <h4 style={{ fontSize: '0.98rem', fontWeight: 700, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-              كود التضمين للمواقع والمتاجر (Websites)
-            </h4>
-          </div>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
-            انسخ هذا السطر والصقه في إعدادات متجرك أو موقعك (قبل إغلاق وسام body أو في Custom Header):
-          </p>
-          <div style={{ background: '#070b14', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid var(--border-default)', fontFamily: 'monospace', fontSize: '0.78rem', color: '#38bdf8', wordBreak: 'break-all', direction: 'ltr', textAlign: 'left', marginBottom: '0.85rem' }}>
-            {scriptTag}
-          </div>
-          <button type="button" className="btn btn-primary btn-sm" onClick={handleCopyScript} style={{ width: '100%' }}>
+      {/* Integration Script Card */}
+      <div className="card">
+        <div className="card-header-row" style={{ marginBottom: '0.5rem' }}>
+          <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            كود التضمين للمواقع والمتاجر (Shopify, YouCan, WordPress, WooCommerce, Custom HTML)
+          </h4>
+        </div>
+        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
+          انسخ هذا السطر البرمجي والصقه في إعدادات متجرك أو موقعك (قبل إغلاق وسم body أو في قسم Custom JavaScript / Header):
+        </p>
+        <div style={{ background: '#070b14', padding: '0.85rem 1.15rem', borderRadius: '10px', border: '1px solid var(--border-default)', fontFamily: 'monospace', fontSize: '0.82rem', color: '#38bdf8', wordBreak: 'break-all', direction: 'ltr', textAlign: 'left', marginBottom: '0.85rem' }}>
+          {scriptTag}
+        </div>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button type="button" className="btn btn-primary btn-sm" onClick={handleCopyScript} style={{ flex: 1, minWidth: '200px' }}>
             {copiedScript ? 'تم نسخ الكود بنجاح' : 'نسخ كود الودجت بضغطة زر'}
           </button>
         </div>
-
-        {/* Option 2: Mobile / Flutter URL */}
-        <div className="card">
-          <div className="card-header-row" style={{ marginBottom: '0.5rem' }}>
-            <h4 style={{ fontSize: '0.98rem', fontWeight: 700, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-              الرابط المباشر وتطبيقات فلاتر (Flutter / Mobile)
-            </h4>
-          </div>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
-            رابط مباشر نظيف لفتح الشات في المتصفح أو تضمينه داخل تطبيق Flutter عبر webview_flutter:
-          </p>
-          <div style={{ background: '#070b14', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid var(--border-default)', fontFamily: 'monospace', fontSize: '0.78rem', color: '#a78bfa', wordBreak: 'break-all', direction: 'ltr', textAlign: 'left', marginBottom: '0.85rem' }}>
-            {directUrl}
-          </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={handleCopyUrl} style={{ flex: 1 }}>
-              {copiedUrl ? 'تم النسخ' : 'نسخ الرابط'}
-            </button>
-            <a href={directUrl} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm" style={{ padding: '0.35rem 0.75rem', textDecoration: 'none' }}>
-              فتح وتجربة
-            </a>
-          </div>
-        </div>
       </div>
 
-      {/* Widget Customization and Live Preview Grid */}
+      {/* Widget Channels and Customization Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' }}>
         {/* Customizer Form */}
         <div className="card">
           <div className="card-header-row" style={{ marginBottom: '0.75rem' }}>
             <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#ffffff', margin: 0 }}>
-              تخصيص مظهر وموقع الودجت
+              قنوات التواصل ومظهر الودجت
             </h4>
           </div>
 
           <form onSubmit={handleSaveSettings} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
             <div className="form-group">
-              <label className="form-label">موقع زر الشات على الشاشة</label>
+              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#25D366' }} />
+                رقم واتساب المحادثة (مع مفتاح الدولة، مثل 213XXXXXXXXX)
+              </label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="213661234567"
+                value={whatsappNumber}
+                onChange={(e) => setWhatsappNumber(e.target.value)}
+                style={{ direction: 'ltr', textAlign: 'left' }}
+              />
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>
+                اتركه فارغاً إذا كنت لا ترغب بإظهار زر واتساب في الموقع.
+              </span>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#24A1DE' }} />
+                اسم مستخدم بوت تيليغرام (Telegram Username بدون @)
+              </label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="BatnaTechBot"
+                value={telegramUsername}
+                onChange={(e) => setTelegramUsername(e.target.value)}
+                style={{ direction: 'ltr', textAlign: 'left' }}
+              />
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>
+                اتركه فارغاً إذا كنت لا ترغب بإظهار زر تيليغرام في الموقع.
+              </span>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">موقع الزر على الشاشة</label>
               <select className="form-select" value={position} onChange={(e) => setPosition(e.target.value)}>
                 <option value="right">أسفل اليمين (موصى به للمواقع العربية)</option>
                 <option value="left">أسفل اليسار</option>
@@ -2108,7 +2133,7 @@ function WebWidgetTab({ bot, onUpdateBot }) {
             </div>
 
             <div className="form-group">
-              <label className="form-label">لون الودجت الرئيسي</label>
+              <label className="form-label">لون الزر العائم</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <input
                   type="color"
@@ -2127,41 +2152,217 @@ function WebWidgetTab({ bot, onUpdateBot }) {
             </div>
 
             <div className="form-group">
-              <label className="form-label">رسالة ترحيبية خاصة عند فتح الودجت (اختياري)</label>
+              <label className="form-label">عنوان الترحيب في النافذة</label>
               <input
                 type="text"
                 className="form-input"
-                placeholder="مرحباً بك! كيف يمكنني مساعدتك اليوم؟"
                 value={greeting}
                 onChange={(e) => setGreeting(e.target.value)}
               />
             </div>
 
+            <div className="form-group">
+              <label className="form-label">رسالة البداية التلقائية في واتساب</label>
+              <input
+                type="text"
+                className="form-input"
+                value={defaultText}
+                onChange={(e) => setDefaultText(e.target.value)}
+              />
+            </div>
+
             <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>
-              {saving ? 'جاري الحفظ...' : 'حفظ تخصيصات المظهر'}
+              {saving ? 'جاري الحفظ...' : 'حفظ إعدادات الودجت'}
             </button>
           </form>
         </div>
 
-        {/* Live Interactive Phone Simulator */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <div className="card-header-row" style={{ width: '100%', marginBottom: '0.85rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+        {/* Live Interactive Preview Box */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
+          <div className="card-header-row" style={{ width: '100%', marginBottom: '0.85rem' }}>
             <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
-              تجربة الشات الحية (Live Phone Simulator)
+              معاينة حية وتفاعلية للشاشات (Interactive Preview)
             </h4>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>اكتب رسالة وجرب رد البوت هنا مباشرة</span>
           </div>
 
-          <div className="phone-mockup">
-            <div className="phone-speaker" />
-            <div className="phone-screen">
-              <iframe
-                src={`/chat/${bot?.id}?embedded=true`}
-                style={{ width: '100%', height: '100%', border: 'none', background: '#090d16' }}
-                title="Live Chat Phone Simulator"
-              />
+          <div style={{
+            flex: 1,
+            minHeight: '380px',
+            background: '#090d16',
+            borderRadius: '16px',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            position: 'relative',
+            padding: '1.25rem',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+          }}>
+            {/* Fake Store Mockup UI */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '10px', marginBottom: '16px' }}>
+              <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#ffffff' }}>{botDisplayName}</span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <span style={{ width: '30px', height: '8px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '4px' }} />
+                <span style={{ width: '45px', height: '8px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '4px' }} />
+              </div>
             </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ width: '60%', height: '14px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '6px' }} />
+              <div style={{ width: '85%', height: '10px', background: 'rgba(255, 255, 255, 0.06)', borderRadius: '4px' }} />
+              <div style={{ width: '75%', height: '10px', background: 'rgba(255, 255, 255, 0.06)', borderRadius: '4px' }} />
+            </div>
+
+            {/* Simulated Popover Card */}
+            {previewOpen && (
+              <div style={{
+                position: 'absolute',
+                bottom: '80px',
+                [position === 'left' ? 'left' : 'right']: '20px',
+                width: '280px',
+                background: '#0f172a',
+                borderRadius: '16px',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                boxShadow: '0 12px 36px rgba(0, 0, 0, 0.5)',
+                overflow: 'hidden',
+                zIndex: 20,
+                animation: 'chatMsgFadeIn 0.2s ease',
+              }}>
+                <div style={{ padding: '0.85rem 1rem', background: '#1e293b', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: color, color: '#ffffff', fontWeight: 800, fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {botDisplayName.charAt(0)}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#ffffff', lineHeight: 1.1 }}>{botDisplayName}</div>
+                      <div style={{ fontSize: '0.68rem', color: '#10b981', fontWeight: 600 }}>متصل الآن • نرد فوراً</div>
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => setPreviewOpen(false)} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                </div>
+
+                <div style={{ padding: '0.85rem 1rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#94a3b8', lineHeight: 1.4 }}>{greeting}</div>
+
+                  {cleanWa && (
+                    <a
+                      href={`https://wa.me/${cleanWa}?text=${encodeURIComponent(defaultText)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '0.65rem 0.85rem',
+                        background: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)',
+                        borderRadius: '10px',
+                        color: '#ffffff',
+                        textDecoration: 'none',
+                        fontWeight: 700,
+                        fontSize: '0.8rem',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20.52 3.48A11.93 11.93 0 0012.04 0C5.46 0 .1 5.36.1 11.94c0 2.1.55 4.15 1.6 5.96L0 24l6.26-1.64a11.87 11.87 0 005.78 1.48h.01c6.58 0 11.94-5.36 11.94-11.94 0-3.19-1.24-6.19-3.47-8.42zM12.05 21.84h-.01a9.87 9.87 0 01-5.03-1.38l-.36-.21-3.73.98.99-3.64-.24-.38a9.88 9.88 0 01-1.52-5.27c0-5.46 4.44-9.9 9.9-9.9 2.64 0 5.13 1.03 7 2.9a9.83 9.83 0 012.89 6.99c0 5.46-4.44 9.91-9.89 9.91zm5.43-7.41c-.3-.15-1.77-.87-2.04-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.14-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.08c.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.23 1.36.2 1.87.12.57-.08 1.77-.72 2.02-1.42.25-.7.25-1.3.17-1.42-.07-.13-.27-.2-.57-.35z"/></svg>
+                        <span>محادثة واتساب</span>
+                      </div>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+                    </a>
+                  )}
+
+                  {cleanTg && (
+                    <a
+                      href={`https://t.me/${cleanTg}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '0.65rem 0.85rem',
+                        background: 'linear-gradient(135deg, #2AABEE 0%, #229ED9 100%)',
+                        borderRadius: '10px',
+                        color: '#ffffff',
+                        textDecoration: 'none',
+                        fontWeight: 700,
+                        fontSize: '0.8rem',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.121l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.832.932z"/></svg>
+                        <span>محادثة تيليغرام</span>
+                      </div>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+                    </a>
+                  )}
+
+                  {!cleanWa && !cleanTg && (
+                    <div style={{ fontSize: '0.72rem', color: '#f59e0b', textAlign: 'center', padding: '6px' }}>
+                      يرجى إضافة رقم واتساب أو يوزرنيم تيليغرام لتظهر الأزرار
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Simulated Floating Launcher */}
+            <button
+              type="button"
+              onClick={() => setPreviewOpen(!previewOpen)}
+              style={{
+                position: 'absolute',
+                bottom: '16px',
+                [position === 'left' ? 'left' : 'right']: '20px',
+                width: '48px',
+                height: '48px',
+                borderRadius: '24px',
+                background: color,
+                color: '#ffffff',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 6px 20px rgba(0, 0, 0, 0.4)',
+                zIndex: 25,
+                transition: 'transform 0.15s ease',
+              }}
+            >
+              {previewOpen ? (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              ) : (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Setup Guides Accordion / Card */}
+      <div className="card">
+        <h4 style={{ fontSize: '0.98rem', fontWeight: 700, color: '#ffffff', marginBottom: '0.85rem' }}>
+          طريقة التثبيت على أشهر المنصات:
+        </h4>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
+          <div style={{ background: '#090e1a', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-default)' }}>
+            <strong style={{ color: '#60a5fa', display: 'block', marginBottom: '4px', fontSize: '0.85rem' }}>YouCan</strong>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+              الإعدادات (Settings) ← أونلاين (Online) ← أكواد CSS & JS ← الصق الكود في خانة أكواد JavaScript (Header أو Footer).
+            </p>
+          </div>
+          <div style={{ background: '#090e1a', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-default)' }}>
+            <strong style={{ color: '#10b981', display: 'block', marginBottom: '4px', fontSize: '0.85rem' }}>Shopify</strong>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+              Online Store ← Themes ← Edit code ← افتح ملف <code>theme.liquid</code> والصق الكود قبل <code>&lt;/body&gt;</code> مباشرة.
+            </p>
+          </div>
+          <div style={{ background: '#090e1a', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-default)' }}>
+            <strong style={{ color: '#a78bfa', display: 'block', marginBottom: '4px', fontSize: '0.85rem' }}>WordPress / WooCommerce</strong>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+              استخدم إضافة (WPCode أو Insert Headers and Footers) والصق الكود في قسم Footer Scripts.
+            </p>
           </div>
         </div>
       </div>

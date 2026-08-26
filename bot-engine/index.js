@@ -759,9 +759,21 @@ async function startBot(config) {
       console.error(`[Engine] Bot "${config.botName}" error:`, err.message);
     });
 
+    // Auto-discover and save Telegram bot username
+    try {
+      const me = await bot.api.getMe();
+      if (me && me.username) {
+        db.collection('bots').doc(config.id).update({
+          telegramUsername: me.username,
+        }).catch(() => {});
+      }
+    } catch (e) {
+      console.warn(`[Engine] Could not fetch bot username for "${config.botName}":`, e.message);
+    }
+
     bot.start();
     activeBots.set(config.id, { bot, config });
-    console.log(`[Engine] ✅ Bot "${config.botName}" is running online.`);
+    console.log(`[Engine] Bot "${config.botName}" is running online.`);
   } catch (err) {
     console.error(`[Engine] Failed to start bot "${config.botName}":`, err.message);
   }

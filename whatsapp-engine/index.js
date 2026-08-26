@@ -260,68 +260,6 @@ app.get('/api/whatsapp/all', async (req, res) => {
 
 // ─── Manual Reply & Human Takeover (dashboard) ────────────────
 
-// ─── Web Widget Public Chat API ──────────────────────────────
-app.post('/api/widget/chat', async (req, res) => {
-  const { botId, sessionId, userName, message, lang } = req.body;
-  console.log(`[Widget API] Incoming message for bot ${botId}, session: ${sessionId}, text: "${message}"`);
-  
-  if (!botId || !sessionId || !message) {
-    return res.status(400).json({ error: 'Missing required parameters (botId, sessionId, message)' });
-  }
-
-  try {
-    const bot = await firestore.getBot(botId);
-    if (!bot) {
-      console.warn(`[Widget API] Bot not found: ${botId}`);
-      return res.status(404).json({ error: 'Bot not found' });
-    }
-    if (bot.status === 'inactive' || bot.status === 'paused' || bot.status === 'disabled') {
-      console.warn(`[Widget API] Bot ${botId} is inactive/disabled`);
-      return res.status(403).json({ error: 'Bot is currently inactive' });
-    }
-    if (bot.features && bot.features.webWidget === false) {
-      console.warn(`[Widget API] Web Widget is disabled in features for bot ${botId}`);
-      return res.status(403).json({ error: 'Web Widget is disabled for this bot' });
-    }
-
-    // Check if human takeover is active for this visitor
-    if (isTakeoverActive(botId, sessionId)) {
-      console.log(`[Widget API] Human takeover active for visitor ${sessionId} in bot ${botId}`);
-      return res.json({ success: true, takeover: true });
-    }
-
-    // Build AI config and call Gemini
-    const { askOpenRouter } = require('./openrouter');
-    const aiConfig = {
-      id: botId,
-      ...bot,
-    };
-
-    console.log(`[Widget API] Requesting AI reply for session ${sessionId}...`);
-    const aiReply = await askOpenRouter(aiConfig, sessionId, String(message).slice(0, 1000));
-    console.log(`[Widget API] AI reply generated: "${aiReply?.slice(0, 80)}..."`);
-
-    if (aiReply) {
-      // Save bot reply to Firestore
-      await firestore.logBotMessage({
-        botId,
-        ownerUserId: bot.userId,
-        to: sessionId,
-        userName: userName || 'زائر الموقع',
-        message: aiReply,
-        platform: 'web',
-      });
-
-      firestore.incrementMessageCount(botId);
-    }
-
-    res.json({ success: true, reply: aiReply || '' });
-  } catch (err) {
-    console.error('[Widget API] Chat processing error:', err.message, err.stack);
-    res.status(500).json({ error: 'Failed to process chat message', details: err.message });
-  }
-});
-
 // ─── Manual Reply & Human Takeover (dashboard) ────────────────
 
 // POST /api/reply — Owner manual reply via dashboard

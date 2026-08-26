@@ -317,7 +317,7 @@ async function handleMessage(msg, config) {
       }
     }
 
-    const displayMessage = userMessage || (isAudio ? '🎤 [رسالة صوتية]' : '');
+    const displayMessage = userMessage || (isAudio ? '[رسالة صوتية]' : '');
     console.log(`[Handler] 📩 New message from ${userName} (${userId}): "${displayMessage}"`);
 
     // Log the customer's message IMMEDIATELY — before any AI call —

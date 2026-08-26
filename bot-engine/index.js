@@ -405,7 +405,7 @@ async function callGemini(apiKey, model, messages, audioData = null) {
           },
         },
         {
-          text: m.content && m.content !== '🎤 [رسالة صوتية]'
+          text: m.content && m.content !== '[رسالة صوتية]'
             ? `الزبون أرسل تسجيلاً صوتياً ومرفق معه النص: "${m.content}". استمع للتسجيل الصوتي وافهم لهجته بدقة أياً كانت (دارجة جزائرية، مغاربية، عربية، فرنسية، إنجليزية أو أي لغة/لهجة)، وأجب عن طلبه وفقاً لقواعد النشاط والكتالوج.`
             : 'الزبون أرسل تسجيلاً صوتياً أعلاه. استمع له بعناية فائقة: افهم لهجته بدقة أياً كانت (دارجة جزائرية بجميع تنوعاتها، مغاربية، عربية، فرنسية، إنجليزية أو أي لهجة)، واستخرج طلبه أو سؤاله وأجب عنه بدقة ولباقة واحترافية وفقاً لتعليمات النشاط والكتالوج.',
         },
@@ -478,7 +478,7 @@ async function askAI(config, userId, userMessage, audioData = null) {
     conversationHistory.set(historyKey, []);
   }
   const history = conversationHistory.get(historyKey);
-  const effectiveMessage = userMessage || (audioData ? '🎤 [رسالة صوتية]' : '');
+  const effectiveMessage = userMessage || (audioData ? '[رسالة صوتية]' : '');
   if (effectiveMessage) {
     history.push({ role: 'user', content: effectiveMessage });
   }
@@ -624,7 +624,7 @@ async function startBot(config) {
         }
       }
 
-      const displayMessage = userMessage || (isVoice ? '🎤 [رسالة صوتية]' : '');
+      const displayMessage = userMessage || (isVoice ? '[رسالة صوتية]' : '');
 
       // Save user message immediately
       saveMessage(config.id, config.userId, userId, userName, displayMessage, 'user');

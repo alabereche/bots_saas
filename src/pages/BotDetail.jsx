@@ -766,7 +766,7 @@ export default function BotDetail() {
                       }}
                       style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem' }}
                     >
-                      {takeoverMap[selectedUserId] ? '🤖 إعادة تشغيل البوت' : '✋ تولي الرد يدوياً'}
+                      {takeoverMap[selectedUserId] ? 'إعادة تشغيل البوت' : 'تولي الرد يدوياً'}
                     </button>
                   </div>
                 </div>
@@ -828,7 +828,7 @@ export default function BotDetail() {
                         onClick={() => toggleTakeover(selectedUserId)}
                         title="إعادة تشغيل البوت للرد تلقائياً"
                       >
-                        <span>إعادة تشغيل البوت 🤖</span>
+                        <span>إعادة تشغيل البوت</span>
                       </button>
                     </div>
                     <div className="chat-input-area">

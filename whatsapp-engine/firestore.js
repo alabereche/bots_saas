@@ -476,6 +476,26 @@ async function findAbandonedLeads(botId, delayHours = 2) {
   }
 }
 
+// Record that an abandonment reminder was sent to this customer — the doc
+// shape matches exactly what findAbandonedLeads() reads to skip them
+// (botId / customerId / remindedAt within the 48h lookback window).
+// NOTE: the lead-qualifier feature exported this without ever defining it —
+// a require-time ReferenceError that crashed the whole engine on boot.
+async function recordAbandonedReminder(botId, customerId) {
+  try {
+    await db.collection('abandoned_reminders').add({
+      botId,
+      customerId: String(customerId),
+      remindedAt: new Date().toISOString(),
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    return true;
+  } catch (e) {
+    console.error('[Firestore] Record abandoned reminder error:', e.message);
+    return false;
+  }
+}
+
 async function saveLead(leadData) {
   try {
     const userId = await resolveOwnerUserId(leadData.botId, leadData.ownerUserId);

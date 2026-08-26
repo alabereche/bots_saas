@@ -272,7 +272,7 @@ app.post('/api/widget/chat', async (req, res) => {
     if (!bot) {
       return res.status(404).json({ error: 'Bot not found' });
     }
-    if (!bot.isActive) {
+    if (bot.status === 'inactive' || bot.status === 'paused' || bot.status === 'disabled') {
       return res.status(403).json({ error: 'Bot is currently inactive' });
     }
     if (bot.features && bot.features.webWidget === false) {

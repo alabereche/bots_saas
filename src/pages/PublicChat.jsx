@@ -136,9 +136,9 @@ export default function PublicChat() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isSending]);
 
-  const handleSendMessage = async (e) => {
+  const handleSendMessage = async (e, directText) => {
     if (e) e.preventDefault();
-    const text = inputText.trim();
+    const text = (directText !== undefined ? directText : inputText).trim();
     if (!text || isSending || !bot) return;
 
     setInputText('');
@@ -235,124 +235,169 @@ export default function PublicChat() {
 
   const welcomeText = customGreeting || bot.webWidgetGreeting || bot.customGreeting || t.welcomeDefault;
 
+  const quickPrompts = [
+    { label: 'استعراض المنتجات والأسعار', text: 'ما هي المنتجات أو الخدمات المتوفرة لديكم وأسعارها؟' },
+    { label: 'طريقة الطلب والتوصيل', text: 'كيف يتم الطلب وما هي خيارات وأسعار التوصيل؟' },
+    { label: 'تتبع حالة طلبيتي', text: 'أريد تتبع ومعرفة حالة طلبيتي' },
+  ];
+
   return (
-    <div className={`public-chat-wrapper ${isEmbedded ? 'embedded' : ''}`} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-      {/* Header */}
-      <div className="public-chat-header">
-        <div className="public-chat-header-info">
-          <div className="public-chat-avatar">
-            <span>{(bot.botName || bot.businessName || 'A').trim().charAt(0)}</span>
-            <span className="public-chat-online-badge" />
-          </div>
-          <div>
-            <div className="public-chat-title">{bot.botName || bot.businessName}</div>
-            <div className="public-chat-status">{t.online}</div>
-          </div>
-        </div>
-
-        <div className="public-chat-header-actions">
-          {/* Language Switcher */}
-          <div className="public-chat-lang-group">
-            <button
-              type="button"
-              className={`public-chat-lang-btn ${lang === 'ar' ? 'active' : ''}`}
-              onClick={() => setLang('ar')}
-            >
-              ع
-            </button>
-            <button
-              type="button"
-              className={`public-chat-lang-btn ${lang === 'fr' ? 'active' : ''}`}
-              onClick={() => setLang('fr')}
-            >
-              FR
-            </button>
-            <button
-              type="button"
-              className={`public-chat-lang-btn ${lang === 'en' ? 'active' : ''}`}
-              onClick={() => setLang('en')}
-            >
-              EN
-            </button>
-          </div>
-
-          {/* Reset Conversation Button */}
-          <button
-            type="button"
-            className="public-chat-action-btn"
-            title={t.resetChat}
-            onClick={handleResetChat}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
-              <path d="M21 3v5h-5"/>
-              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
-              <path d="M8 16H3v5"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      {/* Messages Feed */}
-      <div className="public-chat-messages">
-        {/* Initial Bot Greeting */}
-        <div className="public-chat-msg public-chat-msg-bot">
-          <div className="public-chat-bubble">{welcomeText}</div>
-        </div>
-
-        {messages.map((m) => {
-          const isUser = m.role === 'user';
-          return (
-            <div
-              key={m.id}
-              className={`public-chat-msg ${isUser ? 'public-chat-msg-user' : 'public-chat-msg-bot'}`}
-            >
-              <div className="public-chat-bubble">
-                <div style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div>
+    <div className={`public-chat-page ${isEmbedded ? 'is-embedded' : ''}`}>
+      <div className={`public-chat-wrapper ${isEmbedded ? 'embedded' : ''}`} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+        {/* Header */}
+        <header className="public-chat-header">
+          <div className="public-chat-header-info">
+            <div className="public-chat-avatar">
+              <span>{(bot.botName || bot.businessName || 'A').trim().charAt(0)}</span>
+              <span className="public-chat-online-badge" />
+            </div>
+            <div>
+              <div className="public-chat-title">{bot.botName || bot.businessName}</div>
+              <div className="public-chat-status">
+                <span className="online-dot" />
+                <span>{t.online}</span>
+                <span className="status-separator">•</span>
+                <span className="status-subtitle">مساعد الذكاء الاصطناعي</span>
               </div>
             </div>
-          );
-        })}
-
-        {isSending && (
-          <div className="public-chat-msg public-chat-msg-bot">
-            <div className="public-chat-bubble public-chat-typing">
-              <span />
-              <span />
-              <span />
-            </div>
           </div>
-        )}
 
-        <div ref={chatEndRef} />
-      </div>
+          <div className="public-chat-header-actions">
+            {/* Language Switcher */}
+            <div className="public-chat-lang-group">
+              <button
+                type="button"
+                className={`public-chat-lang-btn ${lang === 'ar' ? 'active' : ''}`}
+                onClick={() => setLang('ar')}
+              >
+                ع
+              </button>
+              <button
+                type="button"
+                className={`public-chat-lang-btn ${lang === 'fr' ? 'active' : ''}`}
+                onClick={() => setLang('fr')}
+              >
+                FR
+              </button>
+              <button
+                type="button"
+                className={`public-chat-lang-btn ${lang === 'en' ? 'active' : ''}`}
+                onClick={() => setLang('en')}
+              >
+                EN
+              </button>
+            </div>
 
-      {/* Input Box */}
-      <form className="public-chat-input-container" onSubmit={handleSendMessage}>
-        <input
-          type="text"
-          className="public-chat-input"
-          placeholder={t.placeholder}
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          disabled={isSending}
-        />
-        <button
-          type="submit"
-          className="public-chat-send-btn"
-          disabled={!inputText.trim() || isSending}
-          aria-label={t.send}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: lang === 'ar' ? 'rotate(180deg)' : 'none' }}>
-            <line x1="22" y1="2" x2="11" y2="13"/>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-          </svg>
-        </button>
-      </form>
+            {/* Reset Conversation Button */}
+            <button
+              type="button"
+              className="public-chat-action-btn"
+              title={t.resetChat}
+              onClick={handleResetChat}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                <path d="M21 3v5h-5"/>
+                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                <path d="M8 16H3v5"/>
+              </svg>
+            </button>
+          </div>
+        </header>
 
-      {/* Footer Branding */}
-      <div className="public-chat-footer">
-        <span>{t.poweredBy}</span>
+        {/* Messages Feed */}
+        <div className="public-chat-messages">
+          {/* Welcome Card & Quick Actions */}
+          <div className="public-chat-welcome-hero">
+            <div className="hero-avatar">
+              <span>{(bot.botName || bot.businessName || 'A').trim().charAt(0)}</span>
+            </div>
+            <h3 className="hero-title">مرحباً بك في {bot.botName || bot.businessName}</h3>
+            <p className="hero-desc">{welcomeText}</p>
+          </div>
+
+          {/* Quick Suggestion Pills if conversation is just starting */}
+          {messages.length === 0 && (
+            <div className="public-chat-quick-actions">
+              <div className="quick-actions-title">اقتراحات سريعة للبدء:</div>
+              <div className="quick-actions-list">
+                {quickPrompts.map((q, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    className="quick-action-pill"
+                    onClick={() => handleSendMessage(null, q.text)}
+                    disabled={isSending}
+                  >
+                    <span>{q.label}</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ transform: lang === 'ar' ? 'rotate(180deg)' : 'none' }}>
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Conversation History */}
+          {messages.map((m) => {
+            const isUser = m.role === 'user';
+            return (
+              <div
+                key={m.id}
+                className={`public-chat-msg ${isUser ? 'public-chat-msg-user' : 'public-chat-msg-bot'}`}
+              >
+                <div className="public-chat-bubble">
+                  <div className="bubble-text">{m.content}</div>
+                  <div className="public-chat-time">
+                    {m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {isSending && (
+            <div className="public-chat-msg public-chat-msg-bot">
+              <div className="public-chat-bubble public-chat-typing">
+                <span />
+                <span />
+                <span />
+              </div>
+            </div>
+          )}
+
+          <div ref={chatEndRef} />
+        </div>
+
+        {/* Input Box & Footer */}
+        <div className="public-chat-footer-wrapper">
+          <form className="public-chat-input-container" onSubmit={(e) => handleSendMessage(e)}>
+            <input
+              type="text"
+              className="public-chat-input"
+              placeholder={t.placeholder}
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              disabled={isSending}
+            />
+            <button
+              type="submit"
+              className="public-chat-send-btn"
+              disabled={!inputText.trim() || isSending}
+              aria-label={t.send}
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: lang === 'ar' ? 'rotate(180deg)' : 'none' }}>
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+            </button>
+          </form>
+
+          <div className="public-chat-footer">
+            <span>{t.poweredBy} • دردشة فورية بالذكاء الاصطناعي</span>
+          </div>
+        </div>
       </div>
     </div>
   );

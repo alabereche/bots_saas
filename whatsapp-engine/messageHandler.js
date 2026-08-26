@@ -275,10 +275,14 @@ async function extractWhatsAppAudio(msg, maxRetries = 4, delayMs = 500) {
   return null;
 }
 
+// ─── Contact Avatar Cache (TTL: 24h) ─────────────────────────
+const avatarCache = new Map();
+
 // ─── Message Handler ─────────────────────────────────────────
 async function handleMessage(msg, config) {
   let userId = null;
   let userName = null;
+  let userAvatar = null;
   try {
     // Skip messages from the bot itself
     if (msg.fromMe) return;
@@ -305,6 +309,21 @@ async function handleMessage(msg, config) {
     userId = msg.from;
     userName = msg._data?.notifyName || msg.notifyName || 'زبون واتساب';
 
+    // Fetch customer avatar URL if available (cached in memory)
+    if (avatarCache.has(userId)) {
+      userAvatar = avatarCache.get(userId);
+    } else if (msg.client) {
+      try {
+        const contact = await msg.getContact();
+        userAvatar = (contact && typeof contact.getProfilePicUrl === 'function')
+          ? await contact.getProfilePicUrl().catch(() => null)
+          : null;
+        avatarCache.set(userId, userAvatar || null);
+      } catch {
+        avatarCache.set(userId, null);
+      }
+    }
+
     // Download audio data with multi-strategy extractor
     let audioData = null;
     if (isAudio) {
@@ -318,7 +337,7 @@ async function handleMessage(msg, config) {
     }
 
     const displayMessage = userMessage || (isAudio ? '[رسالة صوتية]' : '');
-    console.log(`[Handler] 📩 New message from ${userName} (${userId}): "${displayMessage}"`);
+    console.log(`[Handler] New message from ${userName} (${userId}): "${displayMessage}"`);
 
     // Log the customer's message IMMEDIATELY — before any AI call —
     // so a provider outage can never silently swallow it
@@ -327,6 +346,7 @@ async function handleMessage(msg, config) {
       ownerUserId: config.userId,
       from: userId,
       userName,
+      userAvatar,
       message: displayMessage,
       response: null,
     }).catch(e => console.error('[Handler] Log error:', e.message));

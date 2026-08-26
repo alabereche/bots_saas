@@ -104,7 +104,7 @@ async function updateBotStatus(botId, status, extra = {}) {
 
 // ─── Conversations (Messages) ─────────────────────────────────
 
-async function logMessage({ botId, ownerUserId, from, userName, message, response = null }) {
+async function logMessage({ botId, ownerUserId, from, userName, userAvatar = null, message, response = null }) {
   const ts = new Date().toISOString();
   try {
     const userId = await resolveOwnerUserId(botId, ownerUserId);
@@ -116,6 +116,7 @@ async function logMessage({ botId, ownerUserId, from, userName, message, respons
       userId: userId || '',
       telegramUserId: String(from),
       userName: userName || 'زبون واتساب',
+      userAvatar: userAvatar || null,
       content: message.slice(0, 1000),
       role: 'user',
       createdAt: ts,
@@ -131,6 +132,7 @@ async function logMessage({ botId, ownerUserId, from, userName, message, respons
         userId: userId || '',
         telegramUserId: String(from),
         userName: userName || 'زبون واتساب',
+        userAvatar: userAvatar || null,
         content: response.slice(0, 1000),
         role: 'bot',
         createdAt: new Date(Date.now() + 10).toISOString(),

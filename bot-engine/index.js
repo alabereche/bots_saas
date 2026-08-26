@@ -121,11 +121,14 @@ const humanTakeoverMap = new Map();
 const conversationHistory = new Map();
 const MAX_HISTORY = 20;
 
+// User avatar cache: userId -> avatarUrl (TTL: in-memory)
+const telegramAvatarCache = new Map();
+
 // ─── Firestore Helpers ────────────────────────────────────────
 
 // ownerUserId is stamped on every document so the security rules can
 // authorize owner access without a per-document get()
-async function saveMessage(botId, ownerUserId, telegramUserId, userName, content, role, platform = 'telegram') {
+async function saveMessage(botId, ownerUserId, telegramUserId, userName, content, role, platform = 'telegram', userAvatar = null) {
   try {
     await db.collection('conversations').add({
       botId,
@@ -134,6 +137,7 @@ async function saveMessage(botId, ownerUserId, telegramUserId, userName, content
       telegramUserId: String(telegramUserId),
       customerId: String(telegramUserId),
       userName: userName || 'زبون',
+      userAvatar: userAvatar || null,
       content,
       role, // 'user' | 'bot' | 'owner'
       createdAt: new Date().toISOString(),
@@ -624,10 +628,28 @@ async function startBot(config) {
         }
       }
 
+      // Fetch user profile photo (cached in memory)
+      let userAvatar = telegramAvatarCache.get(userId);
+      if (userAvatar === undefined) {
+        try {
+          const photos = await ctx.api.getUserProfilePhotos(userId, { limit: 1 }).catch(() => null);
+          if (photos && photos.total_count > 0 && photos.photos[0] && photos.photos[0].length > 0) {
+            const photo = photos.photos[0][0];
+            const fileInfo = await ctx.api.getFile(photo.file_id).catch(() => null);
+            if (fileInfo && fileInfo.file_path) {
+              userAvatar = `https://api.telegram.org/file/bot${config.telegramToken.trim()}/${fileInfo.file_path}`;
+            }
+          }
+          telegramAvatarCache.set(userId, userAvatar || null);
+        } catch {
+          telegramAvatarCache.set(userId, null);
+        }
+      }
+
       const displayMessage = userMessage || (isVoice ? '[رسالة صوتية]' : '');
 
       // Save user message immediately
-      saveMessage(config.id, config.userId, userId, userName, displayMessage, 'user');
+      saveMessage(config.id, config.userId, userId, userName, displayMessage, 'user', 'telegram', userAvatar);
 
       // Check human takeover
       if (humanTakeoverMap.get(takeoverKey)) {

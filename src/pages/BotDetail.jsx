@@ -184,6 +184,7 @@ export default function BotDetail() {
       customerThreads[uid] = { 
         userId: uid, 
         userName: m.userName || 'مستخدم', 
+        userAvatar: m.userAvatar || null,
         platform: m.platform || bot?.platform || 'whatsapp',
         messages: [], 
         lastTime: m.createdAt || new Date().toISOString()
@@ -191,6 +192,7 @@ export default function BotDetail() {
     }
     customerThreads[uid].messages.push(m);
     if (m.platform) customerThreads[uid].platform = m.platform;
+    if (m.userAvatar) customerThreads[uid].userAvatar = m.userAvatar;
     if (new Date(m.createdAt) > new Date(customerThreads[uid].lastTime)) {
       customerThreads[uid].lastTime = m.createdAt;
       if (m.role === 'user' && m.userName) customerThreads[uid].userName = m.userName;
@@ -682,7 +684,16 @@ export default function BotDetail() {
                       onClick={() => setSelectedUserId(c.userId)}
                     >
                       <div className="chat-avatar">
-                        <span>{(c.userName || '؟').trim().charAt(0)}</span>
+                        {c.userAvatar ? (
+                          <img
+                            src={c.userAvatar}
+                            alt={c.userName}
+                            className="chat-avatar-img"
+                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                          />
+                        ) : (
+                          <span>{(c.userName || '؟').trim().charAt(0)}</span>
+                        )}
                         <span className="chat-avatar-platform"><PlatformMiniIcon platform={platform} size={9} /></span>
                         {isTakeover && <span className="chat-avatar-manual" title="وضع الرد اليدوي مفعّل" />}
                       </div>
@@ -732,8 +743,17 @@ export default function BotDetail() {
                       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                       القائمة
                     </button>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#18243b', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#18243b', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0, border: '1px solid var(--border-default)' }}>
+                      {selectedThread?.userAvatar ? (
+                        <img
+                          src={selectedThread.userAvatar}
+                          alt={selectedThread.userName}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        />
+                      ) : (
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                      )}
                     </div>
                     <div>
                       <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#ffffff' }}>{selectedThread?.userName}</div>

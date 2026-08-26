@@ -584,11 +584,13 @@ async function startBot(config) {
   try {
     console.log(`[Engine] Initializing Telegram bot "${config.botName}" (${config.id})...`);
     const bot = new Bot(config.telegramToken.trim());
+    // Register in activeBots immediately to prevent concurrent duplicate instances
+    activeBots.set(config.id, { bot, config });
 
     bot.command('start', async (ctx) => {
       const greeting = config.responseStyle === 'formal'
         ? `مرحباً بك. أنا ${config.botName}، مساعدك الآلي من ${config.businessName}. كيف يمكنني مساعدتك اليوم؟`
-        : `أهلاً وسهلاً بيك! أنا ${config.botName} من ${config.businessName}. كيفاش نقدر نعاونك اليوم؟ 😊`;
+        : `أهلاً وسهلاً بك. أنا ${config.botName} من ${config.businessName}. كيف يمكنني مساعدتك اليوم؟`;
       await ctx.reply(greeting);
     });
 
@@ -759,22 +761,18 @@ async function startBot(config) {
       console.error(`[Engine] Bot "${config.botName}" error:`, err.message);
     });
 
-    // Auto-discover and save Telegram bot username
-    try {
-      const me = await bot.api.getMe();
-      if (me && me.username) {
-        db.collection('bots').doc(config.id).update({
-          telegramUsername: me.username,
-        }).catch(() => {});
-      }
-    } catch (e) {
-      console.warn(`[Engine] Could not fetch bot username for "${config.botName}":`, e.message);
-    }
-
-    bot.start();
-    activeBots.set(config.id, { bot, config });
-    console.log(`[Engine] Bot "${config.botName}" is running online.`);
+    bot.start({
+      onStart: (botInfo) => {
+        console.log(`[Engine] Bot "${config.botName}" is running online (@${botInfo?.username || 'unknown'}).`);
+        if (botInfo && botInfo.username && botInfo.username !== config.telegramUsername) {
+          db.collection('bots').doc(config.id).update({
+            telegramUsername: botInfo.username,
+          }).catch(() => {});
+        }
+      },
+    });
   } catch (err) {
+    activeBots.delete(config.id);
     console.error(`[Engine] Failed to start bot "${config.botName}":`, err.message);
   }
 }

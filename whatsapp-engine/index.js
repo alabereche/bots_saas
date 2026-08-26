@@ -65,12 +65,14 @@ const upload = multer({
 
 // ─── Middleware ───────────────────────────────────────────────
 app.use(cors({ origin: '*' }));
+app.options('*', cors());
 app.use(express.json({ limit: '2mb' }));
 
 // ─── Security: Firebase ID token verification ──────────────────
 // The dashboard signs in with Firebase Auth and sends its ID token;
 // the engine verifies the token and checks the caller owns the bot.
 app.use('/api', async (req, res, next) => {
+  if (req.method === 'OPTIONS') return next();
 
   const header = req.headers.authorization || '';
   if (!header.startsWith('Bearer ')) {

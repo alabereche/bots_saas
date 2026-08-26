@@ -292,13 +292,20 @@ export function subscribeOrders(botId, callback) {
     where('botId', '==', botId),
     where('userId', '==', uid)
   );
-  return onSnapshot(q, (snapshot) => {
-    const orders = snapshot.docs.map(d => ({
-      id: d.id,
-      ...d.data(),
-    })).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')); // Newest first
-    callback(orders);
-  });
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const orders = snapshot.docs.map(d => ({
+        id: d.id,
+        ...d.data(),
+      })).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      callback(orders);
+    },
+    (err) => {
+      console.warn('[Firestore] Orders listener warning:', err.message);
+      callback([]);
+    }
+  );
 }
 
 // Save order
@@ -330,13 +337,20 @@ export function subscribeLeads(botId, callback) {
     where('botId', '==', botId),
     where('userId', '==', uid)
   );
-  return onSnapshot(q, (snapshot) => {
-    const leads = snapshot.docs.map(d => ({
-      id: d.id,
-      ...d.data(),
-    })).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-    callback(leads);
-  });
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const leads = snapshot.docs.map(d => ({
+        id: d.id,
+        ...d.data(),
+      })).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      callback(leads);
+    },
+    (err) => {
+      console.warn('[Firestore] Leads listener warning:', err.message);
+      callback([]);
+    }
+  );
 }
 
 // Update lead status

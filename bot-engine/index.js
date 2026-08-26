@@ -962,6 +962,7 @@ function listenToBots() {
 
 const app = express();
 app.use(cors({ origin: '*' }));
+app.options('*', cors());
 app.use(express.json({
   limit: '1mb',
   verify: (req, res, buf) => {
@@ -974,6 +975,7 @@ app.use(express.json({
 function rateLimit({ windowMs = 60000, max = 120 } = {}) {
   const buckets = new Map();
   return (req, res, next) => {
+    if (req.method === 'OPTIONS') return next();
     const key = req.uid || req.ip || 'unknown';
     const now = Date.now();
     let bucket = buckets.get(key);
@@ -1002,6 +1004,7 @@ app.use('/api', rateLimit({ windowMs: 60000, max: 120 }));
 
 // ─── Security: Firebase ID token verification ──────────────────
 app.use('/api', async (req, res, next) => {
+  if (req.method === 'OPTIONS') return next();
   const header = req.headers.authorization || '';
   if (!header.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'مصادقة مطلوبة — سجل الدخول وأعد المحاولة' });

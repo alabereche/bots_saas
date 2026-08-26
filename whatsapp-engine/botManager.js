@@ -272,30 +272,40 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
 // Stop Bot & Purge Session
 async function stopWhatsAppBot(botId, purgeSession = true) {
   const entry = activeBots.get(botId);
-  if (entry) {
+  activeBots.delete(botId);
+
+  if (entry && entry.client) {
     try {
-      if (entry.status === 'connected' && entry.client) {
-        console.log(`[BotManager] 🚪 Logging out WhatsApp session for "${entry.config.botName}"...`);
-        await entry.client.logout().catch(() => {});
+      if (entry.status === 'connected') {
+        console.log(`[BotManager] Logging out WhatsApp session for "${entry.config?.botName || botId}"...`);
+        await Promise.race([
+          entry.client.logout().catch(() => {}),
+          new Promise(r => setTimeout(r, 2000)),
+        ]);
       }
     } catch (e) {
       console.warn('[BotManager] Logout notice:', e.message);
     }
 
     try {
-      await entry.client.destroy();
-      console.log(`[BotManager] Bot "${entry.config.botName}" stopped.`);
+      await Promise.race([
+        entry.client.destroy().catch(() => {}),
+        new Promise(r => setTimeout(r, 3000)),
+      ]);
+      console.log(`[BotManager] Bot "${entry.config?.botName || botId}" stopped.`);
     } catch (e) {
-      console.error(`[BotManager] Error stopping bot:`, e.message);
+      console.warn('[BotManager] Destroy notice:', e.message);
     }
-    activeBots.delete(botId);
   }
 
   if (purgeSession) {
     cleanSession(botId);
   }
 
-  await firestore.updateBotStatus(botId, 'disconnected').catch(() => {});
+  await firestore.updateBotStatus(botId, 'disconnected', {
+    whatsappConnectedAt: null,
+    isActive: false,
+  }).catch(() => {});
 }
 
 function getBotState(botId) {

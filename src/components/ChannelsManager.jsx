@@ -255,14 +255,16 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
 
   const handleWaDisconnect = async () => {
     try {
-      await fetch(`${WHATSAPP_ENGINE_URL}/api/whatsapp/${bot.id}/stop`, { method: 'POST', headers: await engineHeaders(false) });
-      setWaStatus('disconnected');
-      setQrDataUrl(null);
-      setPairingCode(null);
-      await onUpdateBot({ whatsappStatus: 'disconnected' });
+      await fetch(`${WHATSAPP_ENGINE_URL}/api/whatsapp/${bot.id}/stop`, { method: 'POST', headers: await engineHeaders(false) }).catch(() => {});
+    } catch { /* best effort */ }
+    setWaStatus('disconnected');
+    setQrDataUrl(null);
+    setPairingCode(null);
+    try {
+      await onUpdateBot({ whatsappStatus: 'disconnected', isActive: false });
       toast.success('تم فصل اتصال واتساب وتطهير الجلسة بنجاح');
-    } catch {
-      toast.error('فشل قطع الاتصال');
+    } catch (e) {
+      toast.error('فشل تحديث الحالة: ' + e.message);
     }
   };
 

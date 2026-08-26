@@ -382,21 +382,20 @@ async function findAbandonedLeads(botId, delayHours = 2) {
     const cutoffDate = new Date(Date.now() - delayHours * 3600 * 1000).toISOString();
     const maxLookbackDate = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
 
-    // 1. Fetch recent conversations in the last 48h
+    // 1. Fetch recent conversations for this bot (in-memory date filter avoids composite index requirement)
     const convSnap = await db.collection('conversations')
       .where('botId', '==', botId)
-      .where('createdAt', '>=', maxLookbackDate)
-      .orderBy('createdAt', 'desc')
-      .limit(150)
+      .limit(200)
       .get();
 
     if (convSnap.empty) return [];
 
-    // Group by customer
+    // Group by customer and filter by date
     const threads = {};
     convSnap.docs.forEach(d => {
       const data = d.data();
-      const cid = data.telegramUserId || data.customerId;
+      if (!data.createdAt || data.createdAt < maxLookbackDate) return;
+      const cid = data.telegramUserId || data.customerId || data.from;
       if (!cid) return;
       if (!threads[cid]) {
         threads[cid] = {
@@ -408,31 +407,39 @@ async function findAbandonedLeads(botId, delayHours = 2) {
         };
       }
       threads[cid].messages.push(data);
+      if (data.createdAt > threads[cid].lastMessageAt) {
+        threads[cid].lastMessageAt = data.createdAt;
+      }
     });
 
     // 2. Fetch existing orders in the last 48h
     const orderSnap = await db.collection('orders')
       .where('botId', '==', botId)
-      .where('createdAt', '>=', maxLookbackDate)
+      .limit(100)
       .get();
     
     const customersWithOrders = new Set();
     orderSnap.docs.forEach(d => {
       const o = d.data();
-      if (o.customerId) customersWithOrders.add(String(o.customerId));
-      if (o.phone) customersWithOrders.add(String(o.phone));
+      if (o.createdAt && o.createdAt >= maxLookbackDate) {
+        if (o.customerId) customersWithOrders.add(String(o.customerId));
+        if (o.phone) customersWithOrders.add(String(o.phone));
+      }
     });
 
     // 3. Fetch past reminders in the last 48h
     const reminderSnap = await db.collection('abandoned_reminders')
       .where('botId', '==', botId)
-      .where('remindedAt', '>=', maxLookbackDate)
+      .limit(100)
       .get();
     
     const remindedCustomers = new Set();
     reminderSnap.docs.forEach(d => {
       const r = d.data();
-      if (r.customerId) remindedCustomers.add(String(r.customerId));
+      if (r.remindedAt && r.remindedAt >= maxLookbackDate) {
+        if (r.customerId) remindedCustomers.add(String(r.customerId));
+      }
+    });
     });
 
     const eligible = [];

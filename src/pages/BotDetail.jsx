@@ -2143,21 +2143,25 @@ function WebWidgetTab({ bot, onUpdateBot }) {
           </form>
         </div>
 
-        {/* Live Interactive Preview */}
-        <div className="card">
-          <div className="card-header-row" style={{ marginBottom: '0.75rem' }}>
-            <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+        {/* Live Interactive Phone Simulator */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <div className="card-header-row" style={{ width: '100%', marginBottom: '0.85rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+            <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
-              معاينة حية وتفاعلية للودجت (Live Interactive Preview)
+              تجربة الشات الحية (Live Phone Simulator)
             </h4>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>اكتب رسالة وجرب رد البوت هنا مباشرة</span>
           </div>
 
-          <div style={{ width: '100%', height: '380px', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-default)', background: '#070b14', position: 'relative' }}>
-            <iframe
-              src={`/chat/${bot?.id}?embedded=true`}
-              style={{ width: '100%', height: '100%', border: 'none', background: '#0d1526' }}
-              title="Live Chat Preview"
-            />
+          <div className="phone-mockup">
+            <div className="phone-speaker" />
+            <div className="phone-screen">
+              <iframe
+                src={`/chat/${bot?.id}?embedded=true`}
+                style={{ width: '100%', height: '100%', border: 'none', background: '#090d16' }}
+                title="Live Chat Phone Simulator"
+              />
+            </div>
           </div>
         </div>
       </div>

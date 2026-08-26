@@ -171,7 +171,7 @@ export default function PublicChat() {
       });
 
       // 2. Call WhatsApp Engine API to handle LLM response & business logic
-      const engineUrl = 'https://chat.aurabot.site';
+      const engineUrl = import.meta.env.VITE_WHATSAPP_ENGINE_URL || 'https://wa.nosfir.online';
       const res = await fetch(`${engineUrl}/api/widget/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -184,8 +184,24 @@ export default function PublicChat() {
         }),
       });
 
-      if (!res.ok) {
-        throw new Error(`Engine response status: ${res.status}`);
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.reply) {
+          // If not already in messages from Firestore, add bot reply optimistically
+          setMessages((prev) => {
+            const hasIt = prev.some((m) => m.content === data.reply);
+            if (hasIt) return prev;
+            return [
+              ...prev,
+              {
+                id: 'bot_' + Date.now(),
+                role: 'bot',
+                content: data.reply,
+                createdAt: new Date().toISOString(),
+              },
+            ];
+          });
+        }
       }
     } catch (err) {
       console.error('[PublicChat] Send message error:', err);
@@ -217,7 +233,7 @@ export default function PublicChat() {
     );
   }
 
-  const welcomeText = customGreeting || bot.customGreeting || bot.description || t.welcomeDefault;
+  const welcomeText = customGreeting || bot.webWidgetGreeting || bot.customGreeting || t.welcomeDefault;
 
   return (
     <div className={`public-chat-wrapper ${isEmbedded ? 'embedded' : ''}`} dir={lang === 'ar' ? 'rtl' : 'ltr'}>

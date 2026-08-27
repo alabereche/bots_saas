@@ -222,24 +222,60 @@ export async function deleteBot(botId) {
 
 // ─── Conversations (Firestore) ────────────────────────────────
 
-// Subscribe to messages of a bot in realtime
-// The userId filter matches the security rules (owner-only reads)
-export function subscribeConversations(botId, callback) {
+// Helper for auth-scoped Firestore subscriptions (resilient to initial null auth on page reload)
+function createAuthScopedSubscriber(collectionName, botId, callback, sortFn) {
   if (!botId) return () => {};
-  const uid = auth.currentUser?.uid;
-  if (!uid) return () => {};
-  const q = query(
-    collection(db, 'conversations'),
-    where('botId', '==', botId),
-    where('userId', '==', uid)
-  );
-  return onSnapshot(q, (snapshot) => {
-    const messages = snapshot.docs.map(d => ({
-      id: d.id,
-      ...d.data(),
-    })).sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
-    callback(messages);
+
+  let innerUnsub = () => {};
+
+  const attachQuery = (uid) => {
+    innerUnsub();
+    if (!uid) {
+      callback([]);
+      return;
+    }
+    const q = query(
+      collection(db, collectionName),
+      where('botId', '==', botId),
+      where('userId', '==', uid)
+    );
+    innerUnsub = onSnapshot(
+      q,
+      (snapshot) => {
+        let items = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        if (sortFn) items.sort(sortFn);
+        callback(items);
+      },
+      (err) => {
+        console.warn(`[Firestore] ${collectionName} listener warning:`, err.message);
+        callback([]);
+      }
+    );
+  };
+
+  if (auth.currentUser?.uid) {
+    attachQuery(auth.currentUser.uid);
+  }
+
+  const unsubAuth = auth.onAuthStateChanged((user) => {
+    if (user?.uid) {
+      attachQuery(user.uid);
+    } else if (!user && !auth.currentUser) {
+      attachQuery(null);
+    }
   });
+
+  return () => {
+    unsubAuth();
+    innerUnsub();
+  };
+}
+
+// ─── Conversations (Firestore) ────────────────────────────────
+
+// Subscribe to messages of a bot in realtime
+export function subscribeConversations(botId, callback) {
+  return createAuthScopedSubscriber('conversations', botId, callback, (a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
 }
 
 // Save message
@@ -282,30 +318,8 @@ export async function clearBotMessages(botId) {
 // ─── Orders (Firestore) ───────────────────────────────────────
 
 // Subscribe to orders in realtime
-// The userId filter matches the security rules (owner-only reads)
 export function subscribeOrders(botId, callback) {
-  if (!botId) return () => {};
-  const uid = auth.currentUser?.uid;
-  if (!uid) return () => {};
-  const q = query(
-    collection(db, 'orders'),
-    where('botId', '==', botId),
-    where('userId', '==', uid)
-  );
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      const orders = snapshot.docs.map(d => ({
-        id: d.id,
-        ...d.data(),
-      })).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-      callback(orders);
-    },
-    (err) => {
-      console.warn('[Firestore] Orders listener warning:', err.message);
-      callback([]);
-    }
-  );
+  return createAuthScopedSubscriber('orders', botId, callback, (a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 }
 
 // Save order
@@ -329,28 +343,7 @@ export async function updateOrderStatus(orderId, status) {
 
 // Subscribe to leads in realtime
 export function subscribeLeads(botId, callback) {
-  if (!botId) return () => {};
-  const uid = auth.currentUser?.uid;
-  if (!uid) return () => {};
-  const q = query(
-    collection(db, 'leads'),
-    where('botId', '==', botId),
-    where('userId', '==', uid)
-  );
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      const leads = snapshot.docs.map(d => ({
-        id: d.id,
-        ...d.data(),
-      })).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-      callback(leads);
-    },
-    (err) => {
-      console.warn('[Firestore] Leads listener warning:', err.message);
-      callback([]);
-    }
-  );
+  return createAuthScopedSubscriber('leads', botId, callback, (a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 }
 
 // Update lead status

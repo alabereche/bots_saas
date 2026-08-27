@@ -195,11 +195,58 @@ async function createNotification({ userId, botId, type = 'system', title, body 
   }
 }
 
-async function saveOrderToFirestore(orderData) {
+async function saveOrderToFirestore(orderData, orderMergeMode = 'merge') {
   try {
-    const trackingCode = orderData.trackingCode || generateTrackingCode();
     const now = new Date().toISOString();
 
+    // Check if merge mode is active and customer has a pending order
+    if (orderMergeMode !== 'separate' && (orderData.customerId || orderData.phone)) {
+      try {
+        const snap = await db.collection('orders')
+          .where('botId', '==', orderData.botId)
+          .where('deliveryStatus', '==', 'pending')
+          .limit(10)
+          .get();
+
+        const matchedDoc = snap.docs.find(d => {
+          const data = d.data();
+          const matchCustomer = orderData.customerId && String(data.customerId) === String(orderData.customerId);
+          const matchPhone = orderData.phone && data.phone && String(data.phone).replace(/\D/g, '') === String(orderData.phone).replace(/\D/g, '');
+          return matchCustomer || matchPhone;
+        });
+
+        if (matchedDoc) {
+          const existing = matchedDoc.data();
+          const finalName = orderData.customerName || existing.customerName || 'زبون';
+          const finalPhone = orderData.phone || existing.phone || '';
+          const finalAddress = orderData.address || existing.address || '';
+
+          await matchedDoc.ref.update({
+            product: orderData.product,
+            price: orderData.price,
+            customerName: finalName,
+            phone: finalPhone,
+            address: finalAddress,
+            notes: orderData.notes || existing.notes || '-',
+            updatedAt: now,
+            lastModified: FieldValue.serverTimestamp(),
+            statusHistory: FieldValue.arrayUnion({
+              orderStatus: 'confirmed',
+              deliveryStatus: 'pending',
+              timestamp: now,
+              note: 'تم تحديث ودمج الطلبية بنجاح',
+            })
+          });
+
+          console.log(`[Engine] 🔄 Telegram Order merged/updated: ${finalName} | Code: ${existing.trackingCode} | Products: ${orderData.product}`);
+          return { id: matchedDoc.id, trackingCode: existing.trackingCode, isUpdate: true, customerName: finalName, phone: finalPhone, address: finalAddress };
+        }
+      } catch (mergeErr) {
+        console.warn('[Engine] Merge check notice:', mergeErr.message);
+      }
+    }
+
+    const trackingCode = orderData.trackingCode || generateTrackingCode();
     const initialHistory = [{
       orderStatus: 'confirmed',
       deliveryStatus: 'pending',
@@ -223,7 +270,7 @@ async function saveOrderToFirestore(orderData) {
     });
 
     console.log(`[Engine] 📦 Order saved in Firestore: ${orderData.customerName} | Code: ${trackingCode} | Product: ${orderData.product}`);
-    return { id: docRef.id, trackingCode };
+    return { id: docRef.id, trackingCode, isUpdate: false };
   } catch (e) {
     console.error('[Engine] Save order error:', e.message);
     return null;
@@ -375,33 +422,38 @@ function extractAndSaveOrder(botId, ownerUserId, customerId, customerName, rawRe
       }
     }
 
+    const customerNameFromOrder = str(orderData?.name);
+    const finalCustomerName = customerNameFromOrder || customerName || 'زبون';
+
     if (product || phone) {
       saveOrderToFirestore({
         botId,
         ownerUserId,
         platform,
         customerId: String(customerId),
-        customerName: customerName || 'زبون',
+        customerName: finalCustomerName,
         phone,
         address: str(orderData?.address),
         product,
         price: validatedPrice,
+        notes: str(orderData?.notes),
         orderSummary: cleanReply.slice(-500),
-      }).then((saved) => {
+      }, config?.orderMergeMode || 'merge').then((saved) => {
         if (!saved) return;
 
         // Sync to Google Sheets
         if (config) {
           syncToGoogleSheets(config, {
             event: 'new_order',
+            isUpdate: !!saved.isUpdate,
             orderId: saved.id,
             trackingCode: saved.trackingCode,
-            customerName: customerName || 'زبون',
-            phone,
-            address: str(orderData?.address),
+            customerName: saved.customerName || finalCustomerName,
+            phone: saved.phone || phone,
+            address: saved.address || str(orderData?.address),
             product,
             price: validatedPrice,
-            notes: orderData?.notes || '-',
+            notes: orderData?.notes || (saved.isUpdate ? 'تعديل/إضافة للطلبية' : '-'),
             orderSummary: '-',
             platform,
             createdAt: new Date().toISOString(),
@@ -413,8 +465,8 @@ function extractAndSaveOrder(botId, ownerUserId, customerId, customerName, rawRe
           userId: ownerUserId,
           botId,
           type: 'order',
-          title: `طلبية جديدة #${saved.trackingCode}`,
-          body: `${customerName || 'زبون'} — ${product || 'منتج'}${validatedPrice ? ` — ${validatedPrice} دج` : ''}`,
+          title: saved.isUpdate ? `تعديل طلبية #${saved.trackingCode}` : `طلبية جديدة #${saved.trackingCode}`,
+          body: `${saved.customerName || finalCustomerName} — ${product || 'منتج'}${validatedPrice ? ` — ${validatedPrice} دج` : ''}`,
           meta: { orderId: saved.id, trackingCode: saved.trackingCode },
         }).catch(() => {});
       }).catch(() => {});

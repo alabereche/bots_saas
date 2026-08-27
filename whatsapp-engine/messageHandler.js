@@ -142,10 +142,12 @@ function sanitizeOrder(orderData) {
   if (!orderData || typeof orderData !== 'object') return null;
   const str = v => (typeof v === 'string' ? v.trim().slice(0, 300) : '');
   const sanitized = {
+    name: str(orderData.name),
     phone: str(orderData.phone),
     address: str(orderData.address),
     product: str(orderData.product),
     price: str(orderData.price),
+    notes: str(orderData.notes),
   };
   if (!sanitized.product && !sanitized.phone) return null;
   return sanitized;
@@ -507,26 +509,28 @@ async function handleMessage(msg, config) {
         ownerUserId: config.userId,
         platform: 'whatsapp',
         customerId: String(userId),
-        customerName: userName,
+        customerName: order.name || userName || 'زبون',
         phone: order.phone,
         address: order.address,
         product: order.product,
         price: order.price,
+        notes: order.notes || '-',
         orderSummary: reply.slice(-500),
-      }).then(async (saved) => {
+      }, config.orderMergeMode || 'merge').then(async (saved) => {
         if (!saved) return;
 
         // Sync to Google Sheets / Webhook
         syncToGoogleSheets(liveConfig, {
           event: 'new_order',
+          isUpdate: !!saved.isUpdate,
           orderId: saved.id,
           trackingCode: saved.trackingCode,
-          customerName: userName,
-          phone: order.phone,
-          address: order.address,
+          customerName: saved.customerName || order.name || userName,
+          phone: saved.phone || order.phone,
+          address: saved.address || order.address,
           product: order.product,
           price: order.price,
-          notes: order.notes || '-',
+          notes: order.notes || (saved.isUpdate ? 'تعديل/إضافة للطلبية' : '-'),
           orderSummary: '-',
           platform: 'whatsapp',
           createdAt: new Date().toISOString(),
@@ -539,8 +543,8 @@ async function handleMessage(msg, config) {
           userId: config.userId,
           botId: config.id,
           type: 'order',
-          title: `طلبية جديدة #${saved.trackingCode}`,
-          body: `${userName} — ${order.product || 'منتج'}${order.price ? ` — ${order.price} دج` : ''}`,
+          title: saved.isUpdate ? `تعديل طلبية #${saved.trackingCode}` : `طلبية جديدة #${saved.trackingCode}`,
+          body: `${saved.customerName || userName} — ${order.product || 'منتج'}${order.price ? ` — ${order.price} دج` : ''}`,
           meta: { orderId: saved.id, trackingCode: saved.trackingCode },
         }).catch(() => {});
 

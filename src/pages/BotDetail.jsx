@@ -1027,7 +1027,15 @@ export default function BotDetail() {
       {/* ─── Tab 6: Bot Info & Capabilities Tab ─── */}
       {activeTab === 'info' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {/* Card 0: Merchant Notifications Toggle */}
+          {/* Card 0: Order Behavior Mode (Merge vs Separate) */}
+          <OrderBehaviorCard
+            bot={bot}
+            onUpdateBot={async (data) => {
+              await updateBot(id, data);
+            }}
+          />
+
+          {/* Card 0.2: Merchant Notifications Toggle */}
           <MerchantNotificationsCard
             bot={bot}
             onUpdateBot={async (data) => {
@@ -1613,6 +1621,114 @@ function OrderDeliveryItem({ order, bot, onUpdateDelivery }) {
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function OrderBehaviorCard({ bot, onUpdateBot }) {
+  const currentMode = bot?.orderMergeMode || 'merge'; // 'merge' (default) | 'separate'
+  const [saving, setSaving] = useState(false);
+  const toast = useToast();
+
+  const handleSelect = async (mode) => {
+    if (mode === currentMode) return;
+    setSaving(true);
+    try {
+      await onUpdateBot({ orderMergeMode: mode });
+      toast.success(mode === 'merge' ? 'تم تفعيل دمج وتحديث الطلبية السابقة (طرد واحد)' : 'تم تفعيل تسجيل كل منتج كطلبية مستقلة');
+    } catch (e) {
+      toast.error('فشل حفظ الإعداد: ' + e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="card" style={{ borderColor: 'rgba(56, 189, 248, 0.25)', background: '#0a101d' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
+        <div style={{
+          width: '42px', height: '42px', borderRadius: '12px', flexShrink: 0,
+          background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.3)',
+          color: '#38bdf8', display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
+        </div>
+        <div>
+          <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#ffffff', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            سلوك الطلبات المتتالية لنفس العميل
+            <span style={{ fontSize: '0.68rem', fontWeight: 800, padding: '2px 8px', borderRadius: '20px', background: 'rgba(56, 189, 248, 0.12)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.35)' }}>
+              {currentMode === 'merge' ? 'دمج وتحديث (افتراضي)' : 'منفصل'}
+            </span>
+          </h3>
+          <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.55 }}>
+            حدد كيف يتصرف الذكاء الاصطناعي عندما يطلب العميل منتجاً إضافياً أو يعدل طلبه في نفس المحادثة:
+          </p>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '10px' }}>
+        {/* Option 1: Merge (Default) */}
+        <div
+          onClick={() => !saving && handleSelect('merge')}
+          style={{
+            padding: '1rem',
+            borderRadius: '12px',
+            background: currentMode === 'merge' ? 'rgba(16, 185, 129, 0.08)' : '#060a12',
+            border: `1.5px solid ${currentMode === 'merge' ? '#10b981' : 'rgba(255, 255, 255, 0.08)'}`,
+            cursor: saving ? 'wait' : 'pointer',
+            transition: 'all 0.2s ease',
+            position: 'relative',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+            <strong style={{ color: currentMode === 'merge' ? '#34d399' : '#ffffff', fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              دمج وتحديث الطلبية السابقة (طرد واحد - موصى به)
+            </strong>
+            <span style={{
+              width: '18px', height: '18px', borderRadius: '50%',
+              border: `2px solid ${currentMode === 'merge' ? '#10b981' : 'rgba(255,255,255,0.2)'}`,
+              background: currentMode === 'merge' ? '#10b981' : 'transparent',
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}>
+              {currentMode === 'merge' && <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#fff' }} />}
+            </span>
+          </div>
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+            يتم دمج المنتجات في طرد واحد وتحديث نفس السطر في Google Sheets ولوحة التحكم دون تكرار أو رسوم شحن إضافية.
+          </p>
+        </div>
+
+        {/* Option 2: Separate */}
+        <div
+          onClick={() => !saving && handleSelect('separate')}
+          style={{
+            padding: '1rem',
+            borderRadius: '12px',
+            background: currentMode === 'separate' ? 'rgba(56, 189, 248, 0.08)' : '#060a12',
+            border: `1.5px solid ${currentMode === 'separate' ? '#38bdf8' : 'rgba(255, 255, 255, 0.08)'}`,
+            cursor: saving ? 'wait' : 'pointer',
+            transition: 'all 0.2s ease',
+            position: 'relative',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+            <strong style={{ color: currentMode === 'separate' ? '#38bdf8' : '#ffffff', fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              تسجيل كل منتج كطلبية مستقلة
+            </strong>
+            <span style={{
+              width: '18px', height: '18px', borderRadius: '50%',
+              border: `2px solid ${currentMode === 'separate' ? '#38bdf8' : 'rgba(255,255,255,0.2)'}`,
+              background: currentMode === 'separate' ? '#38bdf8' : 'transparent',
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}>
+              {currentMode === 'separate' && <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#fff' }} />}
+            </span>
+          </div>
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+            يتم تسجيل المنتج الإضافي فقط بسعره المستقل في سطر جديد بكود تتبع منفصل (مناسب للمطاعم والخدمات المتقطعة).
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -2876,10 +2992,11 @@ function GoogleSheetsTab({ bot, onUpdateBot }) {
       statusOrNotes = data.notes;
     }
 
+    var tracking = data.trackingCode || data.leadId || data.orderId || "-";
     var row = [
       new Date().toLocaleString("ar-DZ", { timeZone: "Africa/Algiers" }),
-      data.event === "new_order" ? "طلبية شراء" : (data.event === "new_lead" ? "عميل محتمل (Lead)" : "اختبار مزامنة"),
-      data.trackingCode || data.leadId || data.orderId || "-",
+      data.event === "new_order" ? (data.isUpdate ? "تعديل/دمج طلبية" : "طلبية شراء") : (data.event === "new_lead" ? "عميل محتمل (Lead)" : "اختبار مزامنة"),
+      tracking,
       data.customerName || "-",
       data.phone || "-",
       data.product || data.service || "-",
@@ -2889,8 +3006,24 @@ function GoogleSheetsTab({ bot, onUpdateBot }) {
       data.platform || "whatsapp"
     ];
     
-    sheet.appendRow(row);
-    return ContentService.createTextOutput(JSON.stringify({ status: "success", rowAdded: true }))
+    // فحص ما إذا كان كود التتبع موجوداً مسبقاً لتحديث نفس السطر ومنع التكرار
+    var updated = false;
+    if (tracking !== "-" && sheet.getLastRow() > 1) {
+      var dataRange = sheet.getRange(2, 3, sheet.getLastRow() - 1, 1).getValues();
+      for (var i = 0; i < dataRange.length; i++) {
+        if (String(dataRange[i][0]).trim().toUpperCase() === String(tracking).trim().toUpperCase()) {
+          sheet.getRange(i + 2, 1, 1, 10).setValues([row]);
+          updated = true;
+          break;
+        }
+      }
+    }
+
+    if (!updated) {
+      sheet.appendRow(row);
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({ status: "success", updated: updated, rowAdded: !updated }))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.message }))

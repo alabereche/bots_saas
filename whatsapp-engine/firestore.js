@@ -223,12 +223,59 @@ function generateTrackingCode() {
 
 // ─── Orders & Tracking Engine ───────────────────────────────────
 
-async function saveOrder(orderData) {
+async function saveOrder(orderData, orderMergeMode = 'merge') {
   try {
     const userId = await resolveOwnerUserId(orderData.botId, orderData.ownerUserId);
-    const trackingCode = orderData.trackingCode || generateTrackingCode();
     const now = new Date().toISOString();
 
+    // Check if merge mode is active and customer has a pending order
+    if (orderMergeMode !== 'separate' && (orderData.customerId || orderData.phone)) {
+      try {
+        const snap = await db.collection('orders')
+          .where('botId', '==', orderData.botId)
+          .where('deliveryStatus', '==', 'pending')
+          .limit(10)
+          .get();
+
+        const matchedDoc = snap.docs.find(d => {
+          const data = d.data();
+          const matchCustomer = orderData.customerId && String(data.customerId) === String(orderData.customerId);
+          const matchPhone = orderData.phone && data.phone && String(data.phone).replace(/\D/g, '') === String(orderData.phone).replace(/\D/g, '');
+          return matchCustomer || matchPhone;
+        });
+
+        if (matchedDoc) {
+          const existing = matchedDoc.data();
+          const finalName = orderData.customerName || existing.customerName || 'زبون';
+          const finalPhone = orderData.phone || existing.phone || '';
+          const finalAddress = orderData.address || existing.address || '';
+
+          await matchedDoc.ref.update({
+            product: orderData.product,
+            price: orderData.price,
+            customerName: finalName,
+            phone: finalPhone,
+            address: finalAddress,
+            notes: orderData.notes || existing.notes || '-',
+            updatedAt: now,
+            lastModified: FieldValue.serverTimestamp(),
+            statusHistory: FieldValue.arrayUnion({
+              orderStatus: 'confirmed',
+              deliveryStatus: 'pending',
+              timestamp: now,
+              note: 'تم تحديث ودمج الطلبية بنجاح',
+            })
+          });
+
+          console.log(`[Firestore] 🔄 WhatsApp Order merged/updated: ${finalName} | Code: ${existing.trackingCode} | Products: ${orderData.product}`);
+          return { id: matchedDoc.id, trackingCode: existing.trackingCode, isUpdate: true, customerName: finalName, phone: finalPhone, address: finalAddress };
+        }
+      } catch (mergeErr) {
+        console.warn('[Firestore] Merge check notice:', mergeErr.message);
+      }
+    }
+
+    const trackingCode = orderData.trackingCode || generateTrackingCode();
     const initialHistory = [{
       orderStatus: 'confirmed',
       deliveryStatus: 'pending',
@@ -252,7 +299,7 @@ async function saveOrder(orderData) {
     });
 
     console.log(`[Firestore] 📦 WhatsApp Order saved: ${orderData.customerName} | Code: ${trackingCode} | Product: ${orderData.product}`);
-    return { id: docRef.id, trackingCode };
+    return { id: docRef.id, trackingCode, isUpdate: false };
   } catch (e) {
     console.error('[Firestore] Save order error:', e.message);
     return null;

@@ -304,7 +304,6 @@ async function stopWhatsAppBot(botId, purgeSession = true) {
 
   await firestore.updateBotStatus(botId, 'disconnected', {
     whatsappConnectedAt: null,
-    isActive: false,
   }).catch(() => {});
 }
 
@@ -329,8 +328,7 @@ async function restoreBotsOnStartup() {
     const whatsappBots = bots.filter(b => {
       const sessionDir = path.join(__dirname, 'sessions', `session-${b.id}`);
       const hasSavedSession = fs.existsSync(sessionDir);
-      const isConnected = b.whatsappStatus === 'connected' || b.status === 'connected' || b.isActive === true;
-      return isConnected || hasSavedSession;
+      return hasSavedSession && (b.whatsappStatus === 'connected' || b.status === 'connected');
     });
     console.log(`[BotManager] Found ${whatsappBots.length} WhatsApp bot(s) to restore.`);
 

@@ -104,12 +104,15 @@ async function getBotsByOwner(userId) {
 
 async function updateBotStatus(botId, status, extra = {}) {
   try {
-    await db.collection('bots').doc(botId).update({
+    const updateData = {
       whatsappStatus: status,
-      isActive: status === 'connected',
       ...extra,
       updatedAt: FieldValue.serverTimestamp(),
-    });
+    };
+    if (status === 'connected') {
+      updateData.isActive = true;
+    }
+    await db.collection('bots').doc(botId).update(updateData);
   } catch (e) {
     console.error(`[Firestore] Update bot status ${botId} error:`, e.message);
   }

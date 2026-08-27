@@ -401,7 +401,8 @@ function extractAndSaveOrder(botId, ownerUserId, customerId, customerName, rawRe
             address: str(orderData?.address),
             product,
             price: validatedPrice,
-            orderSummary: cleanReply.slice(-500),
+            notes: orderData?.notes || '-',
+            orderSummary: '-',
             platform,
             createdAt: new Date().toISOString(),
           }).catch(() => {});

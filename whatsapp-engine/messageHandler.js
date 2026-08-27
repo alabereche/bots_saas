@@ -526,7 +526,8 @@ async function handleMessage(msg, config) {
           address: order.address,
           product: order.product,
           price: order.price,
-          orderSummary: reply.slice(-500),
+          notes: order.notes || '-',
+          orderSummary: '-',
           platform: 'whatsapp',
           createdAt: new Date().toISOString(),
         }).catch(err => console.warn('[Handler] Sheets sync error:', err.message));

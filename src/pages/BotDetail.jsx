@@ -2868,6 +2868,14 @@ function GoogleSheetsTab({ bot, onUpdateBot }) {
       sheet.getRange(1, 1, 1, 10).setFontWeight("bold").setBackground("#1e293b").setFontColor("#ffffff");
     }
     
+    var statusOrNotes = "-";
+    if (data.event === "new_lead") {
+      var prio = data.leadStatus === "hot" ? "ساخن (أولوية)" : (data.leadStatus === "warm" ? "مهتم" : "عادي");
+      statusOrNotes = prio + (data.notes && data.notes !== "-" ? " — " + data.notes : "");
+    } else if (data.notes && data.notes !== "-") {
+      statusOrNotes = data.notes;
+    }
+
     var row = [
       new Date().toLocaleString("ar-DZ", { timeZone: "Africa/Algiers" }),
       data.event === "new_order" ? "طلبية شراء" : (data.event === "new_lead" ? "عميل محتمل (Lead)" : "اختبار مزامنة"),
@@ -2877,7 +2885,7 @@ function GoogleSheetsTab({ bot, onUpdateBot }) {
       data.product || data.service || "-",
       data.price || data.budget || "-",
       data.address || data.company || "-",
-      (data.leadStatus ? "درجة الاهتمام: " + data.leadStatus + " | " : "") + (data.notes || data.orderSummary || "-"),
+      statusOrNotes,
       data.platform || "whatsapp"
     ];
     

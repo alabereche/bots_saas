@@ -22,11 +22,19 @@ try {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function memInfo() {
-  // Linux `free -m` gives the honest system-wide picture (incl. Chromium children)
+  // Read MemAvailable straight from the kernel — bulletproof on Linux VPS.
+  // (parsing `free -m` columns broke once: took the tiny 'shared' column
+  // as available and aborted the whole test at 1MB)
   try {
-    const line = execSync('free -m').toString().split('\n')[1].trim().split(/\s+/);
-    const [, total, used, , avail] = line.map(Number);
-    return { total, used, avail: Number.isFinite(avail) && avail > 0 ? avail : Math.max(total - used, 0) };
+    const mi = fs.readFileSync('/proc/meminfo', 'utf8');
+    const getKB = (key) => {
+      const m = mi.match(new RegExp(`^${key}:\\s+(\\d+) kB`, 'm'));
+      return m ? Math.round(Number(m[1]) / 1024) : null;
+    };
+    const total = getKB('MemTotal');
+    const avail = getKB('MemAvailable');
+    let used = null;
+    return { total, used, avail };
   } catch {
     return {
       total: Math.round(os.totalmem() / 1048576),

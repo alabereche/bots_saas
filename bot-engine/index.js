@@ -195,8 +195,21 @@ async function createNotification({ userId, botId, type = 'system', title, body 
   }
 }
 
+// Resolves owner userId if missing
+async function resolveOwnerUserId(botId, provided) {
+  if (provided) return provided;
+  if (!botId) return '';
+  try {
+    const snap = await db.collection('bots').doc(botId).get();
+    return snap.exists ? (snap.data().userId || '') : '';
+  } catch {
+    return '';
+  }
+}
+
 async function saveOrderToFirestore(orderData, orderMergeMode = 'merge') {
   try {
+    const userId = await resolveOwnerUserId(orderData.botId, orderData.ownerUserId);
     const now = new Date().toISOString();
 
     // Check if merge mode is active and customer has a pending order
@@ -238,7 +251,7 @@ async function saveOrderToFirestore(orderData, orderMergeMode = 'merge') {
             })
           });
 
-          console.log(`[Engine] 🔄 Telegram Order merged/updated: ${finalName} | Code: ${existing.trackingCode} | Products: ${orderData.product}`);
+          console.log(`[Engine] Telegram Order merged/updated: ${finalName} | Code: ${existing.trackingCode} | Products: ${orderData.product}`);
           return { id: matchedDoc.id, trackingCode: existing.trackingCode, isUpdate: true, customerName: finalName, phone: finalPhone, address: finalAddress };
         }
       } catch (mergeErr) {
@@ -257,7 +270,7 @@ async function saveOrderToFirestore(orderData, orderMergeMode = 'merge') {
     const docRef = await db.collection('orders').add({
       ...orderData,
       trackingCode,
-      userId: orderData.ownerUserId || '',
+      userId: userId || '',
       orderStatus: orderData.orderStatus || 'confirmed',
       deliveryStatus: orderData.deliveryStatus || 'pending',
       status: 'new', // backward compatibility
@@ -269,7 +282,7 @@ async function saveOrderToFirestore(orderData, orderMergeMode = 'merge') {
       timestamp: FieldValue.serverTimestamp(),
     });
 
-    console.log(`[Engine] 📦 Order saved in Firestore: ${orderData.customerName} | Code: ${trackingCode} | Product: ${orderData.product}`);
+    console.log(`[Engine] Order saved in Firestore: ${orderData.customerName} | Code: ${trackingCode} | Product: ${orderData.product}`);
     return { id: docRef.id, trackingCode, isUpdate: false };
   } catch (e) {
     console.error('[Engine] Save order error:', e.message);
@@ -279,10 +292,11 @@ async function saveOrderToFirestore(orderData, orderMergeMode = 'merge') {
 
 async function saveLeadToFirestore(leadData) {
   try {
+    const userId = await resolveOwnerUserId(leadData.botId, leadData.ownerUserId);
     const now = new Date().toISOString();
     const docRef = await db.collection('leads').add({
       botId: leadData.botId,
-      userId: leadData.ownerUserId || '',
+      userId: userId || '',
       platform: leadData.platform || 'telegram',
       customerId: String(leadData.customerId || ''),
       customerName: leadData.customerName || leadData.name || 'عميل محتمل',
@@ -965,7 +979,7 @@ async function stopBot(botId) {
   try {
     await entry.bot.stop();
     activeBots.delete(botId);
-    console.log(`[Engine] 🛑 Bot "${entry.config.botName}" stopped.`);
+    console.log(`[Engine] Bot "${entry.config.botName}" stopped.`);
   } catch (err) {
     console.error(`[Engine] Error stopping bot ${botId}:`, err.message);
     activeBots.delete(botId);
@@ -975,16 +989,17 @@ async function stopBot(botId) {
 // ─── Realtime Firestore Sync ──────────────────────────────────
 
 function listenToBots() {
-  console.log('[Engine] Subscribing to Firestore "bots" collection (platform: telegram) in realtime...');
+  console.log('[Engine] Subscribing to Firestore "bots" collection (Telegram sync) in realtime...');
 
-  db.collection('bots').where('platform', '==', 'telegram').onSnapshot((snapshot) => {
+  db.collection('bots').onSnapshot((snapshot) => {
     const currentBotIds = new Set();
 
     snapshot.docs.forEach((docSnap) => {
       const config = { id: docSnap.id, ...docSnap.data() };
-      currentBotIds.add(config.id);
+      const isTelegram = config.telegramEnabled === true || config.platform === 'telegram' || (Array.isArray(config.channels) && config.channels.includes('telegram'));
 
-      if (config.platform === 'telegram' && config.telegramToken) {
+      if (isTelegram && config.telegramToken && config.telegramToken.trim()) {
+        currentBotIds.add(config.id);
         const isRunning = activeBots.has(config.id);
         if (config.isActive && !isRunning) {
           startBot(config);

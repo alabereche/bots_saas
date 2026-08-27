@@ -546,6 +546,38 @@ async function recordAbandonedReminder(botId, customerId) {
   }
 }
 
+// Auto-Heal: repairs existing leads in Firestore that have empty or mismatched userId
+async function repairOrphanLeads(botId, ownerUserId) {
+  if (!botId) return;
+  try {
+    const resolvedUid = await resolveOwnerUserId(botId, ownerUserId);
+    if (!resolvedUid) return;
+
+    const snap = await db.collection('leads')
+      .where('botId', '==', botId)
+      .get();
+
+    if (snap.empty) return;
+    const batch = db.batch();
+    let count = 0;
+
+    snap.docs.forEach((docSnap) => {
+      const d = docSnap.data();
+      if (!d.userId || d.userId !== resolvedUid) {
+        batch.update(docSnap.ref, { userId: resolvedUid });
+        count++;
+      }
+    });
+
+    if (count > 0) {
+      await batch.commit();
+      console.log(`[Firestore] Auto-Healed ${count} orphan lead(s) for bot ${botId} with owner userId: ${resolvedUid}`);
+    }
+  } catch (err) {
+    console.warn('[Firestore] repairOrphanLeads notice:', err.message);
+  }
+}
+
 async function saveLead(leadData) {
   try {
     const userId = await resolveOwnerUserId(leadData.botId, leadData.ownerUserId);
@@ -569,6 +601,12 @@ async function saveLead(leadData) {
     });
 
     console.log(`[Firestore] Lead saved: ${leadData.customerName || leadData.name} | Service: ${leadData.service} | Status: ${leadData.leadStatus}`);
+
+    // Trigger auto-heal in background
+    if (userId) {
+      repairOrphanLeads(leadData.botId, userId).catch(() => {});
+    }
+
     return { id: docRef.id, ...leadData };
   } catch (e) {
     console.error('[Firestore] Save lead error:', e.message);
@@ -612,4 +650,5 @@ module.exports = {
   recordAbandonedReminder,
   saveLead,
   findLeads,
+  repairOrphanLeads,
 };

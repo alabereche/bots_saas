@@ -197,14 +197,67 @@ async function createNotification({ userId, botId, type = 'system', title, body 
 
 // Resolves owner userId if missing
 async function resolveOwnerUserId(botId, provided) {
-  if (provided) return provided;
+  if (provided && typeof provided === 'string' && provided.trim()) return provided.trim();
   if (!botId) return '';
   try {
     const snap = await db.collection('bots').doc(botId).get();
-    return snap.exists ? (snap.data().userId || '') : '';
+    if (snap.exists) {
+      const data = snap.data();
+      return data.userId || data.ownerId || data.uid || '';
+    }
+    return '';
   } catch {
     return '';
   }
+}
+
+// Auto-Heal: repairs existing leads in Firestore that have empty or mismatched userId
+async function repairOrphanLeads(botId, ownerUserId) {
+  if (!botId) return;
+  try {
+    const resolvedUid = await resolveOwnerUserId(botId, ownerUserId);
+    if (!resolvedUid) return;
+
+    const snap = await db.collection('leads')
+      .where('botId', '==', botId)
+      .get();
+
+    if (snap.empty) return;
+    const batch = db.batch();
+    let count = 0;
+
+    snap.docs.forEach((docSnap) => {
+      const d = docSnap.data();
+      if (!d.userId || d.userId !== resolvedUid) {
+        batch.update(docSnap.ref, { userId: resolvedUid });
+        count++;
+      }
+    });
+
+    if (count > 0) {
+      await batch.commit();
+      console.log(`[Engine] Auto-Healed ${count} orphan lead(s) for bot ${botId} with owner userId: ${resolvedUid}`);
+    }
+  } catch (err) {
+    console.warn('[Engine] repairOrphanLeads notice:', err.message);
+  }
+}
+
+// Deterministic phone number extractor
+function extractPhoneNumber(text) {
+  if (!text || typeof text !== 'string') return null;
+  // Match Algerian phone numbers (05, 06, 07 followed by 8 digits or with international code)
+  const dzMatch = text.match(/(?:(?:\+|00)213\s?|0)[567]\d{8}/);
+  if (dzMatch) return dzMatch[0].replace(/\s+/g, '');
+  // Match standard 9-15 digit phone patterns
+  const genMatch = text.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,5}/);
+  if (genMatch) {
+    const digits = genMatch[0].replace(/\D/g, '');
+    if (digits.length >= 8 && digits.length <= 15) {
+      return genMatch[0].trim();
+    }
+  }
+  return null;
 }
 
 async function saveOrderToFirestore(orderData, orderMergeMode = 'merge') {
@@ -312,6 +365,12 @@ async function saveLeadToFirestore(leadData) {
     });
 
     console.log(`[Engine] Lead saved in Firestore: ${leadData.customerName || leadData.name} | Service: ${leadData.service}`);
+
+    // Auto-heal in background
+    if (userId) {
+      repairOrphanLeads(leadData.botId, userId).catch(() => {});
+    }
+
     return { id: docRef.id, ...leadData };
   } catch (e) {
     console.error('[Engine] Save lead error:', e.message);
@@ -790,7 +849,13 @@ function extractProductMedia(rawReply, productsList = []) {
 
 async function startBot(config) {
   if (activeBots.has(config.id)) return;
-  if (!config.telegramToken || config.platform !== 'telegram') return;
+  const isTelegram = config.telegramEnabled === true || config.platform === 'telegram' || (Array.isArray(config.channels) && config.channels.includes('telegram'));
+  if (!config.telegramToken || !isTelegram) return;
+
+  // Auto-heal any orphaned leads for this bot on startup
+  if (config.userId) {
+    repairOrphanLeads(config.id, config.userId).catch(() => {});
+  }
 
   try {
     console.log(`[Engine] Initializing Telegram bot "${config.botName}" (${config.id})...`);
@@ -933,6 +998,44 @@ async function startBot(config) {
           'telegram',
           currentConfig
         );
+
+        // Deterministic Fallback: If AI omitted [LEAD_QUALIFIED] but user provided a valid phone number
+        if (!leadFound && !orderFound && userMessage) {
+          const detectedPhone = extractPhoneNumber(userMessage);
+          if (detectedPhone) {
+            console.log(`[Telegram Engine] Deterministic Lead Interceptor caught phone: ${detectedPhone} from ${userName}`);
+            saveLeadToFirestore({
+              botId: currentConfig.id,
+              ownerUserId: currentConfig.userId,
+              platform: 'telegram',
+              customerId: String(userId),
+              customerName: userName || 'عميل محتمل',
+              phone: detectedPhone,
+              company: '',
+              service: currentConfig.businessType === 'booking' ? 'حجز موعد / استشارة' : (currentConfig.businessName || 'طلب خدمة واستفسار'),
+              budget: '',
+              leadStatus: 'hot',
+              notes: userMessage.slice(0, 300),
+            }).then((savedLead) => {
+              if (savedLead && currentConfig) {
+                syncToGoogleSheets(currentConfig, {
+                  event: 'new_lead',
+                  leadId: savedLead.id,
+                  customerName: userName || 'عميل محتمل',
+                  phone: detectedPhone,
+                  company: '',
+                  service: currentConfig.businessType === 'booking' ? 'حجز موعد / استشارة' : (currentConfig.businessName || 'طلب خدمة واستفسار'),
+                  budget: '',
+                  leadStatus: 'hot',
+                  notes: userMessage.slice(0, 300),
+                  platform: 'telegram',
+                  createdAt: new Date().toISOString(),
+                }).catch(() => {});
+              }
+            }).catch(() => {});
+          }
+        }
+
         const { cleanReply: finalReplyText, mediaToSend } = extractProductMedia(replyWithoutTags, currentConfig.products);
         const reply = finalReplyText || replyWithoutTags;
 

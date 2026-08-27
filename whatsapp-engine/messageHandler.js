@@ -70,11 +70,26 @@ function sanitizeLead(leadData) {
     company: str(leadData.company),
     service: str(leadData.service),
     budget: str(leadData.budget),
-    leadStatus: ['hot', 'warm', 'cold'].includes(leadData.leadStatus) ? leadData.leadStatus : 'warm',
+    leadStatus: ['hot', 'warm', 'cold'].includes(leadData.leadStatus) ? leadData.leadStatus : 'hot',
     notes: str(leadData.notes),
   };
   if (!sanitized.name && !sanitized.phone && !sanitized.service) return null;
   return sanitized;
+}
+
+// Deterministic phone number extractor
+function extractPhoneNumber(text) {
+  if (!text || typeof text !== 'string') return null;
+  const dzMatch = text.match(/(?:(?:\+|00)213\s?|0)[567]\d{8}/);
+  if (dzMatch) return dzMatch[0].replace(/\s+/g, '');
+  const genMatch = text.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,5}/);
+  if (genMatch) {
+    const digits = genMatch[0].replace(/\D/g, '');
+    if (digits.length >= 8 && digits.length <= 15) {
+      return genMatch[0].trim();
+    }
+  }
+  return null;
 }
 
 // ─── Zero-Trust Product Media Resolution (ID-Based) ───────────
@@ -636,6 +651,52 @@ async function handleMessage(msg, config) {
           console.warn('[Handler] Merchant lead self-notify failed:', e.message);
         }
       }).catch(e => console.error('[Handler] Save lead error:', e.message));
+    } else if (!orderData && userMessage) {
+      // Deterministic Fallback: If AI omitted [LEAD_QUALIFIED] but user provided a valid phone number
+      const detectedPhone = extractPhoneNumber(userMessage);
+      if (detectedPhone) {
+        console.log(`[Handler] Deterministic Lead Interceptor caught phone: ${detectedPhone} from ${userName}`);
+        firestore.saveLead({
+          botId: config.id,
+          ownerUserId: config.userId,
+          platform: 'whatsapp',
+          customerId: String(userId),
+          customerName: userName || 'عميل محتمل',
+          phone: detectedPhone,
+          company: '',
+          service: liveConfig.businessType === 'booking' ? 'حجز موعد / استشارة' : (liveConfig.businessName || 'طلب خدمة واستفسار'),
+          budget: '',
+          leadStatus: 'hot',
+          notes: userMessage.slice(0, 300),
+        }).then(async (savedLead) => {
+          if (!savedLead) return;
+
+          syncToGoogleSheets(liveConfig, {
+            event: 'new_lead',
+            leadId: savedLead.id,
+            customerName: userName || 'عميل محتمل',
+            phone: detectedPhone,
+            company: '',
+            service: liveConfig.businessType === 'booking' ? 'حجز موعد / استشارة' : (liveConfig.businessName || 'طلب خدمة واستفسار'),
+            budget: '',
+            leadStatus: 'hot',
+            notes: userMessage.slice(0, 300),
+            platform: 'whatsapp',
+            createdAt: new Date().toISOString(),
+          }).catch(err => console.warn('[Handler] Sheets lead sync error:', err.message));
+
+          if (config.notificationsEnabled === false) return;
+
+          firestore.createNotification({
+            userId: config.userId,
+            botId: config.id,
+            type: 'lead',
+            title: 'عميل محتمل جديد (هام ومستعجل)',
+            body: `${userName} — ${liveConfig.businessType === 'booking' ? 'حجز موعد / استشارة' : 'طلب خدمة'} (${detectedPhone})`,
+            meta: { leadId: savedLead.id },
+          }).catch(() => {});
+        }).catch(e => console.error('[Handler] Fallback save lead error:', e.message));
+      }
     }
 
     firestore.incrementMessageCount(config.id)

@@ -2550,6 +2550,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
   const [statusFilter, setStatusFilter] = useState('all');
   const [hotOnly, setHotOnly] = useState(false);
   const [updatingId, setUpdatingId] = useState(null);
+  const [selectedLead, setSelectedLead] = useState(null);
 
   // Status mapping and colors
   const STATUS_CONFIG = {
@@ -2561,9 +2562,9 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
   };
 
   const PRIORITY_CONFIG = {
-    hot: { label: 'ساخن (أولوية قصوى)', bg: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: 'rgba(239, 68, 68, 0.35)' },
-    warm: { label: 'مهتم (متوسط)', bg: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', border: 'rgba(245, 158, 11, 0.35)' },
-    cold: { label: 'مستفسر (عادي)', bg: 'rgba(148, 163, 184, 0.12)', color: '#cbd5e1', border: 'rgba(148, 163, 184, 0.25)' },
+    hot: { label: 'ساخن (أولوية قصوى)', bg: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: 'rgba(239, 68, 68, 0.35)', dot: '#ef4444' },
+    warm: { label: 'مهتم (متوسط)', bg: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', border: 'rgba(245, 158, 11, 0.35)', dot: '#f59e0b' },
+    cold: { label: 'مستفسر (عادي)', bg: 'rgba(148, 163, 184, 0.12)', color: '#cbd5e1', border: 'rgba(148, 163, 184, 0.25)', dot: '#94a3b8' },
   };
 
   const filteredLeads = leads.filter(lead => {
@@ -2588,6 +2589,9 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
     setUpdatingId(leadId);
     try {
       await updateLeadStatus(leadId, newStatus);
+      if (selectedLead && selectedLead.id === leadId) {
+        setSelectedLead(prev => prev ? { ...prev, status: newStatus } : null);
+      }
       toast.success('تم تحديث حالة العميل بنجاح');
     } catch (err) {
       toast.error('فشل تحديث الحالة: ' + err.message);
@@ -2600,10 +2604,19 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
     if (!window.confirm('هل أنت متأكد من حذف هذا العميل من السجل؟')) return;
     try {
       await deleteLead(leadId);
+      if (selectedLead && selectedLead.id === leadId) {
+        setSelectedLead(null);
+      }
       toast.success('تم حذف العميل بنجاح');
     } catch (err) {
       toast.error('فشل حذف العميل: ' + err.message);
     }
+  };
+
+  const copyPhone = (phone) => {
+    if (!phone) return;
+    navigator.clipboard.writeText(phone);
+    toast.success('تم نسخ رقم الهاتف');
   };
 
   const exportCSV = () => {
@@ -2639,50 +2652,49 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      {/* Header & Stats */}
-      <div className="card" style={{ padding: '1.5rem', background: '#0a101d', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '1.25rem' }}>
+      {/* Header & Stats Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
+        <div style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, #0a101d 100%)', padding: '1.25rem 1.4rem', borderRadius: '16px', border: '1px solid rgba(16, 185, 129, 0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h3 style={{ fontSize: '1.18rem', fontWeight: 800, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-              <span>العملاء المحتملين وإدارة الليدات (CRM)</span>
-            </h3>
-            <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: '5px 0 0 0' }}>
-              الذكاء الاصطناعي يستخرج بيانات المهتمين والخدمات والميزانيات تلقائياً من المحادثات ويسجلها هنا وفي Google Sheets.
-            </p>
+            <div style={{ fontSize: '0.8rem', color: '#6ee7b7', fontWeight: 600, marginBottom: '4px' }}>إجمالي العملاء المستخرجين</div>
+            <div style={{ fontSize: '1.85rem', fontWeight: 900, color: '#ffffff' }}>{leads.length}</div>
+            <div style={{ fontSize: '0.74rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>مسجل تلقائياً عبر المحادثات</div>
           </div>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={exportCSV}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.5rem 1rem', borderRadius: '10px' }}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            <span>تصدير Excel / CSV</span>
-          </button>
+          <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981' }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
         </div>
 
-        {/* Stats Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-          <div style={{ background: '#060a12', padding: '1rem 1.15rem', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '6px', fontWeight: 600 }}>إجمالي العملاء المستخرجين</div>
-            <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#ffffff' }}>{leads.length}</div>
+        <div style={{ background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, #0a101d 100%)', padding: '1.25rem 1.4rem', borderRadius: '16px', border: '1px solid rgba(239, 68, 68, 0.25)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: '0.8rem', color: '#fca5a5', fontWeight: 600, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', display: 'inline-block', boxShadow: '0 0 8px #ef4444' }}></span>
+              <span>عملاء ساخنون (أولوية قصوى)</span>
+            </div>
+            <div style={{ fontSize: '1.85rem', fontWeight: 900, color: '#ef4444' }}>{hotCount}</div>
+            <div style={{ fontSize: '0.74rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>حجزوا مواعيد أو جاهزون للتعاقد</div>
           </div>
-          <div style={{ background: '#060a12', padding: '1rem 1.15rem', borderRadius: '12px', border: '1px solid rgba(239, 68, 68, 0.25)' }}>
-            <div style={{ fontSize: '0.78rem', color: '#fca5a5', marginBottom: '6px', fontWeight: 600 }}>عملاء ساخنون (أولوية قصوى)</div>
-            <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#ef4444' }}>{hotCount}</div>
+          <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(239, 68, 68, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 3z"/></svg>
           </div>
-          <div style={{ background: '#060a12', padding: '1rem 1.15rem', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
-            <div style={{ fontSize: '0.78rem', color: '#6ee7b7', marginBottom: '6px', fontWeight: 600 }}>تم التواصل والمتابعة</div>
-            <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#10b981' }}>{contactedCount}</div>
+        </div>
+
+        <div style={{ background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, #0a101d 100%)', padding: '1.25rem 1.4rem', borderRadius: '16px', border: '1px solid rgba(59, 130, 246, 0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: '0.8rem', color: '#93c5fd', fontWeight: 600, marginBottom: '4px' }}>تم التواصل والمتابعة</div>
+            <div style={{ fontSize: '1.85rem', fontWeight: 900, color: '#60a5fa' }}>{contactedCount}</div>
+            <div style={{ fontSize: '0.74rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>عملاء جاري إتمامهم أو إغلاقهم</div>
+          </div>
+          <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(59, 130, 246, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#60a5fa' }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
           </div>
         </div>
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="card" style={{ padding: '1rem 1.25rem', background: '#0a101d', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+      <div className="card" style={{ padding: '1.1rem 1.25rem', background: '#0a101d', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '16px' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', justifyContent: 'space-between' }}>
-          {/* Search Box */}
+          {/* Search Input */}
           <div style={{ position: 'relative', flex: 1, minWidth: '260px' }}>
             <div style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -2690,7 +2702,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
             <input
               type="text"
               className="form-input"
-              placeholder="بحث بالاسم، الهاتف، الخدمة المطلوبة، أو الشركة..."
+              placeholder="بحث سريع بالاسم، رقم الهاتف، نوع الخدمة، أو الملاحظات..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{
@@ -2698,12 +2710,13 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                 minHeight: '44px',
                 fontSize: '0.88rem',
                 background: '#060a12',
-                borderRadius: '10px',
+                borderRadius: '12px',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
               }}
             />
           </div>
 
-          {/* Filter Buttons & Status Select */}
+          {/* Filter Pills & Actions */}
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
             <button
               type="button"
@@ -2722,6 +2735,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
             >
               الكل ({leads.length})
             </button>
+
             <button
               type="button"
               onClick={() => setHotOnly(true)}
@@ -2763,18 +2777,28 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
               <option value="closed" style={{ background: '#0b111e', color: '#4ade80' }}>تم التعاقد</option>
               <option value="lost" style={{ background: '#0b111e', color: '#f87171' }}>ملغي</option>
             </select>
+
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={exportCSV}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.5rem 0.95rem', borderRadius: '10px', minHeight: '42px' }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span>تصدير Excel</span>
+            </button>
           </div>
         </div>
       </div>
 
       {/* Leads Table / List */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden', background: '#0a101d', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+      <div className="card" style={{ padding: 0, overflow: 'hidden', background: '#0a101d', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '16px' }}>
         {filteredLeads.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3.5rem 1.5rem', color: 'var(--text-tertiary)' }}>
-            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.25)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <div style={{ textAlign: 'center', padding: '4rem 1.5rem', color: 'var(--text-tertiary)' }}>
+            <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.25)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             </div>
-            <p style={{ fontSize: '1rem', fontWeight: 700, color: '#ffffff', marginBottom: '0.35rem' }}>
+            <p style={{ fontSize: '1.05rem', fontWeight: 800, color: '#ffffff', marginBottom: '0.35rem' }}>
               {search || statusFilter !== 'all' || hotOnly ? 'لا توجد نتائج مطابقة لفلتر البحث' : 'لا يوجد عملاء محتملين مسجلين بعد'}
             </p>
             <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', maxWidth: '440px', margin: '0 auto', lineHeight: 1.6 }}>
@@ -2786,14 +2810,14 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.86rem', textAlign: 'right' }}>
               <thead>
                 <tr style={{ background: '#060a12', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', color: 'var(--text-secondary)' }}>
-                  <th style={{ padding: '0.85rem 1.15rem', fontWeight: 700 }}>العميل / النشاط</th>
-                  <th style={{ padding: '0.85rem 1.15rem', fontWeight: 700 }}>الهاتف والتواصل</th>
-                  <th style={{ padding: '0.85rem 1.15rem', fontWeight: 700 }}>الخدمة المطلوبة</th>
-                  <th style={{ padding: '0.85rem 1.15rem', fontWeight: 700 }}>الميزانية</th>
-                  <th style={{ padding: '0.85rem 1.15rem', fontWeight: 700 }}>تقييم الذكاء الاصطناعي</th>
-                  <th style={{ padding: '0.85rem 1.15rem', fontWeight: 700 }}>حالة المتابعة</th>
-                  <th style={{ padding: '0.85rem 1.15rem', fontWeight: 700 }}>التاريخ</th>
-                  <th style={{ padding: '0.85rem 1.15rem', textAlign: 'center', fontWeight: 700 }}>إجراءات</th>
+                  <th style={{ padding: '1rem 1.25rem', fontWeight: 800, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>العميل / المنصة</th>
+                  <th style={{ padding: '1rem 1.25rem', fontWeight: 800, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>الهاتف والتواصل</th>
+                  <th style={{ padding: '1rem 1.25rem', fontWeight: 800, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>الخدمة والملاحظات</th>
+                  <th style={{ padding: '1rem 1.25rem', fontWeight: 800, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>الميزانية</th>
+                  <th style={{ padding: '1rem 1.25rem', fontWeight: 800, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>تقييم الذكاء الاصطناعي</th>
+                  <th style={{ padding: '1rem 1.25rem', fontWeight: 800, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>حالة المتابعة</th>
+                  <th style={{ padding: '1rem 1.25rem', fontWeight: 800, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>التاريخ</th>
+                  <th style={{ padding: '1rem 1.25rem', textAlign: 'center', fontWeight: 800, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>إجراءات</th>
                 </tr>
               </thead>
               <tbody>
@@ -2801,106 +2825,186 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                   const statusConf = STATUS_CONFIG[lead.status || 'new'] || STATUS_CONFIG.new;
                   const prioConf = PRIORITY_CONFIG[lead.leadStatus] || PRIORITY_CONFIG.warm;
                   const cleanPhone = (lead.phone || '').replace(/[^\d+]/g, '');
+                  const customerName = lead.customerName || lead.name || 'عميل';
+                  const firstChar = customerName.trim().charAt(0).toUpperCase() || 'ع';
+                  const isHot = lead.leadStatus === 'hot';
 
                   return (
                     <tr
                       key={lead.id}
                       style={{
                         borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                        transition: 'background 0.15s',
-                        background: lead.leadStatus === 'hot' ? 'rgba(239, 68, 68, 0.02)' : 'transparent',
+                        transition: 'background 0.15s ease',
+                        background: isHot ? 'rgba(239, 68, 68, 0.02)' : 'transparent',
                       }}
+                      className="lead-row"
                     >
-                      <td style={{ padding: '0.85rem 1.15rem' }}>
-                        <div style={{ fontWeight: 700, color: '#ffffff' }}>
-                          {lead.customerName || lead.name || 'عميل'}
-                        </div>
-                        {lead.company && (
-                          <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                            {lead.company}
+                      {/* Customer & Platform */}
+                      <td style={{ padding: '0.95rem 1.25rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div style={{
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '10px',
+                            background: isHot ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.05))' : 'linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.05))',
+                            border: `1px solid ${isHot ? 'rgba(239, 68, 68, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`,
+                            color: isHot ? '#f87171' : '#60a5fa',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 800,
+                            fontSize: '0.92rem',
+                            flexShrink: 0,
+                          }}>
+                            {firstChar}
                           </div>
-                        )}
+                          <div>
+                            <div style={{ fontWeight: 800, color: '#ffffff', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span>{customerName}</span>
+                              <span style={{
+                                fontSize: '0.68rem',
+                                padding: '1px 6px',
+                                borderRadius: '6px',
+                                background: lead.platform === 'telegram' ? 'rgba(0, 136, 204, 0.15)' : 'rgba(34, 197, 94, 0.15)',
+                                color: lead.platform === 'telegram' ? '#38bdf8' : '#4ade80',
+                                border: `1px solid ${lead.platform === 'telegram' ? 'rgba(0, 136, 204, 0.3)' : 'rgba(34, 197, 94, 0.3)'}`,
+                                fontWeight: 700,
+                              }}>
+                                {lead.platform === 'telegram' ? 'Telegram' : 'WhatsApp'}
+                              </span>
+                            </div>
+                            {lead.company && (
+                              <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: '2px', fontWeight: 500 }}>
+                                {lead.company}
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </td>
 
-                      <td style={{ padding: '0.85rem 1.15rem' }}>
+                      {/* Phone & Direct Actions */}
+                      <td style={{ padding: '0.95rem 1.25rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontFamily: 'monospace', color: '#60a5fa', fontWeight: 600 }}>
+                          <span
+                            onClick={() => copyPhone(lead.phone)}
+                            style={{
+                              fontFamily: 'monospace',
+                              color: '#60a5fa',
+                              fontWeight: 700,
+                              fontSize: '0.88rem',
+                              background: 'rgba(59, 130, 246, 0.08)',
+                              padding: '3px 8px',
+                              borderRadius: '6px',
+                              border: '1px solid rgba(59, 130, 246, 0.2)',
+                              cursor: lead.phone ? 'pointer' : 'default',
+                            }}
+                            title="انقر لنسخ الرقم"
+                          >
                             {lead.phone || '—'}
                           </span>
                           {cleanPhone && (
                             <div style={{ display: 'flex', gap: '4px' }}>
                               <a
-                                href={`https://wa.me/${cleanPhone.startsWith('+') ? cleanPhone.slice(1) : (cleanPhone.startsWith('0') ? '213' + cleanPhone.slice(1) : cleanPhone)}`}
+                                href={`https://wa.me/${cleanPhone.startsWith('+') ? cleanPhone.slice(1) : (cleanPhone.startsWith('0') ? '213' + cleanPhone.slice(1) : cleanPhone)}?text=${encodeURIComponent(`مرحباً أستاذ ${customerName}، نتواصل معك بخصوص طلبك (${lead.service || 'استشارتك'}).`)}`}
                                 target="_blank"
                                 rel="noreferrer"
-                                title="مراسلة على واتساب"
+                                title="مراسلة فورية على واتساب"
                                 style={{
-                                  width: '26px',
-                                  height: '26px',
-                                  borderRadius: '50%',
+                                  width: '28px',
+                                  height: '28px',
+                                  borderRadius: '8px',
                                   background: 'rgba(34, 197, 94, 0.15)',
                                   color: '#22c55e',
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
                                   textDecoration: 'none',
+                                  border: '1px solid rgba(34, 197, 94, 0.3)',
+                                  transition: 'all 0.15s',
                                 }}
                               >
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
                               </a>
                               <a
                                 href={`tel:${cleanPhone}`}
-                                title="اتصال هاتفي"
+                                title="اتصال هاتفي مباشر"
                                 style={{
-                                  width: '26px',
-                                  height: '26px',
-                                  borderRadius: '50%',
+                                  width: '28px',
+                                  height: '28px',
+                                  borderRadius: '8px',
                                   background: 'rgba(59, 130, 246, 0.15)',
                                   color: '#60a5fa',
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
                                   textDecoration: 'none',
+                                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                                  transition: 'all 0.15s',
                                 }}
                               >
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
                               </a>
                             </div>
                           )}
                         </div>
                       </td>
 
-                      <td style={{ padding: '0.85rem 1.15rem' }}>
-                        <div style={{ color: '#ffffff', fontWeight: 600 }}>{lead.service || '—'}</div>
+                      {/* Service & Notes */}
+                      <td style={{ padding: '0.95rem 1.25rem', maxWidth: '300px' }}>
+                        <div style={{ color: '#ffffff', fontWeight: 700, fontSize: '0.88rem' }}>
+                          {lead.service || '—'}
+                        </div>
                         {lead.notes && (
-                          <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: '2px', maxWidth: '240px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={lead.notes}>
+                          <div
+                            style={{
+                              fontSize: '0.76rem',
+                              color: 'var(--text-secondary)',
+                              marginTop: '4px',
+                              background: 'rgba(255, 255, 255, 0.04)',
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              display: 'inline-block',
+                              maxWidth: '100%',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              lineHeight: 1.4,
+                            }}
+                            title={lead.notes}
+                          >
                             {lead.notes}
                           </div>
                         )}
                       </td>
 
-                      <td style={{ padding: '0.85rem 1.15rem', color: '#10b981', fontWeight: 700 }}>
+                      {/* Budget */}
+                      <td style={{ padding: '0.95rem 1.25rem', color: '#10b981', fontWeight: 800, fontSize: '0.88rem' }}>
                         {lead.budget ? `${lead.budget} ${bot?.currency || 'دج'}` : '—'}
                       </td>
 
-                      <td style={{ padding: '0.85rem 1.15rem' }}>
+                      {/* AI Evaluation */}
+                      <td style={{ padding: '0.95rem 1.25rem' }}>
                         <span
                           style={{
-                            display: 'inline-block',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
                             padding: '4px 10px',
                             borderRadius: '20px',
-                            fontSize: '0.74rem',
-                            fontWeight: 700,
+                            fontSize: '0.76rem',
+                            fontWeight: 800,
                             background: prioConf.bg,
                             color: prioConf.color,
                             border: `1px solid ${prioConf.border}`,
                           }}
                         >
-                          {prioConf.label}
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: prioConf.dot, display: 'inline-block' }}></span>
+                          <span>{prioConf.label}</span>
                         </span>
                       </td>
 
-                      <td style={{ padding: '0.85rem 1.15rem' }}>
+                      {/* Status Selector */}
+                      <td style={{ padding: '0.95rem 1.25rem' }}>
                         <select
                           className="form-select"
                           value={lead.status || 'new'}
@@ -2908,14 +3012,15 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                           onChange={(e) => handleStatusChange(lead.id, e.target.value)}
                           style={{
                             fontSize: '0.78rem',
-                            padding: '4px 8px',
-                            borderRadius: '8px',
+                            padding: '5px 10px',
+                            borderRadius: '10px',
                             background: statusConf.bg,
                             color: statusConf.color,
                             border: `1px solid ${statusConf.border}`,
-                            fontWeight: 700,
+                            fontWeight: 800,
                             cursor: 'pointer',
-                            minHeight: '32px',
+                            minHeight: '34px',
+                            transition: 'all 0.2s',
                           }}
                         >
                           <option value="new" style={{ background: '#0b111e', color: '#60a5fa' }}>جديد</option>
@@ -2926,20 +3031,43 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                         </select>
                       </td>
 
-                      <td style={{ padding: '0.85rem 1.15rem', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                      {/* Date */}
+                      <td style={{ padding: '0.95rem 1.25rem', fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
                         {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('ar-DZ') : '—'}
                       </td>
 
-                      <td style={{ padding: '0.85rem 1.15rem', textAlign: 'center' }}>
-                        <button
-                          type="button"
-                          className="btn btn-ghost btn-sm"
-                          onClick={() => handleDelete(lead.id)}
-                          style={{ color: '#ef4444', padding: '6px' }}
-                          title="حذف العميل"
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                        </button>
+                      {/* Actions */}
+                      <td style={{ padding: '0.95rem 1.25rem', textAlign: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => setSelectedLead(lead)}
+                            style={{
+                              padding: '5px 8px',
+                              borderRadius: '8px',
+                              fontSize: '0.76rem',
+                              fontWeight: 700,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                            title="عرض تفاصيل العميل بالكامل"
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                            <span>تفاصيل</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => handleDelete(lead.id)}
+                            style={{ color: '#ef4444', padding: '6px', borderRadius: '8px' }}
+                            title="حذف العميل من السجل"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -2949,6 +3077,191 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
           </div>
         )}
       </div>
+
+      {/* Selected Lead Details Modal */}
+      {selectedLead && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1.25rem',
+          }}
+          onClick={() => setSelectedLead(null)}
+        >
+          <div
+            style={{
+              background: '#0a101d',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              borderRadius: '20px',
+              maxWidth: '560px',
+              width: '100%',
+              padding: '1.75rem',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.6)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.25rem',
+              textAlign: 'right',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '12px',
+                  background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.05))',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  color: '#10b981',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 900,
+                  fontSize: '1.1rem',
+                }}>
+                  {(selectedLead.customerName || selectedLead.name || 'ع').charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#ffffff' }}>
+                    {selectedLead.customerName || selectedLead.name || 'عميل محتمل'}
+                  </h3>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>المنصة: {selectedLead.platform === 'telegram' ? 'Telegram' : 'WhatsApp'}</span>
+                    {selectedLead.createdAt && (
+                      <span>• {new Date(selectedLead.createdAt).toLocaleString('ar-DZ')}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setSelectedLead(null)}
+                style={{ borderRadius: '8px', color: '#94a3b8' }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+
+            {/* Quick Contact Bar */}
+            <div style={{ background: '#060a12', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.06)', display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>رقم الهاتف للتواصل</div>
+                <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#60a5fa', fontFamily: 'monospace' }}>
+                  {selectedLead.phone || 'غير محدد'}
+                </div>
+              </div>
+
+              {selectedLead.phone && (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <a
+                    href={`https://wa.me/${selectedLead.phone.replace(/[^\d+]/g, '').startsWith('+') ? selectedLead.phone.replace(/[^\d+]/g, '').slice(1) : (selectedLead.phone.replace(/[^\d+]/g, '').startsWith('0') ? '213' + selectedLead.phone.replace(/[^\d+]/g, '').slice(1) : selectedLead.phone.replace(/[^\d+]/g, ''))}?text=${encodeURIComponent(`مرحباً أستاذ ${selectedLead.customerName || selectedLead.name || ''}، نتواصل معك بخصوص طلبك (${selectedLead.service || 'استشارتك'}).`)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn btn-success btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '8px', padding: '0.45rem 0.85rem' }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                    <span>واتساب</span>
+                  </a>
+                  <a
+                    href={`tel:${selectedLead.phone.replace(/[^\d+]/g, '')}`}
+                    className="btn btn-secondary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '8px', padding: '0.45rem 0.85rem' }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                    <span>اتصال</span>
+                  </a>
+                </div>
+              )}
+            </div>
+
+            {/* Service & Notes Details */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ background: '#060a12', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>الخدمة أو الموعد المطلوب</div>
+                <div style={{ fontSize: '0.96rem', fontWeight: 800, color: '#ffffff' }}>
+                  {selectedLead.service || 'غير محدد'}
+                </div>
+              </div>
+
+              {selectedLead.notes && (
+                <div style={{ background: '#060a12', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>ملخص وملاحظات المحادثة المستخرجة بالذكاء الاصطناعي</div>
+                  <div style={{ fontSize: '0.88rem', color: '#e2e8f0', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                    {selectedLead.notes}
+                  </div>
+                </div>
+              )}
+
+              {selectedLead.budget && (
+                <div style={{ background: '#060a12', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>الميزانية المقترحة</div>
+                  <div style={{ fontSize: '1rem', fontWeight: 800, color: '#10b981' }}>
+                    {selectedLead.budget} {bot?.currency || 'دج'}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Status Switcher in Modal */}
+            <div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>تغيير حالة المتابعة:</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {Object.entries(STATUS_CONFIG).map(([stKey, stVal]) => (
+                  <button
+                    key={stKey}
+                    type="button"
+                    onClick={() => handleStatusChange(selectedLead.id, stKey)}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      fontSize: '0.78rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s',
+                      background: (selectedLead.status || 'new') === stKey ? stVal.bg : '#060a12',
+                      color: (selectedLead.status || 'new') === stKey ? stVal.color : 'var(--text-secondary)',
+                      border: `1px solid ${(selectedLead.status || 'new') === stKey ? stVal.border : 'rgba(255, 255, 255, 0.08)'}`,
+                    }}
+                  >
+                    {stVal.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '1rem', marginTop: '0.5rem' }}>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => handleDelete(selectedLead.id)}
+                style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                <span>حذف العميل</span>
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setSelectedLead(null)}
+                style={{ borderRadius: '8px' }}
+              >
+                إغلاق
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

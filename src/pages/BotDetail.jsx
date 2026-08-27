@@ -2687,6 +2687,15 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
           border-color: rgba(255, 255, 255, 0.15) !important;
           transform: translateY(-1px);
         }
+        .crm-desktop-view tbody tr {
+          transition: background 0.15s ease;
+        }
+        .crm-desktop-view tbody tr:hover {
+          background: rgba(255, 255, 255, 0.028) !important;
+        }
+        .crm-desktop-view td, .crm-desktop-view th {
+          vertical-align: middle;
+        }
       `}</style>
 
       {/* Top Stats Cards */}
@@ -2881,7 +2890,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                     >
                       {/* Customer Name & Platform */}
                       <td style={{ padding: '0.7rem 1rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' }}>
                           <div style={{
                             width: '34px',
                             height: '34px',
@@ -3015,8 +3024,24 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                       </td>
 
                       {/* Budget */}
-                      <td style={{ padding: '0.7rem 1rem', color: '#10b981', fontWeight: 800, fontSize: '0.86rem' }}>
-                        {lead.budget ? `${lead.budget} ${bot?.currency || 'دج'}` : '—'}
+                      <td style={{ padding: '0.7rem 1rem' }}>
+                        {lead.budget ? (
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '2px 9px',
+                            borderRadius: '8px',
+                            background: 'rgba(16, 185, 129, 0.1)',
+                            border: '1px solid rgba(16, 185, 129, 0.3)',
+                            color: '#10b981',
+                            fontWeight: 800,
+                            fontSize: '0.8rem',
+                            whiteSpace: 'nowrap',
+                          }}>
+                            {lead.budget} {bot?.currency || 'دج'}
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--text-tertiary)' }}>—</span>
+                        )}
                       </td>
 
                       {/* AI Evaluation */}
@@ -3049,15 +3074,14 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                           disabled={updatingId === lead.id}
                           onChange={(e) => handleStatusChange(lead.id, e.target.value)}
                           style={{
-                            fontSize: '0.76rem',
-                            padding: '4px 8px',
+                            fontSize: '0.74rem',
+                            padding: '3px 8px',
                             borderRadius: '8px',
                             background: statusConf.bg,
                             color: statusConf.color,
                             border: `1px solid ${statusConf.border}`,
                             fontWeight: 800,
-                            cursor: 'pointer',
-                            minHeight: '30px',
+                            cursor: updatingId === lead.id ? 'wait' : 'pointer',
                           }}
                         >
                           <option value="new" style={{ background: '#0b111e', color: '#60a5fa' }}>جديد</option>
@@ -3069,18 +3093,18 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                       </td>
 
                       {/* Date */}
-                      <td style={{ padding: '0.7rem 1rem', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                      <td style={{ padding: '0.7rem 1rem', fontSize: '0.72rem', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>
                         {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('ar-DZ') : '—'}
                       </td>
 
                       {/* Actions */}
                       <td style={{ padding: '0.7rem 1rem', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                           <button
                             type="button"
                             className="btn btn-secondary btn-sm"
                             onClick={() => setSelectedLead(lead)}
-                            style={{ padding: '4px 7px', borderRadius: '6px', fontSize: '0.74rem', fontWeight: 700 }}
+                            style={{ padding: '4px 8px', borderRadius: '7px', fontSize: '0.72rem', fontWeight: 700 }}
                             title="تفاصيل العميل"
                           >
                             تفاصيل
@@ -3088,12 +3112,23 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
 
                           <button
                             type="button"
-                            className="btn btn-ghost btn-sm"
                             onClick={() => handleDelete(lead.id)}
-                            style={{ color: '#ef4444', padding: '5px', borderRadius: '6px' }}
                             title="حذف"
+                            style={{
+                              width: '26px',
+                              height: '26px',
+                              borderRadius: '7px',
+                              background: 'rgba(239, 68, 68, 0.1)',
+                              border: '1px solid rgba(239, 68, 68, 0.3)',
+                              color: '#f87171',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease',
+                            }}
                           >
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
                           </button>
                         </div>
                       </td>

@@ -2562,9 +2562,9 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
   };
 
   const PRIORITY_CONFIG = {
-    hot: { label: 'ساخن (أولوية قصوى)', bg: 'rgba(239, 68, 68, 0.12)', color: '#f87171', border: 'rgba(239, 68, 68, 0.3)', dot: '#ef4444' },
-    warm: { label: 'مهتم', bg: 'rgba(245, 158, 11, 0.12)', color: '#fbbf24', border: 'rgba(245, 158, 11, 0.3)', dot: '#f59e0b' },
-    cold: { label: 'استفسار', bg: 'rgba(148, 163, 184, 0.1)', color: '#cbd5e1', border: 'rgba(148, 163, 184, 0.2)', dot: '#94a3b8' },
+    hot: { label: 'ساخن', hint: 'أولوية قصوى — تواصل فوراً', bg: 'rgba(239, 68, 68, 0.12)', color: '#f87171', border: 'rgba(239, 68, 68, 0.3)', dot: '#ef4444' },
+    warm: { label: 'مهتم', hint: 'مهتم — يتابعه البوت', bg: 'rgba(245, 158, 11, 0.12)', color: '#fbbf24', border: 'rgba(245, 158, 11, 0.3)', dot: '#f59e0b' },
+    cold: { label: 'استفسار', hint: 'استفسار عادي', bg: 'rgba(148, 163, 184, 0.1)', color: '#cbd5e1', border: 'rgba(148, 163, 184, 0.2)', dot: '#94a3b8' },
   };
 
   const filteredLeads = leads.filter(lead => {
@@ -2690,46 +2690,125 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
       `}</style>
 
       {/* Top Stats Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-        <div style={{ background: '#0a101d', padding: '1.15rem 1.25rem', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600, marginBottom: '2px' }}>إجمالي العملاء</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#ffffff' }}>{leads.length}</div>
-          </div>
-          <div style={{ width: '42px', height: '42px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981' }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          </div>
-        </div>
-
-        <div style={{ background: '#0a101d', padding: '1.15rem 1.25rem', borderRadius: '14px', border: '1px solid rgba(239, 68, 68, 0.25)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontSize: '0.78rem', color: '#fca5a5', fontWeight: 600, marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#ef4444', display: 'inline-block', boxShadow: '0 0 6px #ef4444' }}></span>
-              <span>عملاء ساخنون</span>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+        {[
+          {
+            key: 'total', label: 'إجمالي العملاء', value: leads.length,
+            color: '#10b981', bg: 'rgba(16, 185, 129, 0.12)', border: 'rgba(16, 185, 129, 0.28)',
+            icon: <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+          },
+          {
+            key: 'hot', label: 'ساخنون — أولوية قصوى', value: hotCount,
+            color: '#ef4444', bg: 'rgba(239, 68, 68, 0.12)', border: 'rgba(239, 68, 68, 0.3)',
+            icon: <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 3z"/></svg>,
+          },
+          {
+            key: 'contacted', label: 'تم التواصل والمتابعة', value: contactedCount,
+            color: '#60a5fa', bg: 'rgba(59, 130, 246, 0.12)', border: 'rgba(59, 130, 246, 0.28)',
+            icon: <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><polyline points="20 6 9 17 4 12"/></svg>,
+          },
+        ].map(card => (
+          <div key={card.key} style={{
+            background: '#0a101d', padding: '1.05rem 1.15rem', borderRadius: '14px',
+            border: `1px solid ${card.border}`,
+            display: 'flex', alignItems: 'center', gap: '14px',
+          }}>
+            <div style={{
+              width: '44px', height: '44px', borderRadius: '12px', flexShrink: 0,
+              background: card.bg, border: `1px solid ${card.border}`, color: card.color,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              {card.icon}
             </div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#ef4444' }}>{hotCount}</div>
+            <div>
+              <div style={{ fontSize: '1.55rem', fontWeight: 900, color: '#ffffff', lineHeight: 1.15 }}>
+                {card.value}
+              </div>
+              <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                {card.label}
+              </div>
+            </div>
           </div>
-          <div style={{ width: '42px', height: '42px', borderRadius: '10px', background: 'rgba(239, 68, 68, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 3z"/></svg>
-          </div>
-        </div>
-
-        <div style={{ background: '#0a101d', padding: '1.15rem 1.25rem', borderRadius: '14px', border: '1px solid rgba(59, 130, 246, 0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontSize: '0.78rem', color: '#93c5fd', fontWeight: 600, marginBottom: '2px' }}>تم التواصل والمتابعة</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#60a5fa' }}>{contactedCount}</div>
-          </div>
-          <div style={{ width: '42px', height: '42px', borderRadius: '10px', background: 'rgba(59, 130, 246, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#60a5fa' }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
-        </div>
+        ))}
       </div>
 
       {/* Clean Control & Filter Bar */}
-      <div className="card" style={{ padding: '1rem 1.15rem', background: '#0a101d', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '14px' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', justifyContent: 'space-between' }}>
-          {/* Search Box */}
-          <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+      <div className="card" style={{ padding: '0.9rem 1.1rem', background: '#0a101d', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '14px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+          {/* Segmented filter pills */}
+          <div style={{ display: 'flex', background: '#060a12', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '10px', padding: '3px', gap: '3px' }}>
+            <button
+              type="button"
+              onClick={() => setHotOnly(false)}
+              style={{
+                padding: '0.38rem 0.9rem',
+                borderRadius: '8px',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+                border: 'none',
+                background: !hotOnly ? 'rgba(16, 185, 129, 0.18)' : 'transparent',
+                color: !hotOnly ? '#34d399' : 'var(--text-secondary)',
+              }}
+            >
+              الكل ({leads.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setHotOnly(true)}
+              style={{
+                padding: '0.38rem 0.9rem',
+                borderRadius: '8px',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+                border: 'none',
+                background: hotOnly ? 'rgba(239, 68, 68, 0.18)' : 'transparent',
+                color: hotOnly ? '#f87171' : 'var(--text-secondary)',
+              }}
+            >
+              الساخنون ({hotCount})
+            </button>
+          </div>
+
+          <select
+            className="form-select"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            style={{
+              fontSize: '0.8rem',
+              padding: '0.4rem 0.85rem',
+              borderRadius: '10px',
+              background: '#060a12',
+              color: '#ffffff',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              minHeight: '38px',
+              cursor: 'pointer',
+              fontWeight: 600,
+            }}
+          >
+            <option value="all" style={{ background: '#0b111e', color: '#fff' }}>كل الحالات</option>
+            <option value="new" style={{ background: '#0b111e', color: '#60a5fa' }}>جديد</option>
+            <option value="contacted" style={{ background: '#0b111e', color: '#facc15' }}>تم التواصل</option>
+            <option value="qualified" style={{ background: '#0b111e', color: '#c084fc' }}>مؤهل</option>
+            <option value="closed" style={{ background: '#0b111e', color: '#4ade80' }}>تم التعاقد</option>
+            <option value="lost" style={{ background: '#0b111e', color: '#f87171' }}>ملغي</option>
+          </select>
+
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={exportCSV}
+            style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '0.4rem 0.85rem', borderRadius: '10px', minHeight: '38px', fontSize: '0.8rem' }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>Excel</span>
+          </button>
+
+          {/* Search — fills the remaining width, wraps to its own row on narrow screens */}
+          <div style={{ position: 'relative', flex: '1 1 240px', minWidth: '220px' }}>
             <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             </div>
@@ -2741,86 +2820,13 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
               onChange={(e) => setSearch(e.target.value)}
               style={{
                 paddingRight: '2.3rem',
-                minHeight: '40px',
+                minHeight: '38px',
                 fontSize: '0.86rem',
                 background: '#060a12',
                 borderRadius: '10px',
                 border: '1px solid rgba(255, 255, 255, 0.08)',
               }}
             />
-          </div>
-
-          {/* Quick Filters */}
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-            <button
-              type="button"
-              onClick={() => setHotOnly(false)}
-              style={{
-                padding: '0.4rem 0.85rem',
-                borderRadius: '8px',
-                fontSize: '0.8rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-                transition: 'all 0.15s',
-                background: !hotOnly ? 'rgba(16, 185, 129, 0.15)' : '#060a12',
-                color: !hotOnly ? '#34d399' : 'var(--text-secondary)',
-                border: `1px solid ${!hotOnly ? 'rgba(16, 185, 129, 0.35)' : 'rgba(255, 255, 255, 0.08)'}`,
-              }}
-            >
-              الكل ({leads.length})
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setHotOnly(true)}
-              style={{
-                padding: '0.4rem 0.85rem',
-                borderRadius: '8px',
-                fontSize: '0.8rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-                transition: 'all 0.15s',
-                background: hotOnly ? 'rgba(239, 68, 68, 0.15)' : '#060a12',
-                color: hotOnly ? '#f87171' : 'var(--text-secondary)',
-                border: `1px solid ${hotOnly ? 'rgba(239, 68, 68, 0.35)' : 'rgba(255, 255, 255, 0.08)'}`,
-              }}
-            >
-              الساخنون ({hotCount})
-            </button>
-
-            <select
-              className="form-select"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              style={{
-                fontSize: '0.8rem',
-                padding: '0.4rem 0.85rem',
-                borderRadius: '8px',
-                background: '#060a12',
-                color: '#ffffff',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                minHeight: '38px',
-                cursor: 'pointer',
-                fontWeight: 600,
-              }}
-            >
-              <option value="all" style={{ background: '#0b111e', color: '#fff' }}>كل الحالات</option>
-              <option value="new" style={{ background: '#0b111e', color: '#60a5fa' }}>جديد</option>
-              <option value="contacted" style={{ background: '#0b111e', color: '#facc15' }}>تم التواصل</option>
-              <option value="qualified" style={{ background: '#0b111e', color: '#c084fc' }}>مؤهل</option>
-              <option value="closed" style={{ background: '#0b111e', color: '#4ade80' }}>تم التعاقد</option>
-              <option value="lost" style={{ background: '#0b111e', color: '#f87171' }}>ملغي</option>
-            </select>
-
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={exportCSV}
-              style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '0.4rem 0.85rem', borderRadius: '8px', minHeight: '38px', fontSize: '0.8rem' }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              <span>Excel</span>
-            </button>
           </div>
         </div>
       </div>
@@ -2845,13 +2851,13 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.86rem', textAlign: 'right' }}>
               <thead>
                 <tr style={{ background: '#060a12', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', color: 'var(--text-secondary)' }}>
-                  <th style={{ padding: '0.9rem 1.15rem', fontWeight: 800, fontSize: '0.78rem' }}>العميل</th>
-                  <th style={{ padding: '0.9rem 1.15rem', fontWeight: 800, fontSize: '0.78rem' }}>الهاتف والتواصل</th>
-                  <th style={{ padding: '0.9rem 1.15rem', fontWeight: 800, fontSize: '0.78rem' }}>الخدمة المطلوبة</th>
-                  <th style={{ padding: '0.9rem 1.15rem', fontWeight: 800, fontSize: '0.78rem' }}>الميزانية</th>
-                  <th style={{ padding: '0.9rem 1.15rem', fontWeight: 800, fontSize: '0.78rem' }}>التقييم</th>
-                  <th style={{ padding: '0.9rem 1.15rem', fontWeight: 800, fontSize: '0.78rem' }}>حالة المتابعة</th>
-                  <th style={{ padding: '0.9rem 1.15rem', fontWeight: 800, fontSize: '0.78rem' }}>التاريخ</th>
+                  <th style={{ padding: '0.7rem 1rem', fontWeight: 800, fontSize: '0.76rem' }}>العميل</th>
+                  <th style={{ padding: '0.7rem 1rem', fontWeight: 800, fontSize: '0.76rem' }}>الهاتف والتواصل</th>
+                  <th style={{ padding: '0.7rem 1rem', fontWeight: 800, fontSize: '0.76rem' }}>الخدمة المطلوبة</th>
+                  <th style={{ padding: '0.7rem 1rem', fontWeight: 800, fontSize: '0.76rem' }}>الميزانية</th>
+                  <th style={{ padding: '0.7rem 1rem', fontWeight: 800, fontSize: '0.76rem' }}>التقييم</th>
+                  <th style={{ padding: '0.7rem 1rem', fontWeight: 800, fontSize: '0.76rem' }}>حالة المتابعة</th>
+                  <th style={{ padding: '0.7rem 1rem', fontWeight: 800, fontSize: '0.76rem' }}>التاريخ</th>
                   <th style={{ padding: '0.9rem 1.15rem', textAlign: 'center', fontWeight: 800, fontSize: '0.78rem' }}>إجراءات</th>
                 </tr>
               </thead>
@@ -2874,7 +2880,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                       }}
                     >
                       {/* Customer Name & Platform */}
-                      <td style={{ padding: '0.85rem 1.15rem' }}>
+                      <td style={{ padding: '0.7rem 1rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
                           <div style={{
                             width: '34px',
@@ -2917,7 +2923,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                       </td>
 
                       {/* Phone & Contact Buttons */}
-                      <td style={{ padding: '0.85rem 1.15rem' }}>
+                      <td style={{ padding: '0.7rem 1rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span
                             onClick={() => copyPhone(lead.phone)}
@@ -2982,7 +2988,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                       </td>
 
                       {/* Service & Notes */}
-                      <td style={{ padding: '0.85rem 1.15rem', maxWidth: '280px' }}>
+                      <td style={{ padding: '0.7rem 1rem', maxWidth: '280px' }}>
                         <div style={{ color: '#ffffff', fontWeight: 700, fontSize: '0.86rem' }}>
                           {lead.service || '—'}
                         </div>
@@ -3009,13 +3015,14 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                       </td>
 
                       {/* Budget */}
-                      <td style={{ padding: '0.85rem 1.15rem', color: '#10b981', fontWeight: 800, fontSize: '0.86rem' }}>
+                      <td style={{ padding: '0.7rem 1rem', color: '#10b981', fontWeight: 800, fontSize: '0.86rem' }}>
                         {lead.budget ? `${lead.budget} ${bot?.currency || 'دج'}` : '—'}
                       </td>
 
                       {/* AI Evaluation */}
-                      <td style={{ padding: '0.85rem 1.15rem' }}>
+                      <td style={{ padding: '0.7rem 1rem' }}>
                         <span
+                          title={prioConf.hint}
                           style={{
                             display: 'inline-flex',
                             alignItems: 'center',
@@ -3035,7 +3042,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                       </td>
 
                       {/* Status Selector */}
-                      <td style={{ padding: '0.85rem 1.15rem' }}>
+                      <td style={{ padding: '0.7rem 1rem' }}>
                         <select
                           className="form-select"
                           value={lead.status || 'new'}
@@ -3062,12 +3069,12 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                       </td>
 
                       {/* Date */}
-                      <td style={{ padding: '0.85rem 1.15rem', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                      <td style={{ padding: '0.7rem 1rem', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
                         {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('ar-DZ') : '—'}
                       </td>
 
                       {/* Actions */}
-                      <td style={{ padding: '0.85rem 1.15rem', textAlign: 'center' }}>
+                      <td style={{ padding: '0.7rem 1rem', textAlign: 'center' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                           <button
                             type="button"

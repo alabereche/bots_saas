@@ -407,6 +407,26 @@ async function updateOrderDeliveryStatus(orderId, newDeliveryStatus, providerInf
   }
 }
 
+// ─── Robust JSON Parser (handles markdown codeblocks, whitespace, trailing commas) ───
+function parseRobustJson(raw) {
+  if (!raw || typeof raw !== 'string') return null;
+  let text = raw.trim();
+  try { return JSON.parse(text); } catch {}
+  text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+  try { return JSON.parse(text); } catch {}
+  const firstOpen = text.indexOf('{');
+  const lastClose = text.lastIndexOf('}');
+  if (firstOpen !== -1 && lastClose > firstOpen) {
+    const candidate = text.substring(firstOpen, lastClose + 1);
+    try { return JSON.parse(candidate); } catch {}
+    try {
+      const cleanTrailing = candidate.replace(/,\s*([}\]])/g, '$1');
+      return JSON.parse(cleanTrailing);
+    } catch {}
+  }
+  return null;
+}
+
 // ─── Smart Order & Lead Extraction ───────────────────────────
 const ORDER_TAG = '[ORDER_CONFIRMED]';
 const LEAD_TAG = '[LEAD_QUALIFIED]';
@@ -420,7 +440,11 @@ function extractAndSaveOrder(botId, ownerUserId, customerId, customerName, rawRe
   const cleanReply = rawReply.slice(0, tagIndex).trim();
 
   try {
-    const orderData = JSON.parse(jsonStr);
+    const orderData = parseRobustJson(jsonStr);
+    if (!orderData) {
+      console.warn('[Engine] Order tag found but JSON parse returned null:', jsonStr.slice(0, 100));
+      return { reply: cleanReply, orderFound: false };
+    }
     const str = v => (typeof v === 'string' ? v.trim().slice(0, 300) : '');
     const phone = str(orderData?.phone);
     const product = str(orderData?.product);
@@ -502,7 +526,7 @@ function extractAndSaveLead(botId, ownerUserId, customerId, customerName, rawRep
   const cleanReply = rawReply.slice(0, tagIndex).trim();
 
   try {
-    const leadData = JSON.parse(jsonStr);
+    const leadData = parseRobustJson(jsonStr);
     const str = v => (typeof v === 'string' ? v.trim().slice(0, 300) : '');
     const lead = {
       name: str(leadData?.name) || customerName,
@@ -510,7 +534,7 @@ function extractAndSaveLead(botId, ownerUserId, customerId, customerName, rawRep
       company: str(leadData?.company),
       service: str(leadData?.service),
       budget: str(leadData?.budget),
-      leadStatus: ['hot', 'warm', 'cold'].includes(leadData?.leadStatus) ? leadData.leadStatus : 'warm',
+      leadStatus: ['hot', 'warm', 'cold'].includes(leadData?.leadStatus) ? leadData.leadStatus : 'hot',
       notes: str(leadData?.notes) || cleanReply.slice(-300),
     };
 
@@ -886,7 +910,7 @@ async function startBot(config) {
 
         const aiConfig = {
           ...currentConfig,
-          autoOrdersEnabled: currentConfig.autoOrdersTelegram !== false,
+          autoOrdersEnabled: currentConfig.autoOrdersTelegram !== false && (currentConfig.features ? currentConfig.features.orders !== false : true),
         };
 
         const rawReply = await askAI(aiConfig, userId, userMessage, audioData);

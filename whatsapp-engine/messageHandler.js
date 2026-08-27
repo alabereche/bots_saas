@@ -13,6 +13,26 @@ const { isTakeoverActive } = require('./takeover');
 const trackingHelper = require('./tracking-helper');
 const { syncToGoogleSheets } = require('./sheetsSync');
 
+// ─── Robust JSON Parser (handles markdown codeblocks, whitespace, trailing commas) ───
+function parseRobustJson(raw) {
+  if (!raw || typeof raw !== 'string') return null;
+  let text = raw.trim();
+  try { return JSON.parse(text); } catch {}
+  text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+  try { return JSON.parse(text); } catch {}
+  const firstOpen = text.indexOf('{');
+  const lastClose = text.lastIndexOf('}');
+  if (firstOpen !== -1 && lastClose > firstOpen) {
+    const candidate = text.substring(firstOpen, lastClose + 1);
+    try { return JSON.parse(candidate); } catch {}
+    try {
+      const cleanTrailing = candidate.replace(/,\s*([}\]])/g, '$1');
+      return JSON.parse(cleanTrailing);
+    } catch {}
+  }
+  return null;
+}
+
 // ─── Smart Order & Lead Extraction ───────────────────────────
 const ORDER_TAG = '[ORDER_CONFIRMED]';
 const LEAD_TAG = '[LEAD_QUALIFIED]';
@@ -25,13 +45,8 @@ function extractOrder(rawReply) {
   const jsonStr = rawReply.slice(jsonStart).trim();
   const cleanReply = rawReply.slice(0, tagIndex).trim();
 
-  try {
-    const orderData = JSON.parse(jsonStr);
-    return { reply: cleanReply, orderData };
-  } catch (e) {
-    console.error('[Handler] Failed to parse order JSON:', e.message);
-    return { reply: cleanReply, orderData: null };
-  }
+  const orderData = parseRobustJson(jsonStr);
+  return { reply: cleanReply, orderData };
 }
 
 function extractLead(rawReply) {
@@ -42,13 +57,8 @@ function extractLead(rawReply) {
   const jsonStr = rawReply.slice(jsonStart).trim();
   const cleanReply = rawReply.slice(0, tagIndex).trim();
 
-  try {
-    const leadData = JSON.parse(jsonStr);
-    return { reply: cleanReply, leadData };
-  } catch (e) {
-    console.error('[Handler] Failed to parse lead JSON:', e.message);
-    return { reply: cleanReply, leadData: null };
-  }
+  const leadData = parseRobustJson(jsonStr);
+  return { reply: cleanReply, leadData };
 }
 
 function sanitizeLead(leadData) {
@@ -446,7 +456,7 @@ async function handleMessage(msg, config) {
     // Build config with auto-orders flag
     const aiConfig = {
       ...liveConfig,
-      autoOrdersEnabled: liveConfig.autoOrdersWhatsapp !== false,
+      autoOrdersEnabled: liveConfig.autoOrdersWhatsapp !== false && (liveConfig.features ? liveConfig.features.orders !== false : true),
     };
 
     // Get AI response from Gemini (with audioData if available)

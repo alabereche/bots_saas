@@ -31,8 +31,7 @@ const LANGUAGES = [
   { value: 'auto', label: 'تلقائي ذكي', desc: 'يرد بنفس لغة ولهجة كل زبون تلقائياً' },
 ];
 
-const CHANNELS_CONFIG = [
-  {
+const CHANNELS_CONFIG = [  {
     id: 'whatsapp',
     name: 'واتساب (WhatsApp)',
     subtitle: 'WhatsApp Business / Web',
@@ -56,6 +55,47 @@ const CHANNELS_CONFIG = [
       </svg>
     ),
   },
+];
+
+// ─── Floating depth backdrop (SVG line icons in brand style, no emoji) ───
+const stroke = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round', strokeLinejoin: 'round' };
+const FLOAT_ICONS = {
+  bag: (
+    <svg viewBox="0 0 24 24" {...stroke}><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+  ),
+  receipt: (
+    <svg viewBox="0 0 24 24" {...stroke}><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 7h8"/><path d="M8 11h8"/><path d="M8 15h5"/></svg>
+  ),
+  headphones: (
+    <svg viewBox="0 0 24 24" {...stroke}><path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5Z"/><path d="M21 14h-3a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-5Z"/><path d="M3 14v-3a9 9 0 0 1 18 0v3"/></svg>
+  ),
+  chart: (
+    <svg viewBox="0 0 24 24" {...stroke}><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg>
+  ),
+  calendar: (
+    <svg viewBox="0 0 24 24" {...stroke}><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+  ),
+  chat: (
+    <svg viewBox="0 0 24 24" {...stroke}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+  ),
+  package: (
+    <svg viewBox="0 0 24 24" {...stroke}><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+  ),
+  pricetag: (
+    <svg viewBox="0 0 24 24" {...stroke}><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>
+  ),
+};
+
+// [icon, left%, size px, opacity, blur px, duration s, delay s, color]
+const FLOAT_ITEMS = [
+  ['bag',       '5%',  64, 0.10, 3,   95, -20, '#34d399'],
+  ['chart',    '14%',  34, 0.06, 0,  130, -60, '#22d3ee'],
+  ['receipt',  '25%',  48, 0.08, 2,  110, -45, '#34d399'],
+  ['calendar', '38%',  30, 0.05, 0,  140, -90, '#22d3ee'],
+  ['chat',     '55%',  56, 0.09, 3,  100, -10, '#34d399'],
+  ['package',  '70%',  32, 0.06, 0,  135, -70, '#22d3ee'],
+  ['headphones','82%', 46, 0.08, 2,  115, -30, '#34d399'],
+  ['pricetag', '92%',  40, 0.07, 1,  120, -100, '#22d3ee'],
 ];
 
 function NeumorphicSelect({ value, onChange, options, renderSelected, renderOption }) {
@@ -296,6 +336,27 @@ export default function CreateBot() {
 
   return (
     <div className="page-container" style={{ maxWidth: '1200px' }}>
+      {/* Floating depth backdrop — slow-drifting brand-style SVG icons */}
+      <div className="create-float-layer" aria-hidden="true">
+        {FLOAT_ITEMS.map(([icon, left, size, opacity, blur, dur, delay, color], i) => (
+          <span
+            key={i}
+            style={{
+              left,
+              width: `${size}px`,
+              height: `${size}px`,
+              opacity,
+              color,
+              filter: blur ? `blur(${blur}px)` : 'none',
+              animationDuration: `${dur}s`,
+              animationDelay: `${delay}s`,
+            }}
+          >
+            {FLOAT_ICONS[icon]}
+          </span>
+        ))}
+      </div>
+      <div className="create-content">
       <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '1.25rem' }}>
         <button className="btn btn-secondary btn-sm" onClick={() => navigate('/dashboard')} style={{ gap: '6px' }}>
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
@@ -701,6 +762,7 @@ export default function CreateBot() {
           </ul>
         </div>
       </aside>
+      </div>
       </div>
     </div>
   );

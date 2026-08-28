@@ -357,6 +357,8 @@ export default function CreateBot() {
         ))}
       </div>
       <div className="create-content">
+      <div className="create-layout">
+        <div className="create-main">
       <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '1.25rem' }}>
         <button className="btn btn-secondary btn-sm" onClick={() => navigate('/dashboard')} style={{ gap: '6px' }}>
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
@@ -388,8 +390,6 @@ export default function CreateBot() {
         </p>
       </div>
 
-      <div className="create-layout">
-        <div className="create-main">
       <div className="wizard-progress">
         <div className={`wizard-step ${step >= 1 ? (step > 1 ? 'completed' : 'active') : ''}`}>
           <div className="wizard-step-number">

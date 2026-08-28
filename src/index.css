@@ -4519,3 +4519,33 @@ html, body {
   .sidebar-logo::before { animation: none; }
   .sidebar-status-dot { animation: none; }
 }
+
+/* ─── Sidebar composition rebalance (v2 fixes) ─── */
+/* the floating gradient hairline read as a glitch line — replace with an
+   ambient corner glow instead */
+.desktop-sidebar::before {
+  top: 0;
+  bottom: auto;
+  left: 0;
+  width: 100%;
+  height: 130px;
+  background: radial-gradient(140px 90px at 85% 0%, rgba(16, 185, 129, 0.09), transparent 70%);
+}
+/* deliberate watermark filling the natural empty space */
+.sidebar-void {
+  flex: 1;
+  min-height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.05;
+}
+.sidebar-void svg { width: 130px; height: 130px; }
+.sidebar-collapsed .sidebar-void { display: none; }
+/* rhythm: widgets live right under the nav, breathing room kept */
+.sidebar-nav { padding-bottom: 0.5rem; }
+.sidebar-pulse { margin-bottom: 0; }
+.sidebar-status-strip { margin: 0 0.4rem; }
+/* brand breathing */
+.sidebar-brand { padding: 1.15rem 1.1rem; }
+.sidebar-logo { width: 38px; height: 38px; }

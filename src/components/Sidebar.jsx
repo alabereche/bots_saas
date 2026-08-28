@@ -188,8 +188,8 @@ export default function Sidebar() {
             </div>
           ))}
 
-          {/* نبض حسابك — live cockpit widget */}
-          <div style={{ marginTop: 'auto', paddingTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {/* نبض حسابك + حالة المحرك — أعلى الفراغ لا مدفونتان في الأسفل */}
+          <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div className="sidebar-pulse">
               <div className="sidebar-pulse-title">
                 <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981', display: 'inline-block' }} />
@@ -212,6 +212,24 @@ export default function Sidebar() {
                 <span className="sidebar-channel-dot tg" />
               </div>
             </div>
+          </div>
+
+          {/* الفراغ المتبقي: علامة مائية متعمدة بدل هوة ميتة */}
+          <div className="sidebar-void" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="9" stroke="url(#voidRing)" strokeWidth="1" strokeDasharray="2.5 2.5"/>
+              <path d="M12 4.5L14.2 9.8L19.5 12L14.2 14.2L12 19.5L9.8 14.2L4.5 12L9.8 9.8L12 4.5Z" fill="url(#voidSpark)"/>
+              <defs>
+                <linearGradient id="voidRing" x1="0" y1="0" x2="24" y2="24">
+                  <stop offset="0%" stopColor="#34d399"/>
+                  <stop offset="100%" stopColor="#06b6d4"/>
+                </linearGradient>
+                <linearGradient id="voidSpark" x1="4" y1="4" x2="20" y2="20">
+                  <stop offset="0%" stopColor="#6ee7b7"/>
+                  <stop offset="100%" stopColor="#10b981"/>
+                </linearGradient>
+              </defs>
+            </svg>
           </div>
         </nav>
 

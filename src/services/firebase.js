@@ -167,6 +167,21 @@ export function subscribeBots(userId, callback) {
   });
 }
 
+// Owner-scoped realtime subscription for any collection (sidebar pulse)
+export function subscribeOwnerCollection(collectionName, userId, callback) {
+  if (!userId) {
+    callback([]);
+    return () => {};
+  }
+  const q = query(
+    collection(db, collectionName),
+    where('userId', '==', userId)
+  );
+  return onSnapshot(q, (snapshot) => {
+    callback(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+  }, () => callback([]));
+}
+
 // Subscribe to a single bot document
 export function subscribeBot(botId, callback) {
   if (!botId) return () => {};

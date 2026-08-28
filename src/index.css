@@ -4367,3 +4367,155 @@ html, body {
 @media (prefers-reduced-motion: reduce) {
   .create-float-layer { display: none; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Sidebar redesign — Living Cockpit (depth, chips, radar, pulse)
+   ═══════════════════════════════════════════════════════════════ */
+.desktop-sidebar {
+  background: linear-gradient(180deg, #080c14 0%, #060a11 100%);
+  box-shadow: -10px 0 36px rgba(0, 0, 0, 0.5);
+}
+/* emerald hairline on the content-facing edge */
+.desktop-sidebar::before {
+  content: '';
+  position: absolute;
+  top: 10%;
+  bottom: 10%;
+  left: -1px;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(16, 185, 129, 0.35), transparent);
+  pointer-events: none;
+}
+
+/* Brand: rotating radar ring around the logo */
+.sidebar-logo { position: relative; }
+.sidebar-logo::before {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 14px;
+  border: 1px dashed rgba(16, 185, 129, 0.4);
+  animation: sidebarRadar 20s linear infinite;
+}
+@keyframes sidebarRadar { to { transform: rotate(360deg); } }
+.sidebar-brand-name { font-weight: 800; }
+
+/* Nav links: icon chips, forward slide, glowing active bar */
+.sidebar-link { border-radius: 10px; }
+.sidebar-link:hover {
+  transform: translateX(-3px);
+  background: rgba(255, 255, 255, 0.045);
+}
+.sidebar-link-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: all 0.15s ease;
+}
+.sidebar-link:hover .sidebar-link-icon {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #34d399;
+}
+.sidebar-link--active {
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.16), rgba(16, 185, 129, 0.04)) !important;
+  border-radius: 12px;
+}
+.sidebar-link--active .sidebar-link-icon {
+  background: rgba(16, 185, 129, 0.18) !important;
+  border-color: rgba(16, 185, 129, 0.45) !important;
+  color: #34d399 !important;
+}
+.sidebar-link--active::after {
+  content: '';
+  position: absolute;
+  left: -0.65rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 55%;
+  border-radius: 99px;
+  background: #10b981;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.7);
+}
+.sidebar-link-badge {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.45);
+}
+.sidebar-collapsed .sidebar-link--active::after { display: none; }
+.sidebar-collapsed .sidebar-link-icon { background: transparent; border-color: transparent; }
+.sidebar-collapsed .sidebar-link:hover .sidebar-link-icon { background: rgba(16, 185, 129, 0.1); }
+
+/* نبض حسابك widget */
+.sidebar-pulse {
+  background: linear-gradient(160deg, rgba(16, 185, 129, 0.1) 0%, rgba(10, 16, 29, 0.6) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 12px;
+  padding: 0.7rem 0.8rem;
+}
+.sidebar-pulse-title {
+  font-size: 0.66rem;
+  font-weight: 800;
+  color: #34d399;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.55rem;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.sidebar-pulse-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  text-align: center;
+}
+.sidebar-pulse-item b {
+  display: block;
+  font-size: 1.02rem;
+  font-weight: 900;
+  color: #ffffff;
+  line-height: 1.25;
+}
+.sidebar-pulse-item b i {
+  font-style: normal;
+  font-size: 0.68rem;
+  color: #64748b;
+  font-weight: 700;
+}
+.sidebar-pulse-item span {
+  font-size: 0.6rem;
+  color: #64748b;
+  font-weight: 600;
+}
+.sidebar-collapsed .sidebar-pulse { display: none; }
+
+/* Status strip: breathing indicator + tinted surface */
+.sidebar-status-strip {
+  border-radius: 12px;
+  background: rgba(16, 185, 129, 0.05);
+  border: 1px solid rgba(16, 185, 129, 0.14);
+}
+.sidebar-status-dot {
+  background: #10b981;
+  animation: statusBreath 2.4s ease-in-out infinite;
+}
+@keyframes statusBreath {
+  0%, 100% { box-shadow: 0 0 4px rgba(16, 185, 129, 0.5); }
+  50% { box-shadow: 0 0 13px rgba(16, 185, 129, 0.95); }
+}
+.sidebar-channel-dot { border-radius: 3px; width: 9px; height: 9px; }
+.sidebar-channel-dot.wa { background: #25d366; }
+.sidebar-channel-dot.tg { background: #26a5e4; }
+
+/* User avatar ring */
+.sidebar-user-avatar {
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-logo::before { animation: none; }
+  .sidebar-status-dot { animation: none; }
+}

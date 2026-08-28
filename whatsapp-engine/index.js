@@ -36,7 +36,9 @@ const trackingHelper = require('./tracking-helper');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const MAX_CONCURRENT_BOTS = parseInt(process.env.MAX_CONCURRENT_BOTS || '10', 10);
+// 14 = measured safe ceiling on the 4GB VPS (~142MB/session + TG pair,
+// 450MB always free). .env can still override downward or upward.
+const MAX_CONCURRENT_BOTS = parseInt(process.env.MAX_CONCURRENT_BOTS || '14', 10);
 
 // ─── Uploads Directory & Static Serving ───────────────────────
 const UPLOADS_DIR = path.join(__dirname, 'uploads');

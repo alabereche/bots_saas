@@ -2551,6 +2551,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
   const [hotOnly, setHotOnly] = useState(false);
   const [updatingId, setUpdatingId] = useState(null);
   const [selectedLead, setSelectedLead] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   // Status mapping and colors
   const STATUS_CONFIG = {
@@ -2601,12 +2602,10 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
   };
 
   const handleDelete = async (leadId) => {
-    if (!window.confirm('هل أنت متأكد من حذف هذا العميل من السجل؟')) return;
     try {
       await deleteLead(leadId);
-      if (selectedLead && selectedLead.id === leadId) {
-        setSelectedLead(null);
-      }
+      setSelectedLead(prev => (prev && prev.id === leadId) ? null : prev);
+      setDeleteTarget(null);
       toast.success('تم حذف العميل');
     } catch (err) {
       toast.error('فشل حذف العميل: ' + err.message);
@@ -2634,17 +2633,25 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
       toast.error('لا توجد بيانات لتصديرها');
       return;
     }
+    // Excel/Sheets formula-injection guard: lead fields are customer-
+    // controlled free text, and a value starting with = + - @ or a tab
+    // would execute as a formula when the merchant opens the CSV.
+    const csvSafe = (v) => {
+      const s = String(v ?? '');
+      const guarded = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+      return guarded.replace(/"/g, '""');
+    };
     const headers = ['التاريخ', 'اسم العميل', 'رقم الهاتف', 'الشركة / النشاط', 'الخدمة المطلوبة', 'الميزانية', 'تصنيف الذكاء الاصطناعي', 'حالة المتابعة', 'الملاحظات', 'المنصة'];
     const rows = leads.map(l => [
       l.createdAt ? new Date(l.createdAt).toLocaleDateString('ar-DZ') : '-',
-      `"${(l.customerName || l.name || '').replace(/"/g, '""')}"`,
-      `"${(l.phone || '').replace(/"/g, '""')}"`,
-      `"${(l.company || '').replace(/"/g, '""')}"`,
-      `"${(l.service || '').replace(/"/g, '""')}"`,
-      `"${(l.budget || '').replace(/"/g, '""')}"`,
+      `"${csvSafe(l.customerName || l.name || '')}"`,
+      `"${csvSafe(l.phone || '')}"`,
+      `"${csvSafe(l.company || '')}"`,
+      `"${csvSafe(l.service || '')}"`,
+      `"${csvSafe(l.budget || '')}"`,
       l.leadStatus === 'hot' ? 'ساخن' : (l.leadStatus === 'warm' ? 'مهتم' : 'استفسار'),
       STATUS_CONFIG[l.status || 'new']?.label || 'جديد',
-      `"${(l.notes || '').replace(/"/g, '""')}"`,
+      `"${csvSafe(l.notes || '')}"`,
       l.platform || 'telegram',
     ]);
 
@@ -3112,7 +3119,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
 
                           <button
                             type="button"
-                            onClick={() => handleDelete(lead.id)}
+                            onClick={() => setDeleteTarget(lead)}
                             title="حذف"
                             style={{
                               width: '26px',
@@ -3345,11 +3352,22 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
 
                       <button
                         type="button"
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => handleDelete(lead.id)}
-                        style={{ color: '#ef4444', padding: '4px', borderRadius: '6px' }}
+                        onClick={() => setDeleteTarget(lead)}
+                        title="حذف"
+                        style={{
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '7px',
+                          background: 'rgba(239, 68, 68, 0.1)',
+                          border: '1px solid rgba(239, 68, 68, 0.3)',
+                          color: '#f87171',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                        }}
                       >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                       </button>
                     </div>
                   </div>
@@ -3522,7 +3540,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
               <button
                 type="button"
                 className="btn btn-ghost btn-sm"
-                onClick={() => handleDelete(selectedLead.id)}
+                onClick={() => { setSelectedLead(null); setDeleteTarget(selectedLead); }}
                 style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.78rem' }}
               >
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
@@ -3536,6 +3554,33 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                 style={{ borderRadius: '6px', fontSize: '0.78rem' }}
               >
                 إغلاق
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div className="modal-overlay" onClick={() => setDeleteTarget(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px', textAlign: 'center' }}>
+            <div style={{
+              width: '52px', height: '52px', borderRadius: '14px', margin: '0 auto 0.9rem',
+              background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.35)',
+              color: '#f87171', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+            </div>
+            <h3 className="modal-title" style={{ marginBottom: '0.4rem' }}>حذف العميل نهائياً؟</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', lineHeight: 1.6, marginBottom: '1.15rem' }}>
+              سيُحذف «{(deleteTarget.customerName || deleteTarget.name || 'عميل')}» وجميع بياناته من سجل العملاء — لا يمكن التراجع عن هذه الخطوة.
+            </p>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setDeleteTarget(null)}>
+                إلغاء
+              </button>
+              <button type="button" className="btn btn-danger" onClick={() => handleDelete(deleteTarget.id)}>
+                حذف نهائي
               </button>
             </div>
           </div>

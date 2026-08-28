@@ -93,6 +93,8 @@ export default function BotDetail() {
   const [takeoverMap, setTakeoverMap] = useState({});
   const chatEndRef = useRef(null);
   const replyInputRef = useRef(null);
+  // Fires the 'bot missing' notice exactly once per bot id
+  const missingBotHandledRef = useRef(false);
 
   // Modals state
   const [showEditModal, setShowEditModal] = useState(false);
@@ -128,12 +130,18 @@ export default function BotDetail() {
   // Realtime Subscriptions
   useEffect(() => {
     if (!id) return;
+    missingBotHandledRef.current = false;
     setLoading(true);
 
     const unsubBot = subscribeBot(id, (botData) => {
       if (!botData) {
-        toast.error('تعذر العثور على البوت أو تم حذفه');
-        navigate('/dashboard');
+        // A deleted bot fires this on every (re)subscription — show the
+        // notice exactly once, never in a loop
+        if (!missingBotHandledRef.current) {
+          missingBotHandledRef.current = true;
+          toast.error('تعذر العثور على البوت أو تم حذفه');
+          navigate('/dashboard');
+        }
         return;
       }
       setBot(botData);

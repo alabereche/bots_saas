@@ -1,12 +1,22 @@
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, useRef } from 'react';
 
 const ToastContext = createContext(null);
 
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
+  // Guards the whole app against toast floods: effects that list `toast`
+  // in their deps (e.g. realtime subscriptions) can fire the same error
+  // message in a tight loop — identical messages within 2.5s are dropped.
+  const lastToastRef = useRef({ message: '', type: '', at: 0 });
 
   const addToast = useCallback((message, type = 'info', duration = 4000) => {
-    const id = Date.now() + Math.random();
+    const now = Date.now();
+    const last = lastToastRef.current;
+    if (last.message === message && last.type === type && now - last.at < 2500) {
+      return;
+    }
+    lastToastRef.current = { message, type, at: now };
+    const id = now + Math.random();
     setToasts(prev => [...prev, { id, message, type }]);
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
@@ -18,8 +28,12 @@ export function ToastProvider({ children }) {
   const warning = useCallback((msg) => addToast(msg, 'warning'), [addToast]);
   const info = useCallback((msg) => addToast(msg, 'info'), [addToast]);
 
+  // Stable identity across renders — a new object here would re-trigger
+  // every effect in the app that depends on `toast` (the flood bug class)
+  const value = useMemo(() => ({ success, error, warning, info }), [success, error, warning, info]);
+
   return (
-    <ToastContext.Provider value={{ success, error, warning, info }}>
+    <ToastContext.Provider value={value}>
       {children}
       <div className="toast-container" style={{ position: 'fixed', bottom: '24px', left: '24px', zIndex: 99999, display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '400px', pointerEvents: 'none' }}>
         {toasts.map(t => (

@@ -326,6 +326,9 @@ export default function BotDetail() {
 
   const handleDelete = async () => {
     try {
+      // The realtime subscription will see the doc vanish and want to shout
+      // "bot missing" — but this deletion is intentional, silence it
+      missingBotHandledRef.current = true;
       await deleteBot(id);
       toast.success('تم حذف البوت بنجاح');
       navigate('/dashboard');

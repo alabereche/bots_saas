@@ -4252,3 +4252,93 @@ html, body {
   right: auto;
   left: 0;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Create Bot wizard — wide layout + sticky live-summary rail
+   ═══════════════════════════════════════════════════════════════ */
+.create-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 1.5rem;
+  align-items: start;
+}
+.create-rail {
+  position: sticky;
+  top: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.create-rail-card {
+  background: #0a101d;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1.1rem 1.15rem;
+}
+.create-rail-title {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #34d399;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 0.75rem;
+}
+.create-rail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
+  font-size: 0.8rem;
+}
+.create-rail-row:last-of-type { border-bottom: none; }
+.create-rail-row span { color: var(--text-tertiary, #94a3b8); flex-shrink: 0; }
+.create-rail-row b {
+  color: #ffffff;
+  font-weight: 700;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 62%;
+}
+.create-rail-progress {
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.create-rail-progress span { font-size: 0.75rem; color: var(--text-secondary); font-weight: 700; }
+.create-rail-progress-track {
+  height: 6px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.create-rail-progress-track > div {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #25d366, #22d3ee);
+  transition: width 0.4s ease;
+}
+.create-rail-tips p {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin: 0 0 0.6rem;
+}
+.create-rail-tips ul {
+  margin: 0;
+  padding-right: 1.1rem;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  line-height: 1.8;
+}
+@media (max-width: 1024px) {
+  .create-layout { grid-template-columns: 1fr; }
+  .create-rail { position: static; }
+}

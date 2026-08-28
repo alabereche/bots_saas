@@ -210,6 +210,25 @@ export default function CreateBot() {
 
   const handleBack = () => setStep(s => Math.max(s - 1, 1));
 
+  // ─── Live summary rail (right side on desktop) ───
+  const businessTypeObj = BUSINESS_TYPES.find(b => b.value === businessType);
+  const activityLabel = businessType === 'custom'
+    ? (customType || 'مخصص')
+    : (businessTypeObj?.label || '—');
+  const channelsLabel = selectedChannels.length === 0 ? '—' : selectedChannels.map(id => {
+    if (id === 'whatsapp') return 'واتساب';
+    if (id === 'telegram') return 'تيليغرام';
+    return id;
+  }).join(' + ');
+  const langLabel = LANGUAGES.find(l => l.value === language)?.label || '—';
+  const styleLabel = RESPONSE_STYLES.find(s => s.value === responseStyle)?.label || '—';
+  const stepNames = { 1: 'النشاط والقنوات', 2: 'شخصية الذكاء الاصطناعي', 3: 'الربط والتشغيل' };
+  const STEP_TIPS = {
+    1: 'حدد قنواتك واملأ معلومات نشاطك بدقة — كلما كانت التفاصيل أدق كانت ردود المساعد أذكى وأقرب لأسلوبك في البيع.',
+    2: 'اختر شخصية تناسب زبائنك: الودّي للمتاجر والخدمات اليومية، والرسمي للمؤسسات — ويمكنك تغييرها لاحقاً في أي وقت.',
+    3: 'الربط يستغرق ثوانٍ فقط: امسح الـ QR بكاميرا واتساب أو أدخل توكن BotFather — وبعدها مساعدك يبدأ العمل فوراً.',
+  };
+
   const handleSubmit = async () => {
     if (!validateStep3()) return;
     if (!user) {
@@ -276,7 +295,7 @@ export default function CreateBot() {
   };
 
   return (
-    <div className="page-container" style={{ maxWidth: '820px' }}>
+    <div className="page-container" style={{ maxWidth: '1200px' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '1.25rem' }}>
         <button className="btn btn-secondary btn-sm" onClick={() => navigate('/dashboard')} style={{ gap: '6px' }}>
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
@@ -308,6 +327,8 @@ export default function CreateBot() {
         </p>
       </div>
 
+      <div className="create-layout">
+        <div className="create-main">
       <div className="wizard-progress">
         <div className={`wizard-step ${step >= 1 ? (step > 1 ? 'completed' : 'active') : ''}`}>
           <div className="wizard-step-number">
@@ -402,9 +423,6 @@ export default function CreateBot() {
                   );
                 })}
               </div>
-              <p className="form-helper" style={{ marginTop: '8px' }}>
-                💡 يمكنك تحديد أكثر من منصة معاً. عقل البوت والكتالوج سيكون مشتركاً وموحداً بينهم تلقائياً.
-              </p>
             </div>
 
             <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.08)', margin: '1.5rem 0' }} />
@@ -648,6 +666,41 @@ export default function CreateBot() {
             </button>
           )}
         </div>
+      </div>
+      </div>
+
+      {/* Live summary rail — fills the desktop space with real value */}
+      <aside className="create-rail">
+        <div className="create-rail-card">
+          <div className="create-rail-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            <span>ملخص مساعدك — يتحدث مع تعبئتك</span>
+          </div>
+          <div className="create-rail-row"><span>اسم المساعد</span><b>{botName || '—'}</b></div>
+          <div className="create-rail-row"><span>المتجر / المشروع</span><b>{businessName || '—'}</b></div>
+          <div className="create-rail-row"><span>النشاط</span><b>{activityLabel}</b></div>
+          <div className="create-rail-row"><span>الدولة والعملة</span><b>{countryObj.flag} {countryObj.name}</b></div>
+          <div className="create-rail-row"><span>القنوات</span><b>{channelsLabel}</b></div>
+          <div className="create-rail-row"><span>اللهجة</span><b>{langLabel}</b></div>
+          <div className="create-rail-row"><span>أسلوب الرد</span><b>{styleLabel}</b></div>
+          <div className="create-rail-progress">
+            <span>الخطوة {step} من 3 — {stepNames[step]}</span>
+            <div className="create-rail-progress-track"><div style={{ width: `${(step / 3) * 100}%` }} /></div>
+          </div>
+        </div>
+
+        <div className="create-rail-card create-rail-tips">
+          <div className="create-rail-title">
+            <span>💡</span>
+            <span>نصيحة الخطوة الحالية</span>
+          </div>
+          <p>{STEP_TIPS[step]}</p>
+          <ul>
+            <li>كل الحقول قابلة للتعديل لاحقاً من لوحة تحكم البوت.</li>
+            <li>بياناتك معزولة ومحمية — لا يطّلع عليها أحد غيرك.</li>
+          </ul>
+        </div>
+      </aside>
       </div>
     </div>
   );

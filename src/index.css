@@ -4449,49 +4449,6 @@ html, body {
 .sidebar-collapsed .sidebar-link-icon { background: transparent; border-color: transparent; }
 .sidebar-collapsed .sidebar-link:hover .sidebar-link-icon { background: rgba(16, 185, 129, 0.1); }
 
-/* نبض حسابك widget */
-.sidebar-pulse {
-  background: linear-gradient(160deg, rgba(16, 185, 129, 0.1) 0%, rgba(10, 16, 29, 0.6) 100%);
-  border: 1px solid rgba(16, 185, 129, 0.2);
-  border-radius: 12px;
-  padding: 0.7rem 0.8rem;
-}
-.sidebar-pulse-title {
-  font-size: 0.66rem;
-  font-weight: 800;
-  color: #34d399;
-  letter-spacing: 0.05em;
-  margin-bottom: 0.55rem;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-.sidebar-pulse-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-  text-align: center;
-}
-.sidebar-pulse-item b {
-  display: block;
-  font-size: 1.02rem;
-  font-weight: 900;
-  color: #ffffff;
-  line-height: 1.25;
-}
-.sidebar-pulse-item b i {
-  font-style: normal;
-  font-size: 0.68rem;
-  color: #64748b;
-  font-weight: 700;
-}
-.sidebar-pulse-item span {
-  font-size: 0.6rem;
-  color: #64748b;
-  font-weight: 600;
-}
-.sidebar-collapsed .sidebar-pulse { display: none; }
-
 /* Status strip: breathing indicator + tinted surface */
 .sidebar-status-strip {
   border-radius: 12px;
@@ -4544,7 +4501,6 @@ html, body {
 .sidebar-collapsed .sidebar-void { display: none; }
 /* rhythm: widgets live right under the nav, breathing room kept */
 .sidebar-nav { padding-bottom: 0.5rem; }
-.sidebar-pulse { margin-bottom: 0; }
 .sidebar-status-strip { margin: 0 0.4rem; }
 /* brand breathing */
 .sidebar-brand { padding: 1.15rem 1.1rem; }

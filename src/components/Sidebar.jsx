@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { subscribeBots, subscribeOwnerCollection } from '../services/firebase';
 import NotificationBell from './NotificationBell';
 
 export default function Sidebar() {
@@ -23,26 +22,6 @@ export default function Sidebar() {
     }
     localStorage.setItem('botforge_sidebar_collapsed', collapsed);
   }, [collapsed]);
-
-  // ─── نبض حسابك: realtime counts for the sidebar cockpit widget ───
-  const [pulse, setPulse] = useState({ orders: 0, leads: 0, bots: 0, activeBots: 0 });
-
-  useEffect(() => {
-    const uid = user?.uid;
-    if (!uid) return undefined;
-    const unsubs = [
-      subscribeBots(uid, (bots) => {
-        setPulse(p => ({
-          ...p,
-          bots: bots.length,
-          activeBots: bots.filter(b => b.whatsappStatus === 'connected' || (b.telegramToken && b.telegramEnabled !== false)).length,
-        }));
-      }),
-      subscribeOwnerCollection('orders', uid, (orders) => setPulse(p => ({ ...p, orders: orders.length }))),
-      subscribeOwnerCollection('leads', uid, (leads) => setPulse(p => ({ ...p, leads: leads.length }))),
-    ];
-    return () => unsubs.forEach(u => u());
-  }, [user?.uid]);
 
   const handleLogout = async () => {
     await logout();
@@ -188,20 +167,8 @@ export default function Sidebar() {
             </div>
           ))}
 
-          {/* نبض حسابك + حالة المحرك — أعلى الفراغ لا مدفونتان في الأسفل */}
-          <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div className="sidebar-pulse">
-              <div className="sidebar-pulse-title">
-                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981', display: 'inline-block' }} />
-                نبض حسابك
-              </div>
-              <div className="sidebar-pulse-grid">
-                <div className="sidebar-pulse-item"><b>{pulse.orders}</b><span>طلبيات</span></div>
-                <div className="sidebar-pulse-item"><b>{pulse.leads}</b><span>عملاء</span></div>
-                <div className="sidebar-pulse-item"><b>{pulse.activeBots}<i>/{pulse.bots}</i></b><span>متصلة</span></div>
-              </div>
-            </div>
-
+          {/* حالة المحرك — الشريط السفلي */}
+          <div style={{ marginTop: 'auto', paddingTop: '8px' }}>
             <div className="sidebar-status-strip">
               <div className="sidebar-status-info">
                 <span className="sidebar-status-dot" />

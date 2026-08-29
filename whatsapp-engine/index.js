@@ -277,7 +277,8 @@ app.get('/api/whatsapp/all', async (req, res) => {
   });
 });
 
-// ─── Admin Panel (standalone, gated by ADMIN_EMAILS env) ──────
+// ─── Admin data API (gated by ADMIN_EMAILS env) ───────────────
+// The admin panel lives on the owner's PC and calls this over HTTPS.
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '')
   .split(',')
   .map(s => s.trim().toLowerCase())
@@ -298,16 +299,6 @@ async function requireAdmin(req, res) {
   }
 }
 
-// Static panel shell (public) — all data lives behind the admin API gate
-app.get('/ayrexjs', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'admin-panel', 'index.html'));
-});
-app.get('/ayrexjs.css', (req, res) => {
-  res.type('text/css');
-  res.sendFile(path.join(__dirname, '..', 'admin-panel', 'admin.css'));
-});
-
-// Mission-control data: platform-wide aggregation, admin only
 app.get('/api/ayrexjs/overview', async (req, res) => {
   if (!req.uid) return res.status(401).json({ error: 'غير مصادق' });
   if (!(await requireAdmin(req, res))) return;
@@ -359,7 +350,6 @@ app.get('/api/ayrexjs/overview', async (req, res) => {
       };
     });
 
-    // Prospects who registered but never created a bot — the sales radar core
     Object.keys(users).forEach(uid => {
       if (!merchantsMap[uid]) {
         const u = users[uid] || {};

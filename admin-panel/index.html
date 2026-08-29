@@ -137,7 +137,7 @@ function logout() {
 async function loadOverview() {
   $('refresh-btn').classList.add('spin');
   try {
-    const res = await fetch('/api/ayrexjs/overview', { headers: { Authorization: `Bearer ${idToken}` } });
+    const res = await fetch('https://wa.nosfir.online/api/ayrexjs/overview', { headers: { Authorization: `Bearer ${idToken}` } });
     if (res.status === 401 || res.status === 403) {
       logout();
       showLoginError('هذا الحساب غير مصرح له — الدخول لحساب الأدمن فقط');

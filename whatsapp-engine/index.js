@@ -277,6 +277,131 @@ app.get('/api/whatsapp/all', async (req, res) => {
   });
 });
 
+// ─── Admin Panel (standalone, gated by ADMIN_EMAILS env) ──────
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '')
+  .split(',')
+  .map(s => s.trim().toLowerCase())
+  .filter(Boolean);
+
+async function requireAdmin(req, res) {
+  try {
+    const userRecord = await admin.auth().getUser(req.uid);
+    const email = (userRecord.email || '').toLowerCase();
+    if (!email || !ADMIN_EMAILS.includes(email)) {
+      res.status(403).json({ error: 'هذه اللوحة للأدمن فقط' });
+      return null;
+    }
+    return userRecord;
+  } catch (e) {
+    res.status(403).json({ error: 'فشل التحقق من صلاحيات الأدمن' });
+    return null;
+  }
+}
+
+// Static panel shell (public) — all data lives behind the admin API gate
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'admin-panel', 'index.html'));
+});
+app.get('/admin.css', (req, res) => {
+  res.type('text/css');
+  res.sendFile(path.join(__dirname, '..', 'admin-panel', 'admin.css'));
+});
+
+// Mission-control data: platform-wide aggregation, admin only
+app.get('/api/admin/overview', async (req, res) => {
+  if (!req.uid) return res.status(401).json({ error: 'غير مصادق' });
+  if (!(await requireAdmin(req, res))) return;
+  try {
+    const [usersSnap, botsSnap, ordersSnap, leadsSnap] = await Promise.all([
+      db.collection('users').get(),
+      db.collection('bots').get(),
+      db.collection('orders').get(),
+      db.collection('leads').get(),
+    ]);
+
+    const users = {};
+    usersSnap.forEach(d => { users[d.id] = d.data(); });
+
+    const merchantsMap = {};
+    botsSnap.forEach(d => {
+      const b = d.data();
+      const uid = b.userId || 'unknown';
+      if (!merchantsMap[uid]) merchantsMap[uid] = { userId: uid, bots: [], orders: 0, leads: 0, hotLeads: 0 };
+      merchantsMap[uid].bots.push({
+        name: b.botName || 'بوت',
+        wa: b.whatsappStatus || 'not_initialized',
+        tg: !!(b.telegramToken && b.telegramEnabled !== false),
+      });
+    });
+    ordersSnap.forEach(d => {
+      const o = d.data();
+      const uid = o.userId || 'unknown';
+      if (merchantsMap[uid]) merchantsMap[uid].orders++;
+    });
+    leadsSnap.forEach(d => {
+      const l = d.data();
+      const uid = l.userId || 'unknown';
+      if (merchantsMap[uid]) {
+        merchantsMap[uid].leads++;
+        if (l.leadStatus === 'hot') merchantsMap[uid].hotLeads++;
+      }
+    });
+
+    const merchants = Object.values(merchantsMap).map(m => {
+      const u = users[m.userId] || {};
+      const connected = m.bots.some(b => b.wa === 'connected' || b.tg);
+      return {
+        ...m,
+        email: u.email || '(بريد غير معروف)',
+        name: u.displayName || (u.email || '').split('@')[0] || 'تاجر',
+        joinedAt: u.createdAt || '',
+        state: connected ? 'active' : (m.bots.length ? 'idle' : 'stalled'),
+      };
+    });
+
+    // Prospects who registered but never created a bot — the sales radar core
+    Object.keys(users).forEach(uid => {
+      if (!merchantsMap[uid]) {
+        const u = users[uid] || {};
+        merchants.push({
+          userId: uid,
+          email: u.email || '(غير معروف)',
+          name: u.displayName || (u.email || '').split('@')[0] || 'تاجر',
+          joinedAt: u.createdAt || '',
+          bots: [],
+          orders: 0,
+          leads: 0,
+          hotLeads: 0,
+          state: 'stalled',
+        });
+      }
+    });
+
+    merchants.sort((a, b) => (b.joinedAt || '').localeCompare(a.joinedAt || ''));
+
+    res.json({
+      totals: {
+        merchants: merchants.length,
+        bots: botsSnap.size,
+        connectedBots: merchants.reduce(
+          (s, m) => s + m.bots.filter(b => b.wa === 'connected' || b.tg).length, 0
+        ),
+        orders: ordersSnap.size,
+        leads: leadsSnap.size,
+        hotLeads: leadsSnap.docs.filter(d => d.data().leadStatus === 'hot').length,
+      },
+      engine: {
+        uptime: Math.round(process.uptime()),
+        memoryMB: Math.round(process.memoryUsage().rss / 1048576),
+        sessions: getAllBotStatuses().length,
+      },
+      merchants,
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'فشل جمع البيانات: ' + e.message });
+  }
+});
+
 // ─── Manual Reply & Human Takeover (dashboard) ────────────────
 
 // ─── Manual Reply & Human Takeover (dashboard) ────────────────

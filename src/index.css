@@ -4505,3 +4505,18 @@ html, body {
 /* brand breathing */
 .sidebar-brand { padding: 1.15rem 1.1rem; }
 .sidebar-logo { width: 38px; height: 38px; }
+
+/* ─── CreateBot mobile safety: nothing may force horizontal bleed ─── */
+@media (max-width: 768px) {
+  .create-layout, .create-main, .wizard-progress, .page-container {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .mobile-nav-label {
+    max-width: 78px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mobile-bottom-nav .sidebar-link-badge { display: none; }
+}

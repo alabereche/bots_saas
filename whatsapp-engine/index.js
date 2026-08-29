@@ -299,16 +299,16 @@ async function requireAdmin(req, res) {
 }
 
 // Static panel shell (public) — all data lives behind the admin API gate
-app.get('/admin', (req, res) => {
+app.get('/ayrexjs', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'admin-panel', 'index.html'));
 });
-app.get('/admin.css', (req, res) => {
+app.get('/ayrexjs.css', (req, res) => {
   res.type('text/css');
   res.sendFile(path.join(__dirname, '..', 'admin-panel', 'admin.css'));
 });
 
 // Mission-control data: platform-wide aggregation, admin only
-app.get('/api/admin/overview', async (req, res) => {
+app.get('/api/ayrexjs/overview', async (req, res) => {
   if (!req.uid) return res.status(401).json({ error: 'غير مصادق' });
   if (!(await requireAdmin(req, res))) return;
   try {

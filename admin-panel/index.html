@@ -8,12 +8,14 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/admin.css" />
+  <link rel="stylesheet" href="/ayrexjs.css" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='9' fill='none' stroke='%2310b981' stroke-width='1.8' stroke-dasharray='2.5 2.5'/%3E%3Cpath d='M12 4.5L14.2 9.8L19.5 12L14.2 14.2L12 19.5L9.8 14.2L4.5 12L9.8 9.8L12 4.5Z' fill='%2310b981'/%3E%3C/svg%3E" />
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 </head>
 <body>
 
-  <!-- ═══ Login ═══ -->
+  <!-- ═══ Login (Google only) ═══ -->
   <div id="login-view" class="login-view">
     <div class="login-card">
       <div class="brand-mark">
@@ -22,22 +24,13 @@
         </svg>
       </div>
       <h1>AuraBot <span>Admin</span></h1>
-      <p>غرفة عمليات المنصة — دخول الأدمن فقط</p>
-      <form id="login-form">
-        <div class="login-field">
-          <input id="login-email" type="email" class="login-input" placeholder="بريد الأدمن" autocomplete="username" required />
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>
-        </div>
-        <div class="login-field">
-          <input id="login-password" type="password" class="login-input" placeholder="كلمة المرور" autocomplete="current-password" required />
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        </div>
-        <button type="submit" class="login-btn" id="login-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-          <span>دخول آمن</span>
-        </button>
-        <p class="login-error" id="login-error"></p>
-      </form>
+      <p>غرفة عمليات المنصة — الدخول بحساب Google المصرح له فقط</p>
+      <button type="button" class="google-btn" id="google-btn">
+        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.382-3.917z"/><path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.382-3.917z"/></svg>
+        <span>المتابعة بحساب Google</span>
+      </button>
+      <p class="login-error" id="login-error"></p>
+      <p class="login-note">حساب واحد مصرح له فقط — أي حساب آخر سيُرفض على الخادم</p>
     </div>
   </div>
 
@@ -91,16 +84,23 @@
 <script>
 'use strict';
 
-// ─── Config ───
-const API_KEY = 'AIzaSyAB6AS2qy2e9iAgG4RMIERDmLXCvs2WQEU';
-let idToken = sessionStorage.getItem('ab_token') || '';
-let adminEmail = sessionStorage.getItem('ab_email') || '';
+// ─── Firebase (same project as the platform) ───
+firebase.initializeApp({
+  apiKey: 'AIzaSyAB6AS2qy2e9iAgG4RMIERDmLXCvs2WQEU',
+  authDomain: 'bots-saas-c7190.firebaseapp.com',
+  projectId: 'bots-saas-c7190',
+});
+const fauth = firebase.auth();
+const provider = new firebase.auth.GoogleAuthProvider();
+provider.setCustomParameters({ prompt: 'select_account' });
+
+let idToken = '';
+let adminEmail = '';
 let overviewCache = null;
 let refreshTimer = null;
 
 const $ = (id) => document.getElementById(id);
 
-// ─── SVG icons (no emoji, brand stroke style) ───
 const ICONS = {
   merchants: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
   bot: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5L14.2 9.8L19.5 12L14.2 14.2L12 19.5L9.8 14.2L4.5 12L9.8 9.8L12 4.5Z"/></svg>',
@@ -119,69 +119,77 @@ const STATE_LABELS = {
   stalled: { label: 'توقف قبل الربط', cls: 'state-chip--stalled' },
 };
 
-// ─── Login flow (Firebase Auth REST — password accounts) ───
-async function apiLogin(email, password) {
-  const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${API_KEY}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password, returnSecureToken: true }),
-  });
-  const data = await res.json();
-  if (!res.ok) {
-    const code = data.error?.message || '';
-    if (code.includes('INVALID_LOGIN_CREDENTIALS') || code.includes('INVALID_PASSWORD') || code.includes('EMAIL_NOT_FOUND')) {
-      throw new Error('بريد أو كلمة مرور غير صحيحة');
-    }
-    if (code.includes('TOO_MANY_ATTEMPTS')) throw new Error('محاولات كثيرة — انتظر قليلاً ثم أعد المحاولة');
-    throw new Error('فشل تسجيل الدخول');
-  }
-  idToken = data.idToken;
-  adminEmail = data.email || email;
-  sessionStorage.setItem('ab_token', idToken);
-  sessionStorage.setItem('ab_email', adminEmail);
+function showLoginError(msg) {
+  $('login-error').textContent = msg;
+  $('login-view').classList.remove('hidden');
+  $('app-view').classList.add('hidden');
 }
 
-function logout(clearStorage = true) {
-  if (clearStorage) {
-    sessionStorage.removeItem('ab_token');
-    sessionStorage.removeItem('ab_email');
-  }
+function logout() {
+  fauth.signOut().catch(() => {});
   idToken = '';
   adminEmail = '';
   overviewCache = null;
   if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
-  $('app-view').classList.add('hidden');
-  $('login-view').classList.remove('hidden');
-  $('login-password').value = '';
+  showLoginError('');
 }
 
 async function loadOverview() {
-  const btn = $('refresh-btn');
-  btn.classList.add('spin');
+  $('refresh-btn').classList.add('spin');
   try {
-    const res = await fetch('/api/admin/overview', { headers: { Authorization: `Bearer ${idToken}` } });
+    const res = await fetch('/api/ayrexjs/overview', { headers: { Authorization: `Bearer ${idToken}` } });
     if (res.status === 401 || res.status === 403) {
-      logout(true);
-      showLoginError('انتهت الجلسة أو لا تملك صلاحية الأدمن — سجّل دخولك بحساب الأدمن');
+      logout();
+      showLoginError('هذا الحساب غير مصرح له — الدخول لحساب الأدمن فقط');
       return;
     }
     if (!res.ok) throw new Error('تعذر جلب البيانات');
     overviewCache = await res.json();
     render(overviewCache);
   } catch (e) {
-    if (overviewCache) { /* keep showing last good data */ }
-    else showLoginError(e.message || 'تعذر الاتصال بالمحرك');
+    if (!overviewCache) showLoginError(e.message || 'تعذر الاتصال بالمحرك');
   } finally {
-    btn.classList.remove('spin');
+    $('refresh-btn').classList.remove('spin');
   }
 }
 
+function startApp() {
+  $('login-view').classList.add('hidden');
+  loadOverview();
+  if (!refreshTimer) refreshTimer = setInterval(() => { if (idToken) loadOverview(); }, 30000);
+}
+
+// ─── Auth state: session restore + post-redirect return ───
+fauth.onAuthStateChanged(async (user) => {
+  if (!user) return;
+  idToken = await user.getIdToken();
+  adminEmail = user.email || '';
+  $('admin-email').textContent = adminEmail;
+  startApp();
+});
+fauth.getRedirectResult().catch(() => {});
+
+// ─── Google sign-in ───
+$('google-btn').addEventListener('click', async () => {
+  $('login-error').textContent = '';
+  try {
+    await fauth.signInWithPopup(provider);
+  } catch (e) {
+    if (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment') {
+      try { await fauth.signInWithRedirect(provider); } catch (e2) { showLoginError('تعذر فتح نافذة Google: ' + e2.message); }
+    } else if (e.code === 'auth/unauthorized-domain') {
+      showLoginError('النطاق غير مصرح له في إعدادات Firebase — أضف wa.nosfir.online إلى النطاقات المصرح بها');
+    } else if (e.code === 'auth/popup-closed-by-user') {
+      /* user closed the popup — silent */
+    } else {
+      showLoginError('تعذر الدخول: ' + (e.message || ''));
+    }
+  }
+});
+
 // ─── Rendering ───
 function render(data) {
-  $('login-view').classList.add('hidden');
   $('app-view').classList.remove('hidden');
-  $('admin-email').textContent = adminEmail || 'غرفة العمليات';
-
   const t = data.totals;
   $('kpis').innerHTML = `
     <div class="kpi kpi--emerald"><div class="kpi-icon">${ICONS.merchants}</div><div><b>${t.merchants}</b><span>تجار مسجلون</span></div></div>
@@ -258,40 +266,11 @@ function renderMerchants(merchants) {
 }
 
 // ─── Wiring ───
-$('login-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const btn = $('login-btn');
-  const errEl = $('login-error');
-  errEl.textContent = '';
-  btn.disabled = true;
-  try {
-    await apiLogin($('login-email').value.trim(), $('login-password').value);
-    errEl.textContent = '';
-    await loadOverview();
-    if (!refreshTimer) refreshTimer = setInterval(() => {
-      if (idToken) loadOverview();
-    }, 30000);
-  } catch (err) {
-    errEl.textContent = err.message;
-  } finally {
-    btn.disabled = false;
-  }
-});
-
 $('refresh-btn').addEventListener('click', () => { if (idToken) loadOverview(); });
-$('logout-btn').addEventListener('click', () => logout(true));
+$('logout-btn').addEventListener('click', logout);
 $('merchant-search').addEventListener('input', () => {
   if (overviewCache) renderMerchants(overviewCache.merchants);
 });
-
-// Auto-resume if a session token exists in this tab
-if (idToken) {
-  loadOverview().then(() => {
-    if (!refreshTimer && idToken) refreshTimer = setInterval(() => {
-      if (idToken) loadOverview();
-    }, 30000);
-  });
-}
 </script>
 </body>
 </html>

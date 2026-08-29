@@ -169,22 +169,17 @@ fauth.onAuthStateChanged(async (user) => {
 });
 fauth.getRedirectResult().catch(() => {});
 
-// ─── Google sign-in ───
+// ─── Google sign-in (redirect-first: robust with strict cookie settings) ───
 $('google-btn').addEventListener('click', async () => {
-  $('login-error').textContent = '';
+  $('login-error').textContent = 'جاري التحويل إلى Google...';
   try {
-    await fauth.signInWithPopup(provider);
+    await fauth.signInWithRedirect(provider);
   } catch (e) {
-    if (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment') {
-      try { await fauth.signInWithRedirect(provider); } catch (e2) { showLoginError('تعذر فتح نافذة Google: ' + e2.message); }
-    } else if (e.code === 'auth/unauthorized-domain') {
-      showLoginError('النطاق غير مصرح له في إعدادات Firebase — أضف wa.nosfir.online إلى النطاقات المصرح بها');
-    } else if (e.code === 'auth/popup-closed-by-user') {
-      /* user closed the popup — silent */
-    } else {
-      showLoginError('تعذر الدخول: ' + (e.message || ''));
-    }
+    showLoginError('تعذر بدء الدخول (' + (e.code || e.message) + ')');
   }
+});
+fauth.getRedirectResult().catch((e) => {
+  showLoginError('تعذر إكمال الدخول (' + (e.code || e.message) + ')');
 });
 
 // ─── Rendering ───

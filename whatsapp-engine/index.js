@@ -30,7 +30,7 @@ const {
   getAllBotStatuses,
 } = require('./botManager');
 const firestore = require('./firestore');
-const { admin } = require('./firestore');
+const { admin, db } = require('./firestore');
 const { setTakeover, getTakeoverMap } = require('./takeover');
 const trackingHelper = require('./tracking-helper');
 

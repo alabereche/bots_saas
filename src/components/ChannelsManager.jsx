@@ -336,6 +336,27 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
 
   const isWaConnected = waStatus === 'connected' || bot?.whatsappStatus === 'connected';
   const isTgConnected = !!bot?.telegramToken && bot?.telegramEnabled !== false;
+
+  // Respect the channels chosen at creation. Bots created before channel
+  // selection existed (no field / empty) default to both — nothing breaks.
+  const enabledChannels = Array.isArray(bot?.enabledChannels) && bot.enabledChannels.length > 0
+    ? bot.enabledChannels
+    : ['whatsapp', 'telegram'];
+  const addableChannels = ['whatsapp', 'telegram'].filter(c => !enabledChannels.includes(c));
+
+  // Adds a channel to an existing bot — no re-creation, nothing lost
+  const handleAddChannel = async (ch) => {
+    try {
+      const patch = { enabledChannels: [...enabledChannels, ch] };
+      if (ch === 'whatsapp') { patch.whatsappEnabled = true; patch.whatsappStatus = 'not_initialized'; }
+      if (ch === 'telegram') patch.telegramEnabled = true;
+      await onUpdateBot(patch);
+      toast.success(ch === 'whatsapp' ? 'تمت إضافة قناة واتساب — اربطها الآن' : 'تمت إضافة قناة تيليغرام — اربطها الآن');
+    } catch (err) {
+      toast.error('فشل إضافة القناة: ' + err.message);
+    }
+  };
+
   const connectedCount = [isWaConnected, isTgConnected].filter(Boolean).length;
   const selectedCountry = getCountryByCode(selectedCountryCode);
   const waLinking = waStatus === 'waiting_scan' || waStatus === 'initializing';
@@ -371,7 +392,8 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
       {/* Grid of 2 Channels */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' }}>
         
-        {/* 1. WhatsApp Card */}
+        {/* 1. WhatsApp Card — shown only if enabled for this bot */}
+        {enabledChannels.includes('whatsapp') && (
         <div className={`channel-card channel-card--whatsapp ${isWaConnected ? 'is-connected' : ''}`} style={{ background: 'rgba(14, 21, 38, 0.7)', border: isWaConnected ? '1px solid rgba(37, 211, 102, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '20px', padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div>
             <div className="channel-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -418,8 +440,10 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
             )}
           </div>
         </div>
+        )}
 
-        {/* 2. Telegram Card */}
+        {/* 2. Telegram Card — shown only if enabled for this bot */}
+        {enabledChannels.includes('telegram') && (
         <div className={`channel-card channel-card--telegram ${isTgConnected ? 'is-connected' : ''}`} style={{ background: 'rgba(14, 21, 38, 0.7)', border: isTgConnected ? '1px solid rgba(14, 165, 233, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '20px', padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div>
             <div className="channel-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -467,6 +491,51 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
             )}
           </div>
         </div>
+        )}
+
+        {/* Add-channel cards — grow the bot later without re-creating it */}
+        {addableChannels.map(ch => {
+          const isWa = ch === 'whatsapp';
+          return (
+            <div key={ch} style={{
+              background: 'rgba(255, 255, 255, 0.015)',
+              border: '1.5px dashed rgba(255, 255, 255, 0.18)',
+              borderRadius: '20px',
+              padding: '1.5rem',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              gap: '1rem',
+              textAlign: 'center',
+            }}>
+              <div>
+                <div style={{
+                  width: '44px', height: '44px', borderRadius: '12px', margin: '0 auto 0.8rem',
+                  background: isWa ? 'rgba(37, 211, 102, 0.08)' : 'rgba(14, 165, 233, 0.08)',
+                  border: `1px dashed ${isWa ? 'rgba(37, 211, 102, 0.4)' : 'rgba(14, 165, 233, 0.4)'}`,
+                  color: isWa ? '#25d366' : '#26a5e4',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                </div>
+                <div style={{ fontWeight: 800, fontSize: '1.02rem', color: '#ffffff', marginBottom: '4px' }}>
+                  إضافة قناة {isWa ? 'واتساب' : 'تيليغرام'} لهذا البوت
+                </div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
+                  نمِّ بوتك: أضف هذه القناة في أي وقت — نفس العقل الذكي نفسه، بدون إعادة إنشاء وبدون فقدان محادثاتك وطلبياتك.
+                </div>
+              </div>
+              <button
+                className="btn btn-secondary"
+                onClick={() => handleAddChannel(ch)}
+                style={{ width: '100%', padding: '0.75rem', fontWeight: 800, gap: '8px', border: `1.5px dashed ${isWa ? 'rgba(37, 211, 102, 0.45)' : 'rgba(14, 165, 233, 0.45)'}`, color: isWa ? '#25d366' : '#26a5e4', background: 'transparent' }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                إضافة القناة
+              </button>
+            </div>
+          );
+        })}
 
       </div>
 

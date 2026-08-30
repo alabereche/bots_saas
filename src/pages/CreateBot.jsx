@@ -236,10 +236,8 @@ export default function CreateBot() {
   };
 
   const validateStep3 = () => {
-    if (selectedChannels.includes('telegram') && !telegramToken.trim()) {
-      toast.error('يرجى إدخال توكن بوت تيليغرام (BotFather Token)');
-      return false;
-    }
+    // Telegram token is intentionally optional at creation — the bot is
+    // created first and Telegram gets linked later from the Channels tab.
     return true;
   };
 
@@ -643,27 +641,19 @@ export default function CreateBot() {
               الربط والتشغيل الفوري
             </h3>
 
-            {selectedChannels.includes('telegram') && (
-              <div className="form-group" style={{ background: 'rgba(38, 165, 228, 0.06)', border: '1px solid rgba(38, 165, 228, 0.25)', borderRadius: '12px', padding: '1.25rem', marginBottom: '1.25rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.75rem' }}>
-                  <span style={{ color: '#26A5E4' }}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
-                  </span>
-                  <span style={{ fontWeight: 700, color: '#ffffff', fontSize: '0.95rem' }}>إعداد بوت تيليغرام</span>
-                </div>
-                <label className="form-label">توكن البوت من BotFather <span className="required">*</span></label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  placeholder="مثال: 123456789:ABCDefGhIJKlmnOPQrsTUVwxyz" 
-                  value={telegramToken} 
-                  onChange={e => setTelegramToken(e.target.value)} 
-                  dir="ltr" 
-                  style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }} 
-                />
-                <p className="form-helper">احصل على التوكن مجاناً وبسهولة من @BotFather في تيليغرام عبر أمر /newbot</p>
+            {/* Linking notice: channels get linked after creation, from the Channels tab */}
+            <div style={{ background: 'rgba(16, 185, 129, 0.06)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: '12px', padding: '1.25rem', marginBottom: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.6rem' }}>
+                <span style={{ color: '#34d399' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                </span>
+                <span style={{ fontWeight: 700, color: '#ffffff', fontSize: '0.95rem' }}>الربط يتم بعد الإنشاء — بلا أي عقبات الآن</span>
               </div>
-            )}
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
+                بمجرد الإنشاء ستنتقل لصفحة بوتك وتجد تبويب <strong style={{ color: '#34d399' }}>قنوات الربط</strong> جاهزاً:
+                ربط واتساب بمسح QR أو كود الهاتف خلال ثوانٍ، وربط تيليغرام بلصق التوكن متى جهزت — كل قناة على حدة، متى شئت.
+              </p>
+            </div>
 
             {/* Channels Summary Card */}
             <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '1.25rem', marginBottom: '1.25rem' }}>

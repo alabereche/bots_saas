@@ -114,6 +114,46 @@ if (fs.existsSync(pgPath)) {
   }
 }
 
+// ─── G4: message queue functional gate (merge + per-customer isolation) ───
+const mqPath = path.join(target, 'messageQueue.js');
+if (fs.existsSync(mqPath)) {
+  console.log('\n[G4] اختبار وظيفي — messageQueue');
+  const mq = require(mqPath);
+  const savedDebounce = process.env.MESSAGE_DEBOUNCE_MS;
+  process.env.MESSAGE_DEBOUNCE_MS = '150';
+  // note: the module reads the env at require-time, so re-require in a
+  // child process for a deterministic short debounce
+  delete require.cache[require.resolve(mqPath)];
+  const { execFileSync } = require('child_process');
+  try {
+    const runner = `
+const mq = require('./messageQueue.js');
+const batches = [];
+const proc = async (items) => batches.push(items.map(m => m.body));
+mq.enqueueCustomerMessage('b1', { from: 'c1', body: 'a', hasMedia: false }, proc);
+mq.enqueueCustomerMessage('b1', { from: 'c1', body: 'b', hasMedia: false }, proc);
+mq.enqueueCustomerMessage('b1', { from: 'c2', body: 'c', hasMedia: false }, proc);
+setTimeout(() => {
+  const merged = batches.find(x => x.length === 1 && x[0] === 'a\\nb');
+  const sep = batches.some(x => x.length === 1 && x[0] === 'c');
+  const ok = batches.length === 2 && merged && sep;
+  console.log(ok ? 'PASS' : 'FAIL ' + JSON.stringify(batches));
+  process.exit(ok ? 0 : 1);
+}, 600);`;
+    const out = execFileSync(process.execPath, ['-e', runner], {
+      cwd: target, env: { ...process.env, MESSAGE_DEBOUNCE_MS: '150' }, stdio: 'pipe',
+    }).toString();
+    if (out.includes('PASS')) pass('دمج الشظايا + عزل الزبائن');
+    else fail('messageQueue: ' + out.trim());
+  } catch (e) {
+    const out = String(e.stdout || '') + '\n[stderr]\n' + String(e.stderr || '') + '\n[exit] ' + e.status;
+    fail('messageQueue test failed:\n' + out);
+  } finally {
+    if (savedDebounce === undefined) delete process.env.MESSAGE_DEBOUNCE_MS;
+    else process.env.MESSAGE_DEBOUNCE_MS = savedDebounce;
+  }
+}
+
 // ─── Verdict ───
 console.log('\n──────────────────────────────');
 if (failures > 0) {

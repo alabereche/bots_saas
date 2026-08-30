@@ -10,6 +10,7 @@ const { Client, LocalAuth } = require('whatsapp-web.js');
 const QRCode = require('qrcode');
 const firestore = require('./firestore');
 const { handleMessage } = require('./messageHandler');
+const messageQueue = require('./messageQueue');
 
 // Active bots: botId -> { client, config, qrCode, status }
 const activeBots = new Map();
@@ -216,10 +217,17 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
   });
 
   // Incoming Messages
-  client.on('message', async (msg) => {
+  // Fragmented customer messages ("سلام" / "شحال" / "المنتج") go through a
+  // per-customer debounce queue: one merged AI call per intent instead of
+  // parallel racing calls. Media flushes immediately.
+  client.on('message', (msg) => {
     console.log(`[BotManager] Incoming WhatsApp message from ${msg.from}: "${msg.body}"`);
     if (msg.fromMe) return;
-    await handleMessage(msg, config);
+    messageQueue.enqueueCustomerMessage(botId, msg, async (items) => {
+      for (const item of items) {
+        await handleMessage(item, config);
+      }
+    });
   });
 
   client.on('message_create', async (msg) => {

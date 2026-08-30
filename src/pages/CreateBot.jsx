@@ -626,10 +626,10 @@ export default function CreateBot() {
 
             <div className="form-group">
               <label className="form-label">
-                {businessType === 'shop' || businessType === 'restaurant' ? 'المنتجات / قائمة الأسعار الأولية' : 'الخدمات / قائمة الأسعار والمعلومات'} ({countryObj.currency})
+                {businessType === 'shop' || businessType === 'restaurant' ? 'المنتجات / قائمة الأسعار الأولية' : 'الخدمات / قائمة الأسعار والمعلومات'} ({countryObj.currency}) <span style={{ color: 'var(--text-tertiary)', fontWeight: 600, fontSize: '0.78rem' }}>(اختيارية)</span>
               </label>
               <textarea className="form-input form-textarea" rows="4" placeholder={selectedTypeObj.placeholder} value={services} onChange={e => setServices(e.target.value)} />
-              <p className="form-helper">يمكنك إضافة وإدارة كتالوج متقدم بالصور والأقسام لاحقاً من لوحة تحكم البوت</p>
+              <p className="form-helper">اختياري — يكفيك الوصف أعلاه للانطلاق. والأفضل بعد الإنشاء: أدر منتجاتك من تبويب الكتالوج بالصور والأقسام — تجربة أرقى وردود أجمل لزبائنك</p>
             </div>
 
             <div className="form-grid-2">

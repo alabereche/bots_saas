@@ -870,7 +870,7 @@ async function startBot(config) {
       await ctx.reply(greeting);
     });
 
-    bot.on(['message:text', 'message:voice', 'message:audio'], async (ctx) => {
+    async function runTelegramIncoming(ctx) {
       const isVoice = !!(ctx.message.voice || ctx.message.audio);
       const userMessage = (ctx.message.text || ctx.message.caption || '').trim();
       const userId = ctx.from.id;
@@ -1078,6 +1078,38 @@ async function startBot(config) {
         console.error(`[Engine] Bot "${config.botName}" error:`, err.message);
         await ctx.reply('عذراً، حدث خطأ أثناء المعالجة. يرجى المحاولة مرة أخرى.');
       }
+    }
+
+    // Text debounce: merge rapid-fire fragments ("سلام" / "شنو عندكم")
+    // into ONE processing call. Voice bypasses the debounce.
+    const tgDebounce = new Map();
+    const TG_DEBOUNCE_MS = parseInt(process.env.TG_MESSAGE_DEBOUNCE_MS || '4000', 10);
+    const TG_MAX_WAIT_MS = parseInt(process.env.TG_MESSAGE_MAX_WAIT_MS || '10000', 10);
+
+    bot.on(['message:text', 'message:voice', 'message:audio'], async (ctx) => {
+      const isVoice = !!(ctx.message.voice || ctx.message.audio);
+      const text = (ctx.message.text || ctx.message.caption || '').trim();
+
+      if (!isVoice && text) {
+        const key = `${config.id}:${ctx.from.id}`;
+        let g = tgDebounce.get(key);
+        if (!g) { g = { frags: [], ctx: null, timer: null, firstAt: Date.now() }; tgDebounce.set(key, g); }
+        g.frags.push(text);
+        g.ctx = ctx;
+        const elapsed = Date.now() - g.firstAt;
+        const wait = Math.min(TG_DEBOUNCE_MS, Math.max(0, TG_MAX_WAIT_MS - elapsed));
+        if (g.timer) clearTimeout(g.timer);
+        g.timer = setTimeout(async () => {
+          tgDebounce.delete(key);
+          if (g.ctx) {
+            g.ctx.message.text = g.frags.join('\n');
+            await runTelegramIncoming(g.ctx);
+          }
+        }, wait);
+        return;
+      }
+
+      await runTelegramIncoming(ctx);
     });
 
     bot.catch((err) => {

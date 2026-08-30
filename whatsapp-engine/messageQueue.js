@@ -72,16 +72,14 @@ async function flush(key, items, from, processBatch) {
       return;
     }
 
-    // pure text burst: merge into ONE synthetic message
+    // pure text burst: merge bodies INTO THE LAST REAL MESSAGE — mutating
+    // the real object keeps every library getter/method (client, reply...)
+    // intact; a synthetic clone loses them and replies never reach the
+    // customer ("Cannot read properties of undefined").
     const last = items[items.length - 1];
-    const merged = Object.create(Object.getPrototypeOf(last));
-    Object.assign(merged, last, {
-      body: items.map(i => (i.body || '').trim()).filter(Boolean).join('\n'),
-      hasMedia: false,
-      _mergedCount: items.length,
-    });
+    last.body = items.map(i => (i.body || '').trim()).filter(Boolean).join('\n');
     console.log(`[Queue] ${key}: دمج ${items.length} رسائل متتالية في استدعاء واحد`);
-    await processBatch([merged], botIdFromKey(key));
+    await processBatch([last], botIdFromKey(key));
   } catch (e) {
     console.error(`[Queue] Processing error for ${key}:`, e.message);
   }

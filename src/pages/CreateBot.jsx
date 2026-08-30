@@ -4,6 +4,7 @@ import { createBot } from '../services/firebase';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { COUNTRIES } from '../data/countries';
+import TEMPLATES from './botTemplates.jsx';
 
 export const BUSINESS_TYPES = [
   { value: 'shop', label: 'متجر إلكتروني / مبيعات وتجارة', placeholder: 'مثال:\nحذاء رياضي - 4500 دج\nقميص قطني - 2500 دج\nعطر فاخر - 6000 دج' },
@@ -182,6 +183,24 @@ export default function CreateBot() {
   const toast = useToast();
 
   const [step, setStep] = useState(1);
+  // Step zero: the template gallery. Applying a template pre-fills the
+  // heavy fields; the user can also skip it entirely.
+  const [pendingTemplate, setPendingTemplate] = useState(true);
+  const [chosenTemplate, setChosenTemplate] = useState(null);
+
+  const applyTemplate = (tpl) => {
+    const p = tpl.preset;
+    setBusinessType(p.businessType || tpl.type);
+    setDescription(p.description);
+    setServices(p.services);
+    setWorkingHours(p.workingHours);
+    setLocation(p.location);
+    setContact(p.contact);
+    setResponseStyle(p.responseStyle);
+    setCustomInstructions(p.customInstructions);
+    setChosenTemplate(tpl.name);
+    setPendingTemplate(false);
+  };
   const [loading, setLoading] = useState(false);
 
   const [selectedChannels, setSelectedChannels] = useState(['whatsapp', 'telegram']);
@@ -388,6 +407,42 @@ export default function CreateBot() {
         </p>
       </div>
 
+      {pendingTemplate ? (
+        <section className="tpl-screen">
+          <div className="tpl-screen-head">
+            <h2 className="page-title-responsive">اختر قالباً جاهزاً لنشاطك</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.94rem', maxWidth: '620px', margin: '0.6rem auto 0' }}>
+              كل قالب يأتي بوصف ومنتجات نموذجية وقواعد ذكاء اصطناعي معدّة باحترافية — تختار، تعدّل ما شئت، وتنطلق في دقائق.
+            </p>
+          </div>
+
+          <div className="tpl-grid">
+            {TEMPLATES.map(tpl => (
+              <button
+                key={tpl.id}
+                type="button"
+                className="tpl-card"
+                onClick={() => applyTemplate(tpl)}
+              >
+                <div className="tpl-icon" style={{ color: tpl.color, borderColor: `${tpl.color}55`, background: `${tpl.color}14` }}>
+                  {tpl.icon}
+                </div>
+                <b className="tpl-name">{tpl.name}</b>
+                <span className="tpl-tagline">{tpl.tagline}</span>
+                <span className="tpl-cta" style={{ color: tpl.color }}>استخدام هذا القالب ←</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="tpl-skip">
+            <button type="button" className="btn btn-secondary" onClick={() => setPendingTemplate(false)}>
+              ابدأ من الصفر (بلا قالب)
+            </button>
+            <span className="tpl-skip-note">كل الحقول تملؤها بنفسك — يمكنك دائماً الرجوع لقالب لاحقاً</span>
+          </div>
+        </section>
+      ) : (
+      <>
       <div className="wizard-progress">
         <div className={`wizard-step ${step >= 1 ? (step > 1 ? 'completed' : 'active') : ''}`}>
           <div className="wizard-step-number">
@@ -718,6 +773,8 @@ export default function CreateBot() {
           )}
         </div>
       </div>
+      </>
+      )}
       </div>
 
       {/* Live summary rail — fills the desktop space with real value */}
@@ -730,6 +787,7 @@ export default function CreateBot() {
           <div className="create-rail-row"><span>اسم المساعد</span><b>{botName || '—'}</b></div>
           <div className="create-rail-row"><span>المتجر / المشروع</span><b>{businessName || '—'}</b></div>
           <div className="create-rail-row"><span>النشاط</span><b>{activityLabel}</b></div>
+          <div className="create-rail-row"><span>القالب</span><b>{chosenTemplate || 'من الصفر'}</b></div>
           <div className="create-rail-row"><span>الدولة والعملة</span><b>{countryObj.flag} {countryObj.name}</b></div>
           <div className="create-rail-row"><span>القنوات</span><b>{channelsLabel}</b></div>
           <div className="create-rail-row"><span>اللهجة</span><b>{langLabel}</b></div>

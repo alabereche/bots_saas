@@ -1,0 +1,49 @@
+name: CI
+
+# يشتغل على كل دفعة إلى main (بما فيها دفعات الوكلاء الخارجيين)
+# وعلى كل Pull Request — فيمنع أي كسر قبل أن يصل للإنتاج.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ─── الواجهة: البناء يجب أن ينجح ───
+  web:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+  # ─── محرك واتساب: صياغة + صادرات/تعريفات + اختبار وظيفي للبرومبت ───
+  wa-engine:
+    name: WhatsApp engine guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+        working-directory: whatsapp-engine
+      - run: node ../tests/engine.check.cjs whatsapp-engine
+
+  # ─── محرك تيليغرام: صياغة وصادرات ───
+  tg-engine:
+    name: Telegram engine guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+        working-directory: bot-engine
+      - run: node ../tests/engine.check.cjs bot-engine

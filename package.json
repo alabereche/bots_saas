@@ -8,6 +8,7 @@
     "engine": "node bot-engine/index.js",
     "whatsapp": "cd whatsapp-engine && node index.js",
     "build": "vite build",
+    "check": "node tests/engine.check.cjs whatsapp-engine && node tests/engine.check.cjs bot-engine",
     "lint": "eslint .",
     "preview": "vite preview"
   },

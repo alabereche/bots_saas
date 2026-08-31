@@ -99,20 +99,10 @@ const SHOW_GALLERY_TAG = '[SHOW_PRODUCT_GALLERY:';
 
 function extractProductMedia(rawReply, productsList = []) {
   let cleanReply = rawReply;
-  let singleProductId = null;
   let galleryProductId = null;
+  const singleIds = [];
 
-  // 1. Check for single product tag [SHOW_PRODUCT: prod_id]
-  const singleIdx = cleanReply.indexOf(SHOW_PRODUCT_TAG);
-  if (singleIdx !== -1) {
-    const endIdx = cleanReply.indexOf(']', singleIdx);
-    if (endIdx !== -1) {
-      singleProductId = cleanReply.slice(singleIdx + SHOW_PRODUCT_TAG.length, endIdx).trim();
-      cleanReply = cleanReply.slice(0, singleIdx) + cleanReply.slice(endIdx + 1);
-    }
-  }
-
-  // 2. Check for gallery tag [SHOW_PRODUCT_GALLERY: prod_id]
+  // 1. Gallery tag [SHOW_PRODUCT_GALLERY: prod_id] — one product, many images
   const galleryIdx = cleanReply.indexOf(SHOW_GALLERY_TAG);
   if (galleryIdx !== -1) {
     const endIdx = cleanReply.indexOf(']', galleryIdx);
@@ -122,34 +112,56 @@ function extractProductMedia(rawReply, productsList = []) {
     }
   }
 
+  // 2. ALL single product tags [SHOW_PRODUCT: prod_id] — in order, deduped,
+  //    capped at 4 so a showcase never spams the chat
+  const tagRe = /\[SHOW_PRODUCT:\s*([^\]]+)\]/g;
+  let tm;
+  while ((tm = tagRe.exec(cleanReply)) !== null) {
+    const id = tm[1].trim();
+    if (id && !singleIds.includes(id)) singleIds.push(id);
+  }
+  if (singleIds.length > 0) {
+    cleanReply = cleanReply.replace(/\[SHOW_PRODUCT:\s*[^\]]+\]/g, '').trim();
+  }
+
   cleanReply = cleanReply.trim();
 
   // Lookup strictly in trusted products array (Zero-Trust)
-  let mediaToSend = [];
-  const targetId = galleryProductId || singleProductId;
+  const lookup = (id) =>
+    Array.isArray(productsList) ? productsList.find(p => p && String(p.id).trim() === id) : null;
 
-  if (targetId && Array.isArray(productsList)) {
-    const product = productsList.find(p => p && String(p.id).trim() === targetId);
+  // mediaItems: [{ image, caption, product }] — caption '__REPLY__' means
+  // "use the AI's textual pitch as the caption" (single product / gallery)
+  const mediaItems = [];
+  let useReplyOnFirst = false;
+
+  if (galleryProductId) {
+    const product = lookup(galleryProductId);
     if (product) {
-      if (galleryProductId) {
-        // Gallery mode: Send all available images (primary + secondary) up to 5
-        const allImages = [];
-        if (product.primaryImage) allImages.push(product.primaryImage);
-        if (Array.isArray(product.secondaryImages)) {
-          allImages.push(...product.secondaryImages.filter(Boolean));
-        } else if (Array.isArray(product.images)) {
-          allImages.push(...product.images.filter(Boolean));
-        }
-        mediaToSend = allImages.slice(0, 5);
-      } else if (singleProductId) {
-        // Single mode: Send primary image
-        const mainImg = product.primaryImage || (Array.isArray(product.images) ? product.images[0] : null);
-        if (mainImg) mediaToSend = [mainImg];
+      const allImages = [];
+      if (product.primaryImage) allImages.push(product.primaryImage);
+      if (Array.isArray(product.secondaryImages)) {
+        allImages.push(...product.secondaryImages.filter(Boolean));
+      } else if (Array.isArray(product.images)) {
+        allImages.push(...product.images.filter(Boolean));
       }
+      allImages.slice(0, 5).forEach((img, i) => {
+        mediaItems.push({ image: img, caption: i === 0 ? '__REPLY__' : null });
+      });
+      useReplyOnFirst = true;
+    }
+  } else if (singleIds.length > 0) {
+    useReplyOnFirst = singleIds.length === 1;
+    for (const id of singleIds.slice(0, 4)) {
+      const product = lookup(id);
+      if (!product) continue;
+      const mainImg = product.primaryImage || (Array.isArray(product.images) ? product.images[0] : null);
+      if (!mainImg) continue;
+      mediaItems.push({ image: mainImg, caption: null, product });
     }
   }
 
-  return { cleanReply, mediaToSend };
+  return { cleanReply, mediaItems, useReplyOnFirst };
 }
 
 // Helper: send plain text reply
@@ -483,32 +495,46 @@ async function handleMessage(msg, config) {
     // Extract lead if present
     const { reply: replyWithoutTags, leadData } = extractLead(replyWithoutOrder);
 
-    // Extract Zero-Trust product media tags
-    const { cleanReply: finalReplyText, mediaToSend } = extractProductMedia(replyWithoutTags, liveConfig.products);
+    // Extract Zero-Trust product media tags (supports multi-product showcase)
+    const { cleanReply: finalReplyText, mediaItems, useReplyOnFirst } = extractProductMedia(replyWithoutTags, liveConfig.products);
     const reply = finalReplyText || replyWithoutTags;
 
-    // Send reply with media (Primary Image / Gallery) or Fallback to Text
-    if (mediaToSend.length > 0) {
-      try {
-        const media = await resolveWhatsAppMedia(mediaToSend[0]);
-        if (media && msg.client) {
-          // Send primary image with caption text
-          await msg.client.sendMessage(userId, media, { caption: reply });
+    // Send showcase: pitch text + each product as image with its own caption
+    if (mediaItems.length > 0) {
+      const resolved = [];
+      for (const item of mediaItems) {
+        try {
+          const media = await resolveWhatsAppMedia(item.image);
+          if (media) resolved.push({ media, caption: item.caption, product: item.product });
+        } catch (e) {
+          console.warn('[Handler] Media resolve failed:', e.message);
+        }
+        await new Promise(r => setTimeout(r, 250));
+      }
 
-          // Send secondary images if in gallery mode
-          for (let i = 1; i < mediaToSend.length; i++) {
-            const extraMedia = await resolveWhatsAppMedia(mediaToSend[i]);
-            if (extraMedia) {
-              await new Promise(r => setTimeout(r, 400));
-              await msg.client.sendMessage(userId, extraMedia);
-            }
+      if (resolved.length > 0 && msg.client) {
+        if (useReplyOnFirst) {
+          // Single product / gallery: AI pitch as the first image caption
+          await msg.client.sendMessage(userId, resolved[0].media, { caption: reply });
+          for (let i = 1; i < resolved.length; i++) {
+            await new Promise(r => setTimeout(r, 400));
+            await msg.client.sendMessage(userId, resolved[i].media);
           }
         } else {
-          // Fallback to text if media failed to download
-          await sendTextReply(msg, userId, reply);
+          // Multi-product showcase: short pitch first, then each product
+          // image captioned with its own name + price
+          if (reply && reply.trim()) await msg.client.sendMessage(userId, reply);
+          for (const r of resolved) {
+            const cur = liveConfig.currency || 'دج';
+            const cap = r.product
+              ? `• ${r.product.name || 'منتج'}${r.product.price ? ` - السعر: ${r.product.price} ${cur}` : ''}`
+              : '';
+            await new Promise(r2 => setTimeout(r2, 400));
+            await msg.client.sendMessage(userId, r.media, cap ? { caption: cap } : undefined);
+          }
         }
-      } catch (mediaErr) {
-        console.warn('[Handler] Media send failed, falling back to text:', mediaErr.message);
+      } else {
+        // Fallback to text if media failed to download
         await sendTextReply(msg, userId, reply);
       }
     } else {

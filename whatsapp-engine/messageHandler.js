@@ -521,9 +521,24 @@ async function handleMessage(msg, config) {
             await msg.client.sendMessage(userId, resolved[i].media);
           }
         } else {
-          // Multi-product showcase: short pitch first, then each product
-          // image captioned with its own name + price
-          if (reply && reply.trim()) await msg.client.sendMessage(userId, reply);
+          // Multi-product showcase: images ARE the list. The AI's text must
+          // be only a short intro — strip any lines that re-list showcased
+          // products (name match) so nothing is shown twice.
+          let pitch = (reply || '').trim();
+          const names = resolved.map(r => r.product?.name).filter(Boolean);
+          if (names.length > 0 && pitch) {
+            const lows = names.map(n => String(n).toLowerCase());
+            pitch = pitch
+              .split('\n')
+              .filter(line => {
+                const low = line.toLowerCase();
+                return !lows.some(n => n && low.includes(n.toLowerCase()));
+              })
+              .join('\n')
+              .replace(/\n{2,}/g, '\n')
+              .trim();
+          }
+          if (pitch) await msg.client.sendMessage(userId, pitch);
           for (const r of resolved) {
             const cur = liveConfig.currency || 'دج';
             const cap = r.product

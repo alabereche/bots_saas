@@ -12,6 +12,7 @@ const firestore = require('./firestore');
 const { isTakeoverActive } = require('./takeover');
 const trackingHelper = require('./tracking-helper');
 const { syncToGoogleSheets } = require('./sheetsSync');
+const { createBoundedCache } = require('./boundedCache');
 
 // ─── Robust JSON Parser (handles markdown codeblocks, whitespace, trailing commas) ───
 function parseRobustJson(raw) {
@@ -337,8 +338,8 @@ async function extractWhatsAppAudio(msg, maxRetries = 4, delayMs = 500) {
   return null;
 }
 
-// ─── Contact Avatar Cache (TTL: 24h) ─────────────────────────
-const avatarCache = new Map();
+// ─── Contact Avatar Cache — bounded (2000 entries) + real 24h TTL ──
+const avatarCache = createBoundedCache({ maxEntries: 2000, ttlMs: 24 * 60 * 60 * 1000 });
 
 // ─── Message Handler ─────────────────────────────────────────
 async function handleMessage(msg, config) {

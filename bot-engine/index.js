@@ -123,7 +123,32 @@ const conversationHistory = new Map();
 const MAX_HISTORY = 20;
 
 // User avatar cache: userId -> avatarUrl (TTL: in-memory)
-const telegramAvatarCache = new Map();
+// Bounded cache with real TTL (see boundedCache.js — duplicated per
+// service by design: engines are isolated deploy units)
+function createBoundedCache({ maxEntries = 2000, ttlMs = 24 * 60 * 60 * 1000 } = {}) {
+  const m = new Map();
+  return {
+    get(key) {
+      const entry = m.get(key);
+      if (entry === undefined) return undefined;
+      if (Date.now() - entry.at > ttlMs) { m.delete(key); return undefined; }
+      return entry.value;
+    },
+    has(key) {
+      const entry = m.get(key);
+      if (entry === undefined) return false;
+      if (Date.now() - entry.at > ttlMs) { m.delete(key); return false; }
+      return true;
+    },
+    set(key, value) {
+      if (m.has(key)) m.delete(key);
+      m.set(key, { value, at: Date.now() });
+      while (m.size > maxEntries) m.delete(m.keys().next().value);
+    },
+  };
+}
+
+const telegramAvatarCache = createBoundedCache({ maxEntries: 2000, ttlMs: 24 * 60 * 60 * 1000 }); // سقف + انتهاء حقيقي
 
 // ─── Firestore Helpers ────────────────────────────────────────
 

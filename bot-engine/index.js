@@ -821,18 +821,20 @@ function extractProductMedia(rawReply, productsList = []) {
     cleanReply = cleanReply.replace(galleryMatch[0], '');
   }
 
-  // 2. Check for [SHOW_PRODUCT: xyz] or [PRODUCT: xyz]
-  const singleMatch = cleanReply.match(/\[(?:SHOW_PRODUCT|PRODUCT)\s*:\s*([^\]]+)\]/i);
-  if (singleMatch) {
-    singleProductId = singleMatch[1].replace(/\s+/g, '').trim();
-    cleanReply = cleanReply.replace(singleMatch[0], '');
+  // 2. ALL product tags — [SHOW_PRODUCT: x], [PRODUCT: x], direct [prod_xxx] —
+  //    ordered by appearance, deduped, capped at 4 (visual showcase cap)
+  const singleIds = [];
+  const tagRe = /\[(?:SHOW_PRODUCT|PRODUCT)\s*:\s*([^\]]+)\]|\[(prod_[a-zA-Z0-9_\-]+)\]/gi;
+  let tm;
+  while ((tm = tagRe.exec(cleanReply)) !== null) {
+    const id = (tm[1] || tm[2] || '').replace(/\s+/g, '').trim();
+    if (id && !singleIds.includes(id)) singleIds.push(id);
   }
-
-  // 3. Fallback: Check for direct [prod_xxx] tags
-  const directMatch = cleanReply.match(/\[(prod_[a-zA-Z0-9_\-\s]+)\]/i);
-  if (directMatch) {
-    singleProductId = directMatch[1].replace(/\s+/g, '').trim();
-    cleanReply = cleanReply.replace(directMatch[0], '');
+  if (singleIds.length > 0) {
+    cleanReply = cleanReply
+      .replace(/\[(?:SHOW_PRODUCT|PRODUCT)\s*:\s*[^\]]+\]/gi, '')
+      .replace(/\[prod_[a-zA-Z0-9_\-]+\]/gi, '')
+      .trim();
   }
 
   // Clean any remaining bracket tags
@@ -840,35 +842,46 @@ function extractProductMedia(rawReply, productsList = []) {
     .replace(/\[(?:SHOW_PRODUCT|SHOW_PRODUCT_GALLERY|PRODUCT|prod)[^\]]*\]/gis, '')
     .trim();
 
-  let mediaToSend = [];
-  const targetId = galleryProductId || singleProductId;
+  // mediaItems: [{ image, caption }] — caption '__REPLY__' means "use the
+  // AI's textual pitch as the caption" (single product / gallery first img)
+  const mediaItems = [];
+  let useReplyOnFirst = false;
 
-  if (targetId && Array.isArray(productsList)) {
-    const product = productsList.find(p => p && (
-      String(p.id).trim() === targetId ||
-      String(p.id).trim() === `prod_${targetId}` ||
-      targetId.includes(String(p.id)) ||
-      String(p.id).includes(targetId)
-    ));
+  const findProduct = (targetId) => Array.isArray(productsList) ? productsList.find(p => p && (
+    String(p.id).trim() === targetId ||
+    String(p.id).trim() === `prod_${targetId}` ||
+    targetId.includes(String(p.id)) ||
+    String(p.id).includes(targetId)
+  )) : null;
 
+  if (galleryProductId) {
+    const product = findProduct(galleryProductId);
     if (product) {
-      if (galleryProductId) {
-        const allImages = [];
-        if (product.primaryImage) allImages.push(product.primaryImage);
-        if (Array.isArray(product.secondaryImages)) {
-          allImages.push(...product.secondaryImages.filter(Boolean));
-        } else if (Array.isArray(product.images)) {
-          allImages.push(...product.images.filter(Boolean));
-        }
-        mediaToSend = allImages.slice(0, 5);
-      } else {
-        const mainImg = product.primaryImage || (Array.isArray(product.images) ? product.images[0] : null);
-        if (mainImg) mediaToSend = [mainImg];
+      const allImages = [];
+      if (product.primaryImage) allImages.push(product.primaryImage);
+      if (Array.isArray(product.secondaryImages)) {
+        allImages.push(...product.secondaryImages.filter(Boolean));
+      } else if (Array.isArray(product.images)) {
+        allImages.push(...product.images.filter(Boolean));
       }
+      allImages.slice(0, 5).forEach((img, i) => {
+        mediaItems.push({ image: img, caption: i === 0 ? '__REPLY__' : null });
+      });
+      useReplyOnFirst = true;
+    }
+  } else if (singleIds.length > 0) {
+    useReplyOnFirst = singleIds.length === 1;
+    for (const id of singleIds.slice(0, 4)) {
+      const product = findProduct(id);
+      if (!product) continue;
+      const mainImg = product.primaryImage || (Array.isArray(product.images) ? product.images[0] : null);
+      if (!mainImg) continue;
+      const cap = product.price ? `${product.name || 'منتج'} - السعر: ${product.price}` : (product.name || '');
+      mediaItems.push({ image: mainImg, caption: cap });
     }
   }
 
-  return { cleanReply, mediaToSend };
+  return { cleanReply, mediaItems, useReplyOnFirst };
 }
 
 
@@ -1061,31 +1074,40 @@ async function startBot(config) {
           }
         }
 
-        const { cleanReply: finalReplyText, mediaToSend } = extractProductMedia(replyWithoutTags, currentConfig.products);
-        const reply = finalReplyText || replyWithoutTags;
+        const { cleanReply: finalReplyText, mediaItems, useReplyOnFirst } = extractProductMedia(replyWithoutTags, currentConfig.products);
+        const reply = finalReplyText || rawReply;
 
-
-        if (mediaToSend.length > 1) {
-          // Send Telegram Media Group (Album) via direct InputFile upload
-          const mediaGroup = mediaToSend.map((url, idx) => ({
+        if (mediaItems.length > 1 && useReplyOnFirst) {
+          // Gallery: multiple images of ONE product -> album, caption on first
+          const mediaGroup = mediaItems.map((it, idx) => ({
             type: 'photo',
-            media: resolveInputMedia(url),
+            media: resolveInputMedia(it.image),
             caption: idx === 0 ? reply : undefined,
             parse_mode: idx === 0 ? 'Markdown' : undefined,
           }));
           await ctx.replyWithMediaGroup(mediaGroup).catch(async (err) => {
             console.warn('[Telegram Engine] replyWithMediaGroup failed, fallback to single photo:', err.message);
-            await ctx.replyWithPhoto(resolveInputMedia(mediaToSend[0]), { caption: reply, parse_mode: 'Markdown' }).catch(async (err2) => {
+            await ctx.replyWithPhoto(resolveInputMedia(mediaItems[0].image), { caption: reply, parse_mode: 'Markdown' }).catch(async (err2) => {
               console.warn('[Telegram Engine] replyWithPhoto fallback failed:', err2.message);
               await ctx.reply(reply, { parse_mode: 'Markdown' }).catch(() => ctx.reply(reply));
             });
           });
-        } else if (mediaToSend.length === 1) {
-          // Send Single Photo with Caption via direct InputFile upload
-          await ctx.replyWithPhoto(resolveInputMedia(mediaToSend[0]), { caption: reply, parse_mode: 'Markdown' }).catch(async (err) => {
-            console.warn('[Telegram Engine] replyWithPhoto failed:', err.message);
-            await ctx.reply(reply, { parse_mode: 'Markdown' }).catch(() => ctx.reply(reply));
-          });
+        } else if (mediaItems.length > 0) {
+          // Visual showcase: pitch text first, then each product photo with
+          // its own name + price caption
+          if (reply && reply.trim()) {
+            await ctx.reply(reply, { parse_mode: 'Markdown' }).catch(async () => {
+              await ctx.reply(reply);
+            });
+            await new Promise(r => setTimeout(r, 400));
+          }
+          for (const it of mediaItems) {
+            await ctx.replyWithPhoto(resolveInputMedia(it.image), { caption: it.caption || undefined }).catch(async (err) => {
+              console.warn('[Telegram Engine] showcase photo failed:', err.message);
+              await ctx.reply(it.caption || '').catch(() => {});
+            });
+            await new Promise(r => setTimeout(r, 400));
+          }
         } else {
           // Standard Text Reply
           await ctx.reply(reply, { parse_mode: 'Markdown' }).catch(async () => {

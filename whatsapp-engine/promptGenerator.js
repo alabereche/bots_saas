@@ -76,10 +76,16 @@ function buildSystemPrompt(config) {
   if (Array.isArray(config.products) && config.products.length > 0) {
     prompt += "\n## كتالوج المنتجات المصور الرسمي\n";
     prompt += "المتجر يحتوي على كتالوج منتجات موثق بالصور. إليك قائمة المنتجات المتاحة مع معرفاتها:\n";
-    config.products.forEach(p => {
+    config.products.forEach(p => {{
       if (!p || !p.id) return;
-      prompt += "- [" + p.id + "] " + (p.name || '') + " | السعر: " + (p.price || '') + " " + currency + " | " + (p.description || '') + "\n";
-    });
+      let line = "- [" + p.id + "] " + (p.name || '') + " | السعر: " + (p.price || '') + " " + currency;
+      const op = parseFloat(p.oldPrice), np = parseFloat(p.price);
+      if (op > 0 && np > 0 && op > np) {{
+        line += " (عرض خاص: بدلاً من " + p.oldPrice + " " + currency + " — خصم " + Math.round((1 - np / op) * 100) + "%)";
+      }}
+      if (p.description) line += " | " + p.description;
+      prompt += line + "\n";
+    }});
     prompt += "تنبيه: المعرف بين الأقواس أعلاه للتوثيق الداخلي فقط — **ممنوع منعاً باتاً** كتابته في ردودك كنص (مثل [prod_xxx]) — الزبون لا يرى المعرفات. لعرض صورة المنتج استخدم الوسم الصحيح من القاعدة 6 بالأسفل حرفياً.\n";
     prompt += "\n### قواعد العرض الذكي والتنسيق الاحترافي (RTL):\n";
     prompt += "1. **قاعدة استقامة الأسطر (منع انكسار النصوص والأسعار)**: في واتساب وتيليغرام، وضع النجوم (*) أو الأقواس وسط الكلمات الأجنبية يكسر السطر ويشوه السعر. لذلك:\n";

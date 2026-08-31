@@ -876,7 +876,10 @@ function extractProductMedia(rawReply, productsList = []) {
       if (!product) continue;
       const mainImg = product.primaryImage || (Array.isArray(product.images) ? product.images[0] : null);
       if (!mainImg) continue;
-      const cap = product.price ? `${product.name || 'منتج'} - السعر: ${product.price}` : (product.name || '');
+      const op = parseFloat(product.oldPrice), np = parseFloat(product.price);
+      const hasDisc = op > 0 && np > 0 && op > np;
+      const discPct = hasDisc ? Math.round((1 - np / op) * 100) : 0;
+      const cap = `${product.name || 'منتج'} - السعر: ${product.price}${hasDisc ? ` بدلاً من ${product.oldPrice} (خصم ${discPct}%)` : ''}`;
       mediaItems.push({ image: mainImg, caption: cap });
     }
   }

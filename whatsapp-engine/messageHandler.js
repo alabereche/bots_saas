@@ -541,8 +541,12 @@ async function handleMessage(msg, config) {
           if (pitch) await msg.client.sendMessage(userId, pitch);
           for (const r of resolved) {
             const cur = liveConfig.currency || 'دج';
+            const op = r.product ? parseFloat(r.product.oldPrice) : NaN;
+            const np = r.product ? parseFloat(r.product.price) : NaN;
+            const hasDisc = op > 0 && np > 0 && op > np;
+            const discPct = hasDisc ? Math.round((1 - np / op) * 100) : 0;
             const cap = r.product
-              ? `• ${r.product.name || 'منتج'}${r.product.price ? ` - السعر: ${r.product.price} ${cur}` : ''}`
+              ? `• ${r.product.name || 'منتج'}${hasDisc ? ` - كان ${r.product.oldPrice} ${cur}` : ''}${np ? ` - الآن: ${r.product.price} ${cur}` : ''}${hasDisc ? ` (خصم ${discPct}%)` : ''}`
               : '';
             await new Promise(r2 => setTimeout(r2, 400));
             await msg.client.sendMessage(userId, r.media, cap ? { caption: cap } : undefined);

@@ -57,6 +57,7 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
   const [formData, setFormData] = useState({
     name: '',
     price: '',
+    oldPrice: '',
     description: '',
     primaryImage: '',
     secondaryImages: [],
@@ -244,7 +245,7 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
       setProducts(updatedList);
       setIsAdding(false);
       setEditingId(null);
-      setFormData({ name: '', price: '', description: '', primaryImage: '', secondaryImages: [] });
+      setFormData({ name: '', price: '', oldPrice: '', description: '', primaryImage: '', secondaryImages: [] });
       toast.success(editingId ? 'تم تحديث المنتج بنجاح' : 'تمت إضافة المنتج بنجاح');
     } catch (err) {
       console.error('Save product error:', err);
@@ -285,6 +286,7 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
     setFormData({
       name: product.name || '',
       price: product.price || '',
+      oldPrice: product.oldPrice || '',
       description: product.description || '',
       primaryImage: validPrimary,
       secondaryImages: validSecondary,
@@ -321,7 +323,7 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
             style={{ gap: '8px', padding: '0.65rem 1.25rem', whiteSpace: 'nowrap' }}
             onClick={() => {
               setEditingId(null);
-              setFormData({ name: '', price: '', description: '', primaryImage: '', secondaryImages: [] });
+              setFormData({ name: '', price: '', oldPrice: '', description: '', primaryImage: '', secondaryImages: [] });
               setIsAdding(true);
             }}
           >
@@ -382,6 +384,20 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
                   placeholder="مثال: 6500"
                   value={formData.price}
                   onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                />
+                <span className="currency-pill">{bot.currency || 'دج'}</span>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">السعر قبل التخفيض (اختياري)</label>
+              <div className="price-input-wrapper">
+                <input
+                  type="text"
+                  className="form-input custom-input price-input"
+                  placeholder="مثال: 6500"
+                  value={formData.oldPrice}
+                  onChange={(e) => setFormData({ ...formData, oldPrice: e.target.value })}
                 />
                 <span className="currency-pill">{bot.currency || 'دج'}</span>
               </div>
@@ -588,7 +604,26 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
                     <h5 className="item-name" title={p.name}>{p.name}</h5>
                     {p.price && (
                       <span className="item-price-tag">
-                        {p.price} {bot.currency || 'دج'}
+                        {(() => {
+                          const oldP = parseFloat(p.oldPrice);
+                          const newP = parseFloat(p.price);
+                          const pct = (oldP > 0 && newP > 0 && oldP > newP)
+                            ? Math.round((1 - newP / oldP) * 100)
+                            : 0;
+                          return (
+                            <>
+                              {!!pct && (
+                                <span className="item-price-old">
+                                  {p.oldPrice} {bot.currency || 'دج'}
+                                </span>
+                              )}
+                              <span>{p.price} {bot.currency || 'دج'}</span>
+                              {!!pct && (
+                                <span className="item-discount-badge">خصم {pct}%</span>
+                              )}
+                            </>
+                          );
+                        })()}
                       </span>
                     )}
                   </div>

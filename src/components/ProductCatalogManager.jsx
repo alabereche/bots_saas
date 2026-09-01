@@ -602,31 +602,26 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
                 <div className="item-content-body">
                   <div className="item-header-row">
                     <h5 className="item-name" title={p.name}>{p.name}</h5>
-                    {p.price && (
-                      <span className="item-price-tag">
-                        {(() => {
-                          const oldP = parseFloat(p.oldPrice);
-                          const newP = parseFloat(p.price);
-                          const pct = (oldP > 0 && newP > 0 && oldP > newP)
-                            ? Math.round((1 - newP / oldP) * 100)
-                            : 0;
-                          return (
-                            <>
-                              {!!pct && (
-                                <span className="item-price-old">
-                                  {p.oldPrice} {bot.currency || 'دج'}
-                                </span>
-                              )}
-                              <span>{p.price} {bot.currency || 'دج'}</span>
-                              {!!pct && (
-                                <span className="item-discount-badge">خصم {pct}%</span>
-                              )}
-                            </>
-                          );
-                        })()}
-                      </span>
-                    )}
                   </div>
+
+                  {p.price && (() => {
+                    const oldP = parseFloat(p.oldPrice);
+                    const newP = parseFloat(p.price);
+                    const pct = (oldP > 0 && newP > 0 && oldP > newP)
+                      ? Math.round((1 - newP / oldP) * 100)
+                      : 0;
+                    return (
+                      <div className="item-price-row">
+                        {!!pct && (
+                          <span className="item-discount-badge">خصم {pct}%</span>
+                        )}
+                        {!!pct && (
+                          <span className="item-price-old">{p.oldPrice} {bot.currency || 'دج'}</span>
+                        )}
+                        <span className="item-price-tag">{p.price} {bot.currency || 'دج'}</span>
+                      </div>
+                    );
+                  })()}
 
                   {p.description ? (
                     <p className="item-description-text">{p.description}</p>

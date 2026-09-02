@@ -7,6 +7,12 @@ export default function Sidebar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    user?.getIdTokenResult().then(t => setIsAdmin(t.claims.admin === true)).catch(() => {});
+  }, [user]);
+
   const [collapsed, setCollapsed] = useState(() => {
     return localStorage.getItem('botforge_sidebar_collapsed') === 'true';
   });
@@ -74,6 +80,18 @@ export default function Sidebar() {
             </svg>
           ),
         },
+        ...(isAdmin ? [
+          {
+            to: '/admin',
+            label: 'الإدارة العليا',
+            desktopLabel: 'لوحة الإدارة العليا',
+            icon: (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+            ),
+          }
+        ] : []),
       ],
     },
   ];

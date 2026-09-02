@@ -18,6 +18,8 @@ const Billing = lazy(() => import('./pages/Billing'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const TermsOfService = lazy(() => import('./pages/TermsOfService'));
 const PublicChat = lazy(() => import('./pages/PublicChat'));
+const AdminRoute = lazy(() => import('./admin/AdminRoute'));
+const AdminOverview = lazy(() => import('./admin/AdminOverview'));
 
 function PageLoader() {
   return <BotLoader />;
@@ -69,6 +71,7 @@ function AppLayout() {
                         <Route path="/create-bot" element={<CreateBot />} />
                         <Route path="/bot/:id" element={<BotDetail />} />
                         <Route path="/billing" element={<Billing />} />
+                        <Route path="/admin" element={<AdminRoute><AdminOverview /></AdminRoute>} />
                         <Route path="*" element={<Navigate to="/dashboard" replace />} />
                       </Routes>
                     </Suspense>

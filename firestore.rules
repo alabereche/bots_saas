@@ -35,10 +35,15 @@ service cloud.firestore {
         && request.resource.data.botId == resource.data.botId;
     }
 
+    // ─── Super Admin (custom claim set server-side only) ──────────
+    function isSuperAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+
     // ─── User Profiles (users collection) ─────────────────────────
     // Protects against Privilege Escalation (preventing users from injecting admin roles or upgrading plans directly)
     match /users/{userId} {
-      allow read: if isOwner(userId);
+      allow read: if isOwner(userId) || isSuperAdmin();
       allow create: if isOwner(userId)
         && (!('plan' in request.resource.data) || request.resource.data.plan == 'free')
         && !request.resource.data.keys().hasAny(['role', 'isAdmin', 'superAdmin', 'permissions']);
@@ -50,7 +55,7 @@ service cloud.firestore {
     // Owner-only access. The VPS engines read/write through the
     // Firebase Admin SDK, which bypasses these rules entirely.
     match /bots/{botId} {
-      allow read: if isDocOwner();
+      allow read: if isDocOwner() || isSuperAdmin();
       allow create: if isCreatingOwnDoc();
       allow update: if isDocOwner() && request.resource.data.userId == resource.data.userId;
       allow delete: if isDocOwner();
@@ -69,7 +74,7 @@ service cloud.firestore {
 
     // ─── Orders & Bookings (orders collection) ─────────────────────
     match /orders/{orderId} {
-      allow read: if isDataOwner();
+      allow read: if isDataOwner() || isSuperAdmin();
       allow create: if isCreatingOwnData();
       allow update: if isDataOwner() && keepsIdentityData();
       allow delete: if isDataOwner();
@@ -77,7 +82,7 @@ service cloud.firestore {
 
     // ─── Qualified Leads & CRM (leads collection) ─────────────────
     match /leads/{leadId} {
-      allow read: if isDataOwner();
+      allow read: if isDataOwner() || isSuperAdmin();
       allow create: if isCreatingOwnData();
       allow update: if isDataOwner() && keepsIdentityData();
       allow delete: if isDataOwner();

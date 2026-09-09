@@ -128,7 +128,6 @@
 
 [data-theme='light'] ::-webkit-scrollbar-thumb { background: rgba(15, 23, 42, 0.18); }
 [data-theme='light'] ::-webkit-scrollbar-thumb:hover { background: rgba(15, 23, 42, 0.32); }
-
 /* ─── Global Reset & Clean Base ─── */
 *, *::before, *::after {
   box-sizing: border-box;

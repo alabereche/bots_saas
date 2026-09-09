@@ -5590,3 +5590,28 @@ html, body {
   border-color: var(--border-default);
   box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
 }
+
+/* ─── Light theme: catalog editor inputs & dropzones ─── */
+[data-theme='light'] .custom-input,
+[data-theme='light'] .custom-textarea {
+  background: #ffffff;
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+[data-theme='light'] .custom-input:focus,
+[data-theme='light'] .custom-textarea:focus {
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
+}
+[data-theme='light'] .dropzone-box {
+  background: #f8fafc;
+  border-color: var(--border-default);
+}
+[data-theme='light'] .dropzone-box:hover {
+  background: rgba(16, 185, 129, 0.04);
+  border-color: var(--color-primary);
+}
+[data-theme='light'] .catalog-editor-card,
+[data-theme='light'] .catalog-hero-card {
+  box-shadow: 0 12px 32px -18px rgba(15, 23, 42, 0.14);
+}

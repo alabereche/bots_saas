@@ -5446,3 +5446,50 @@ html, body {
   border-color: var(--color-primary-border);
   background: var(--color-primary-subtle);
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   LIGHT THEME — Ambient background & remaining dark surfaces
+   ═══════════════════════════════════════════════════════════════ */
+[data-theme='light'] .ambient-deep-canvas {
+  background:
+    radial-gradient(ellipse 90% 60% at 50% -10%, rgba(16, 185, 129, 0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 80% 50% at 85% 60%, rgba(14, 165, 233, 0.05) 0%, transparent 60%),
+    linear-gradient(180deg, #ffffff 0%, #eef2f7 100%);
+}
+[data-theme='light'] .ambient-orb { filter: blur(110px) saturate(0.8); opacity: 0.4; }
+[data-theme='light'] .ambient-vignette-aperture {
+  background: radial-gradient(ellipse 85% 65% at 50% 35%, transparent 55%, rgba(15, 23, 42, 0.06) 100%);
+}
+[data-theme='light'] .dashboard-hero,
+[data-theme='light'] .stat-card,
+[data-theme='light'] .kpi-card,
+[data-theme='light'] .metric-card {
+  background: var(--bg-card) !important;
+  border-color: var(--border-default) !important;
+  color: var(--text-primary) !important;
+}
+[data-theme='light'] .dashboard-hero h1,
+[data-theme='light'] .dashboard-hero h2,
+[data-theme='light'] .dashboard-hero p { color: var(--text-primary) !important; }
+[data-theme='light'] .dashboard-hero p { color: var(--text-secondary) !important; }
+
+/* Light theme: translucent dark surfaces become translucent white */
+[data-theme='light'] .stat-box,
+[data-theme='light'] .bot-card,
+[data-theme='light'] .chat-bubble-bot,
+[data-theme='light'] .conversation-item {
+  background: rgba(255, 255, 255, 0.75) !important;
+  border-color: var(--border-default) !important;
+}
+[data-theme='light'] .stat-box { box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06) !important; }
+
+/* .card/.solid-card are THE platform card — light override here */
+[data-theme='light'] .card,
+[data-theme='light'] .solid-card {
+  background: rgba(255, 255, 255, 0.82) !important;
+  box-shadow: 0 10px 32px rgba(15, 23, 42, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+}
+[data-theme='light'] .card:hover,
+[data-theme='light'] .solid-card:hover {
+  box-shadow: 0 14px 40px rgba(15, 23, 42, 0.1) !important;
+}

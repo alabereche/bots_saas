@@ -5671,3 +5671,34 @@ html, body {
   border-color: rgba(239, 68, 68, 0.35);
   box-shadow: none;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   LIGHT THEME — WhatsApp linking modal (wa-* classes)
+   ═══════════════════════════════════════════════════════════════ */
+[data-theme='light'] .wa-modal {
+  background: var(--bg-modal);
+  border-color: var(--border-default);
+  box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.25), 0 0 35px rgba(16, 185, 129, 0.1);
+}
+[data-theme='light'] .wa-modal-sub,
+[data-theme='light'] .wa-tab,
+[data-theme='light'] .wa-modal-close { color: var(--text-secondary); }
+[data-theme='light'] .wa-tabs {
+  background: var(--bg-inset);
+  border-color: var(--border-default);
+}
+[data-theme='light'] .wa-tab--active {
+  border-color: var(--color-primary-border);
+  background: var(--color-primary-subtle);
+  color: var(--color-primary);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.12);
+}
+[data-theme='light'] .wa-phone-bar {
+  background: #ffffff;
+  border-color: var(--border-default);
+  box-shadow: inset 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+[data-theme='light'] .wa-phone-bar .currency-pill {
+  background: var(--bg-inset);
+  color: var(--text-secondary);
+}

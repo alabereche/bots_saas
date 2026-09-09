@@ -494,7 +494,7 @@ export default function BotDetail() {
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
           </div>
           <div>
-            <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#ffffff', marginBottom: '0.2rem' }}>
+            <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.2rem' }}>
               {bot.botName || bot.businessName}
             </h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -651,7 +651,7 @@ export default function BotDetail() {
           {/* Customer Sidebar (Right) */}
           <div className="chat-sidebar">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.85rem 1rem', borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-card)' }}>
-              <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2.2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                 المحادثات ({sortedCustomers.length})
               </h4>
@@ -802,7 +802,7 @@ export default function BotDetail() {
                       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                       القائمة
                     </button>
-                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#18243b', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0, border: '1px solid var(--border-default)' }}>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--bg-cell)', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0, border: '1px solid var(--border-default)' }}>
                       {selectedThread?.userAvatar ? (
                         <img
                           src={selectedThread.userAvatar}
@@ -815,7 +815,7 @@ export default function BotDetail() {
                       )}
                     </div>
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#ffffff' }}>{selectedThread?.userName}</div>
+                      <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{selectedThread?.userName}</div>
                       <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>
                         {selectedThread?.messages?.length || 0} رسالة
                         {takeoverMap[selectedUserId] && <span style={{ color: '#f59e0b', marginRight: '6px' }}> (الوضع اليدوي مفعل)</span>}
@@ -939,7 +939,7 @@ export default function BotDetail() {
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '8px' }}>
             <div>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ffffff', margin: 0 }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
                 الطلبيات والتتبع ({orders.length})
               </h3>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
@@ -1073,7 +1073,7 @@ export default function BotDetail() {
           {/* Card 2: Business Details */}
           <div className="card">
             <div className="card-header-row">
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
                 معلومات المشروع والنشاط
               </h3>
@@ -1107,7 +1107,7 @@ export default function BotDetail() {
           {/* Card 3: AI Personality */}
           <div className="card">
             <div className="card-header-row">
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2"><circle cx="12" cy="12" r="10"/><circle cx="9" cy="9" r="1"/><circle cx="15" cy="9" r="1"/><path d="M8 13a4 4 0 0 0 8 0"/></svg>
                 شخصية ونظام الذكاء الاصطناعي
               </h3>
@@ -1248,7 +1248,7 @@ export default function BotDetail() {
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginBottom: editData.autoDeliveryReceipt ? '0.75rem' : '0' }}>
                   <div>
-                    <label style={{ fontWeight: 700, fontSize: '0.9rem', color: '#ffffff', display: 'block', marginBottom: '2px' }}>
+                    <label style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)', display: 'block', marginBottom: '2px' }}>
                       إشعار وصول الطلبية والاستلام
                     </label>
                     <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
@@ -1428,7 +1428,7 @@ const DELIVERY_STATUSES = {
   out_for_delivery: { label: 'خرج للتوصيل (مع الموزع)', color: '#c084fc', bg: '#3b0764', border: '#581c87' },
   delivered: { label: 'تم التسليم بنجاح', color: '#34d399', bg: '#132d24', border: '#1c4b3c' },
   returned: { label: 'تم إرجاع الطرد', color: '#f87171', bg: '#33161a', border: '#541c22' },
-  cancelled: { label: 'ملغى', color: '#94a3b8', bg: '#1c263c', border: '#26334d' },
+  cancelled: { label: 'ملغى', color: 'var(--text-secondary)', bg: '#1c263c', border: '#26334d' },
 };
 
 const DELIVERY_PROVIDERS = [
@@ -1489,7 +1489,7 @@ function OrderDeliveryItem({ order, bot, onUpdateDelivery }) {
     <div className="order-card" style={{ padding: '1.25rem' }}>
       <div className="order-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '0.85rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <span style={{ fontWeight: 700, color: '#ffffff', fontSize: '0.98rem' }}>{order.customerName || 'زبون'}</span>
+          <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.98rem' }}>{order.customerName || 'زبون'}</span>
           {order.trackingCode && (
             <button className="tracking-code-pill" onClick={copyCode} title="انقر لنسخ كود التتبع">
               <span>#{order.trackingCode}</span>
@@ -1503,7 +1503,7 @@ function OrderDeliveryItem({ order, bot, onUpdateDelivery }) {
 
       <div className="order-card-body" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.65rem', marginBottom: '0.85rem' }}>
         {order.product && (
-          <div className="order-field" style={{ color: '#ffffff', fontWeight: 600 }}>
+          <div className="order-field" style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
             <span>المنتج: {order.product} {order.price ? `(${order.price} ${bot.currency || 'دج'})` : ''}</span>
           </div>
         )}
@@ -1618,7 +1618,7 @@ function OrderDeliveryItem({ order, bot, onUpdateDelivery }) {
                 const sConf = DELIVERY_STATUSES[step.deliveryStatus] || DELIVERY_STATUSES.pending;
                 return (
                   <div key={idx} className="timeline-step">
-                    <div style={{ fontWeight: 600, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div style={{ fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <DeliveryStatusIcon status={step.deliveryStatus} size={14} />
                       <span>{sConf.label} {step.provider && step.provider !== 'manual' ? `(${step.provider})` : ''}</span>
                     </div>
@@ -1656,7 +1656,7 @@ function OrderBehaviorCard({ bot, onUpdateBot }) {
   };
 
   return (
-    <div className="card" style={{ borderColor: 'rgba(56, 189, 248, 0.25)', background: '#0a101d' }}>
+    <div className="card" style={{ borderColor: 'rgba(56, 189, 248, 0.25)', background: 'var(--bg-deep)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
         <div style={{
           width: '42px', height: '42px', borderRadius: '12px', flexShrink: 0,
@@ -1666,7 +1666,7 @@ function OrderBehaviorCard({ bot, onUpdateBot }) {
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
         </div>
         <div>
-          <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#ffffff', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             سلوك الطلبات المتتالية لنفس العميل
             <span style={{ fontSize: '0.68rem', fontWeight: 800, padding: '2px 8px', borderRadius: '20px', background: 'rgba(56, 189, 248, 0.12)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.35)' }}>
               {currentMode === 'merge' ? 'دمج وتحديث (افتراضي)' : 'منفصل'}
@@ -1779,7 +1779,7 @@ function MerchantNotificationsCard({ bot, onUpdateBot }) {
             </svg>
           </div>
           <div>
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#ffffff', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               تنبيهات التاجر
               <span style={{
                 fontSize: '0.68rem', fontWeight: 800, padding: '2px 8px', borderRadius: '20px',
@@ -1931,7 +1931,7 @@ function BotCapabilitiesManager({ bot, onUpdateBot }) {
   return (
     <div className="card">
       <div className="card-header-row" style={{ marginBottom: '0.65rem' }}>
-        <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="3"/>
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
@@ -1999,7 +1999,7 @@ function OrderStatusBadge({ status }) {
     new: { label: 'جديد', bg: '#33161a', color: '#ef4444', border: '#541c22' },
     confirmed: { label: 'مؤكد', bg: '#132b3d', color: '#38bdf8', border: '#1d4461' },
     delivered: { label: 'مكتمل', bg: '#132d24', color: '#34d399', border: '#1c4b3c' },
-    cancelled: { label: 'ملغي', bg: '#1c263c', color: '#94a3b8', border: '#26334d' },
+    cancelled: { label: 'ملغي', bg: '#1c263c', color: 'var(--text-secondary)', border: '#26334d' },
   };
   const c = config[status] || config.new;
   return (
@@ -2073,7 +2073,7 @@ function AbandonedRecoveryCard({ bot, onUpdateBot }) {
   return (
     <div className="card" style={{ border: enabled ? '1px solid rgba(245, 158, 11, 0.35)' : '1px solid var(--border-default)' }}>
       <div className="card-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M21.5 2v6h-6"/><path d="M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
           </svg>
@@ -2216,7 +2216,7 @@ function WebWidgetTab({ bot, onUpdateBot }) {
       <div className="card" style={{ background: 'linear-gradient(145deg, #131d33 0%, #0d1526 100%)', border: '1px solid var(--border-default)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '0.75rem' }}>
           <div>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2.2">
                 <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
                 <line x1="8" y1="21" x2="16" y2="21"/>
@@ -2243,7 +2243,7 @@ function WebWidgetTab({ bot, onUpdateBot }) {
       {/* Integration Script Card */}
       <div className="card">
         <div className="card-header-row" style={{ marginBottom: '0.5rem' }}>
-          <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
             كود التضمين للمواقع والمتاجر (Shopify, YouCan, WordPress, WooCommerce, Custom HTML)
           </h4>
@@ -2251,7 +2251,7 @@ function WebWidgetTab({ bot, onUpdateBot }) {
         <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
           انسخ هذا السطر البرمجي والصقه في إعدادات متجرك أو موقعك (قبل إغلاق وسم body أو في قسم Custom JavaScript / Header):
         </p>
-        <div style={{ background: '#070b14', padding: '0.85rem 1.15rem', borderRadius: '10px', border: '1px solid var(--border-default)', fontFamily: 'monospace', fontSize: '0.82rem', color: '#38bdf8', wordBreak: 'break-all', direction: 'ltr', textAlign: 'left', marginBottom: '0.85rem' }}>
+        <div style={{ background: 'var(--bg-app)', padding: '0.85rem 1.15rem', borderRadius: '10px', border: '1px solid var(--border-default)', fontFamily: 'monospace', fontSize: '0.82rem', color: '#38bdf8', wordBreak: 'break-all', direction: 'ltr', textAlign: 'left', marginBottom: '0.85rem' }}>
           {scriptTag}
         </div>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -2266,7 +2266,7 @@ function WebWidgetTab({ bot, onUpdateBot }) {
         {/* Customizer Form */}
         <div className="card">
           <div className="card-header-row" style={{ marginBottom: '0.75rem' }}>
-            <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#ffffff', margin: 0 }}>
+            <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
               قنوات التواصل ومظهر الودجت
             </h4>
           </div>
@@ -2364,7 +2364,7 @@ function WebWidgetTab({ bot, onUpdateBot }) {
         {/* Live Interactive Preview Box */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
           <div className="card-header-row" style={{ width: '100%', marginBottom: '0.85rem' }}>
-            <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
               معاينة حية وتفاعلية للشاشات (Interactive Preview)
             </h4>
@@ -2373,9 +2373,9 @@ function WebWidgetTab({ bot, onUpdateBot }) {
           <div style={{
             flex: 1,
             minHeight: '380px',
-            background: '#090d16',
+            background: 'var(--bg-sidebar)',
             borderRadius: '16px',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
+            border: '1px solid var(--border-default)',
             position: 'relative',
             padding: '1.25rem',
             display: 'flex',
@@ -2384,7 +2384,7 @@ function WebWidgetTab({ bot, onUpdateBot }) {
           }}>
             {/* Fake Store Mockup UI */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '10px', marginBottom: '16px' }}>
-              <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#ffffff' }}>{botDisplayName}</span>
+              <span style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{botDisplayName}</span>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <span style={{ width: '30px', height: '8px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '4px' }} />
                 <span style={{ width: '45px', height: '8px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '4px' }} />
@@ -2393,8 +2393,8 @@ function WebWidgetTab({ bot, onUpdateBot }) {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div style={{ width: '60%', height: '14px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '6px' }} />
-              <div style={{ width: '85%', height: '10px', background: 'rgba(255, 255, 255, 0.06)', borderRadius: '4px' }} />
-              <div style={{ width: '75%', height: '10px', background: 'rgba(255, 255, 255, 0.06)', borderRadius: '4px' }} />
+              <div style={{ width: '85%', height: '10px', background: 'var(--veil-2)', borderRadius: '4px' }} />
+              <div style={{ width: '75%', height: '10px', background: 'var(--veil-2)', borderRadius: '4px' }} />
             </div>
 
             {/* Simulated Popover Card */}
@@ -2404,7 +2404,7 @@ function WebWidgetTab({ bot, onUpdateBot }) {
                 bottom: '80px',
                 [position === 'left' ? 'left' : 'right']: '20px',
                 width: '280px',
-                background: '#0f172a',
+                background: 'var(--bg-card)',
                 borderRadius: '16px',
                 border: '1px solid rgba(255, 255, 255, 0.15)',
                 boxShadow: '0 12px 36px rgba(0, 0, 0, 0.5)',
@@ -2412,23 +2412,23 @@ function WebWidgetTab({ bot, onUpdateBot }) {
                 zIndex: 20,
                 animation: 'chatMsgFadeIn 0.2s ease',
               }}>
-                <div style={{ padding: '0.85rem 1rem', background: '#1e293b', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ padding: '0.85rem 1rem', background: 'var(--bg-cell)', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: color, color: '#ffffff', fontWeight: 800, fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: color, color: 'var(--text-primary)', fontWeight: 800, fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {botDisplayName.charAt(0)}
                     </div>
                     <div>
-                      <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#ffffff', lineHeight: 1.1 }}>{botDisplayName}</div>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.1 }}>{botDisplayName}</div>
                       <div style={{ fontSize: '0.68rem', color: '#10b981', fontWeight: 600 }}>متصل الآن • نرد فوراً</div>
                     </div>
                   </div>
-                  <button type="button" onClick={() => setPreviewOpen(false)} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px' }}>
+                  <button type="button" onClick={() => setPreviewOpen(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '2px' }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                   </button>
                 </div>
 
                 <div style={{ padding: '0.85rem 1rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div style={{ fontSize: '0.74rem', color: '#94a3b8', lineHeight: 1.4 }}>{greeting}</div>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{greeting}</div>
 
                   {cleanWa && (
                     <a
@@ -2442,7 +2442,7 @@ function WebWidgetTab({ bot, onUpdateBot }) {
                         padding: '0.65rem 0.85rem',
                         background: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)',
                         borderRadius: '10px',
-                        color: '#ffffff',
+                        color: 'var(--text-on-fill)',
                         textDecoration: 'none',
                         fontWeight: 700,
                         fontSize: '0.8rem',
@@ -2468,7 +2468,7 @@ function WebWidgetTab({ bot, onUpdateBot }) {
                         padding: '0.65rem 0.85rem',
                         background: 'linear-gradient(135deg, #2AABEE 0%, #229ED9 100%)',
                         borderRadius: '10px',
-                        color: '#ffffff',
+                        color: 'var(--text-primary)',
                         textDecoration: 'none',
                         fontWeight: 700,
                         fontSize: '0.8rem',
@@ -2503,7 +2503,7 @@ function WebWidgetTab({ bot, onUpdateBot }) {
                 height: '48px',
                 borderRadius: '24px',
                 background: color,
-                color: '#ffffff',
+                color: 'var(--text-primary)',
                 border: 'none',
                 cursor: 'pointer',
                 display: 'flex',
@@ -2526,23 +2526,23 @@ function WebWidgetTab({ bot, onUpdateBot }) {
 
       {/* Quick Setup Guides Accordion / Card */}
       <div className="card">
-        <h4 style={{ fontSize: '0.98rem', fontWeight: 700, color: '#ffffff', marginBottom: '0.85rem' }}>
+        <h4 style={{ fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.85rem' }}>
           طريقة التثبيت على أشهر المنصات:
         </h4>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
-          <div style={{ background: '#090e1a', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-default)' }}>
+          <div style={{ background: 'var(--bg-app)', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-default)' }}>
             <strong style={{ color: '#60a5fa', display: 'block', marginBottom: '4px', fontSize: '0.85rem' }}>YouCan</strong>
             <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
               الإعدادات (Settings) ← أونلاين (Online) ← أكواد CSS & JS ← الصق الكود في خانة أكواد JavaScript (Header أو Footer).
             </p>
           </div>
-          <div style={{ background: '#090e1a', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-default)' }}>
+          <div style={{ background: 'var(--bg-app)', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-default)' }}>
             <strong style={{ color: '#10b981', display: 'block', marginBottom: '4px', fontSize: '0.85rem' }}>Shopify</strong>
             <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
               Online Store ← Themes ← Edit code ← افتح ملف <code>theme.liquid</code> والصق الكود قبل <code>&lt;/body&gt;</code> مباشرة.
             </p>
           </div>
-          <div style={{ background: '#090e1a', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-default)' }}>
+          <div style={{ background: 'var(--bg-app)', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-default)' }}>
             <strong style={{ color: '#a78bfa', display: 'block', marginBottom: '4px', fontSize: '0.85rem' }}>WordPress / WooCommerce</strong>
             <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
               استخدم إضافة (WPCode أو Insert Headers and Footers) والصق الكود في قسم Footer Scripts.
@@ -2576,7 +2576,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
   const PRIORITY_CONFIG = {
     hot: { label: 'ساخن', hint: 'أولوية قصوى — تواصل فوراً', bg: 'rgba(239, 68, 68, 0.12)', color: '#f87171', border: 'rgba(239, 68, 68, 0.3)', dot: '#ef4444' },
     warm: { label: 'مهتم', hint: 'مهتم — يتابعه البوت', bg: 'rgba(245, 158, 11, 0.12)', color: '#fbbf24', border: 'rgba(245, 158, 11, 0.3)', dot: '#f59e0b' },
-    cold: { label: 'استفسار', hint: 'استفسار عادي', bg: 'rgba(148, 163, 184, 0.1)', color: '#cbd5e1', border: 'rgba(148, 163, 184, 0.2)', dot: '#94a3b8' },
+    cold: { label: 'استفسار', hint: 'استفسار عادي', bg: 'rgba(148, 163, 184, 0.1)', color: 'var(--text-secondary)', border: 'rgba(148, 163, 184, 0.2)', dot: '#94a3b8' },
   };
 
   const filteredLeads = leads.filter(lead => {
@@ -2736,7 +2736,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
           },
         ].map(card => (
           <div key={card.key} style={{
-            background: '#0a101d', padding: '1.05rem 1.15rem', borderRadius: '14px',
+            background: 'var(--bg-deep)', padding: '1.05rem 1.15rem', borderRadius: '14px',
             border: `1px solid ${card.border}`,
             display: 'flex', alignItems: 'center', gap: '14px',
           }}>
@@ -2748,7 +2748,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
               {card.icon}
             </div>
             <div>
-              <div style={{ fontSize: '1.55rem', fontWeight: 900, color: '#ffffff', lineHeight: 1.15 }}>
+              <div style={{ fontSize: '1.55rem', fontWeight: 900, color: 'var(--text-primary)', lineHeight: 1.15 }}>
                 {card.value}
               </div>
               <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
@@ -2760,10 +2760,10 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
       </div>
 
       {/* Clean Control & Filter Bar */}
-      <div className="card" style={{ padding: '0.9rem 1.1rem', background: '#0a101d', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '14px' }}>
+      <div className="card" style={{ padding: '0.9rem 1.1rem', background: 'var(--bg-deep)', border: '1px solid var(--border-default)', borderRadius: '14px' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
           {/* Segmented filter pills */}
-          <div style={{ display: 'flex', background: '#060a12', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '10px', padding: '3px', gap: '3px' }}>
+          <div style={{ display: 'flex', background: 'var(--bg-inset)', border: '1px solid var(--border-default)', borderRadius: '10px', padding: '3px', gap: '3px' }}>
             <button
               type="button"
               onClick={() => setHotOnly(false)}
@@ -2808,20 +2808,20 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
               fontSize: '0.8rem',
               padding: '0.4rem 0.85rem',
               borderRadius: '10px',
-              background: '#060a12',
-              color: '#ffffff',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
+              background: 'var(--bg-inset)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border-default)',
               minHeight: '38px',
               cursor: 'pointer',
               fontWeight: 600,
             }}
           >
-            <option value="all" style={{ background: '#0b111e', color: '#fff' }}>كل الحالات</option>
-            <option value="new" style={{ background: '#0b111e', color: '#60a5fa' }}>جديد</option>
-            <option value="contacted" style={{ background: '#0b111e', color: '#facc15' }}>تم التواصل</option>
-            <option value="qualified" style={{ background: '#0b111e', color: '#c084fc' }}>مؤهل</option>
-            <option value="closed" style={{ background: '#0b111e', color: '#4ade80' }}>تم التعاقد</option>
-            <option value="lost" style={{ background: '#0b111e', color: '#f87171' }}>ملغي</option>
+            <option value="all" style={{ background: 'var(--bg-deep)', color: 'var(--text-primary)' }}>كل الحالات</option>
+            <option value="new" style={{ background: 'var(--bg-deep)', color: '#60a5fa' }}>جديد</option>
+            <option value="contacted" style={{ background: 'var(--bg-deep)', color: '#facc15' }}>تم التواصل</option>
+            <option value="qualified" style={{ background: 'var(--bg-deep)', color: '#c084fc' }}>مؤهل</option>
+            <option value="closed" style={{ background: 'var(--bg-deep)', color: '#4ade80' }}>تم التعاقد</option>
+            <option value="lost" style={{ background: 'var(--bg-deep)', color: '#f87171' }}>ملغي</option>
           </select>
 
           <button
@@ -2836,7 +2836,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
 
           {/* Search — fills the remaining width, wraps to its own row on narrow screens */}
           <div style={{ position: 'relative', flex: '1 1 240px', minWidth: '220px' }}>
-            <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }}>
+            <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)', pointerEvents: 'none' }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             </div>
             <input
@@ -2849,9 +2849,9 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                 paddingRight: '2.3rem',
                 minHeight: '38px',
                 fontSize: '0.86rem',
-                background: '#060a12',
+                background: 'var(--bg-inset)',
                 borderRadius: '10px',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
+                border: '1px solid var(--border-default)',
               }}
             />
           </div>
@@ -2860,11 +2860,11 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
 
       {/* Main Content Area */}
       {filteredLeads.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: '3.5rem 1.5rem', background: '#0a101d', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '14px' }}>
+        <div className="card" style={{ textAlign: 'center', padding: '3.5rem 1.5rem', background: 'var(--bg-deep)', border: '1px solid var(--border-default)', borderRadius: '14px' }}>
           <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.25)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           </div>
-          <p style={{ fontSize: '1rem', fontWeight: 800, color: '#ffffff', marginBottom: '0.35rem' }}>
+          <p style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.35rem' }}>
             {search || statusFilter !== 'all' || hotOnly ? 'لا توجد نتائج مطابقة لفلتر البحث' : 'لا يوجد عملاء محتملين مسجلين بعد'}
           </p>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', maxWidth: '420px', margin: '0 auto', lineHeight: 1.6 }}>
@@ -2874,10 +2874,10 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
       ) : (
         <>
           {/* DESKTOP TABLE VIEW (Screens >= 960px) */}
-          <div className="crm-desktop-view card" style={{ padding: 0, overflow: 'hidden', background: '#0a101d', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '14px' }}>
+          <div className="crm-desktop-view card" style={{ padding: 0, overflow: 'hidden', background: 'var(--bg-deep)', border: '1px solid var(--border-default)', borderRadius: '14px' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.86rem', textAlign: 'right' }}>
               <thead>
-                <tr style={{ background: '#060a12', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', color: 'var(--text-secondary)' }}>
+                <tr style={{ background: 'var(--bg-inset)', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', color: 'var(--text-secondary)' }}>
                   <th style={{ padding: '0.7rem 1rem', fontWeight: 800, fontSize: '0.76rem' }}>العميل</th>
                   <th style={{ padding: '0.7rem 1rem', fontWeight: 800, fontSize: '0.76rem' }}>الهاتف والتواصل</th>
                   <th style={{ padding: '0.7rem 1rem', fontWeight: 800, fontSize: '0.76rem' }}>الخدمة المطلوبة</th>
@@ -2926,7 +2926,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                             {firstChar}
                           </div>
                           <div>
-                            <div style={{ fontWeight: 800, color: '#ffffff', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <div style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                               <span>{customerName}</span>
                               <span style={{
                                 fontSize: '0.66rem',
@@ -3016,7 +3016,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
 
                       {/* Service & Notes */}
                       <td style={{ padding: '0.7rem 1rem', maxWidth: '280px' }}>
-                        <div style={{ color: '#ffffff', fontWeight: 700, fontSize: '0.86rem' }}>
+                        <div style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: '0.86rem' }}>
                           {lead.service || '—'}
                         </div>
                         {lead.notes && (
@@ -3025,7 +3025,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                               fontSize: '0.74rem',
                               color: 'var(--text-secondary)',
                               marginTop: '3px',
-                              background: 'rgba(255, 255, 255, 0.04)',
+                              background: 'var(--veil-1)',
                               padding: '2px 6px',
                               borderRadius: '5px',
                               display: 'inline-block',
@@ -3102,11 +3102,11 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                             cursor: updatingId === lead.id ? 'wait' : 'pointer',
                           }}
                         >
-                          <option value="new" style={{ background: '#0b111e', color: '#60a5fa' }}>جديد</option>
-                          <option value="contacted" style={{ background: '#0b111e', color: '#facc15' }}>تم التواصل</option>
-                          <option value="qualified" style={{ background: '#0b111e', color: '#c084fc' }}>مؤهل</option>
-                          <option value="closed" style={{ background: '#0b111e', color: '#4ade80' }}>تم التعاقد</option>
-                          <option value="lost" style={{ background: '#0b111e', color: '#f87171' }}>ملغي</option>
+                          <option value="new" style={{ background: 'var(--bg-deep)', color: '#60a5fa' }}>جديد</option>
+                          <option value="contacted" style={{ background: 'var(--bg-deep)', color: '#facc15' }}>تم التواصل</option>
+                          <option value="qualified" style={{ background: 'var(--bg-deep)', color: '#c084fc' }}>مؤهل</option>
+                          <option value="closed" style={{ background: 'var(--bg-deep)', color: '#4ade80' }}>تم التعاقد</option>
+                          <option value="lost" style={{ background: 'var(--bg-deep)', color: '#f87171' }}>ملغي</option>
                         </select>
                       </td>
 
@@ -3172,7 +3172,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                   key={lead.id}
                   className="crm-card-hover"
                   style={{
-                    background: '#0a101d',
+                    background: 'var(--bg-deep)',
                     border: `1px solid ${isHot ? 'rgba(239, 68, 68, 0.25)' : 'rgba(255, 255, 255, 0.08)'}`,
                     borderRadius: '14px',
                     padding: '1.1rem',
@@ -3202,7 +3202,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                         {firstChar}
                       </div>
                       <div>
-                        <div style={{ fontWeight: 800, color: '#ffffff', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span>{customerName}</span>
                           <span style={{
                             fontSize: '0.66rem',
@@ -3244,9 +3244,9 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                   </div>
 
                   {/* Service & Notes Box */}
-                  <div style={{ background: '#060a12', padding: '0.75rem 0.9rem', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                  <div style={{ background: 'var(--bg-inset)', padding: '0.75rem 0.9rem', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: lead.notes ? '4px' : '0' }}>
-                      <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#ffffff' }}>
+                      <span style={{ fontSize: '0.86rem', fontWeight: 800, color: 'var(--text-primary)' }}>
                         {lead.service || 'استفسار عام'}
                       </span>
                       {lead.budget && (
@@ -3345,11 +3345,11 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                           minHeight: '30px',
                         }}
                       >
-                        <option value="new" style={{ background: '#0b111e', color: '#60a5fa' }}>جديد</option>
-                        <option value="contacted" style={{ background: '#0b111e', color: '#facc15' }}>تم التواصل</option>
-                        <option value="qualified" style={{ background: '#0b111e', color: '#c084fc' }}>مؤهل</option>
-                        <option value="closed" style={{ background: '#0b111e', color: '#4ade80' }}>تعاقد</option>
-                        <option value="lost" style={{ background: '#0b111e', color: '#f87171' }}>ملغي</option>
+                        <option value="new" style={{ background: 'var(--bg-deep)', color: '#60a5fa' }}>جديد</option>
+                        <option value="contacted" style={{ background: 'var(--bg-deep)', color: '#facc15' }}>تم التواصل</option>
+                        <option value="qualified" style={{ background: 'var(--bg-deep)', color: '#c084fc' }}>مؤهل</option>
+                        <option value="closed" style={{ background: 'var(--bg-deep)', color: '#4ade80' }}>تعاقد</option>
+                        <option value="lost" style={{ background: 'var(--bg-deep)', color: '#f87171' }}>ملغي</option>
                       </select>
 
                       <button
@@ -3407,8 +3407,8 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
         >
           <div
             style={{
-              background: '#0a101d',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
+              background: 'var(--bg-deep)',
+              border: '1px solid var(--border-bright)',
               borderRadius: '18px',
               maxWidth: '520px',
               width: '100%',
@@ -3440,7 +3440,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                   {(selectedLead.customerName || selectedLead.name || 'ع').charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#ffffff' }}>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)' }}>
                     {selectedLead.customerName || selectedLead.name || 'عميل محتمل'}
                   </h3>
                   <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
@@ -3452,14 +3452,14 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                 type="button"
                 className="btn btn-ghost btn-sm"
                 onClick={() => setSelectedLead(null)}
-                style={{ borderRadius: '8px', color: '#94a3b8' }}
+                style={{ borderRadius: '8px', color: 'var(--text-secondary)' }}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
 
             {/* Contact Actions Bar */}
-            <div style={{ background: '#060a12', padding: '0.85rem 1rem', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.06)', display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ background: 'var(--bg-inset)', padding: '0.85rem 1rem', borderRadius: '10px', border: '1px solid var(--border-subtle)', display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>رقم الهاتف</div>
                 <div style={{ fontSize: '0.98rem', fontWeight: 800, color: '#60a5fa', fontFamily: 'monospace' }}>
@@ -3493,24 +3493,24 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
 
             {/* Service & Notes Details */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ background: '#060a12', padding: '0.85rem 1rem', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+              <div style={{ background: 'var(--bg-inset)', padding: '0.85rem 1rem', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>
                 <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginBottom: '3px' }}>الخدمة أو الموعد المطلوب</div>
-                <div style={{ fontSize: '0.92rem', fontWeight: 800, color: '#ffffff' }}>
+                <div style={{ fontSize: '0.92rem', fontWeight: 800, color: 'var(--text-primary)' }}>
                   {selectedLead.service || 'غير محدد'}
                 </div>
               </div>
 
               {selectedLead.notes && (
-                <div style={{ background: '#060a12', padding: '0.85rem 1rem', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                <div style={{ background: 'var(--bg-inset)', padding: '0.85rem 1rem', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>
                   <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginBottom: '3px' }}>الملاحظات المستخرجة بالذكاء الاصطناعي</div>
-                  <div style={{ fontSize: '0.84rem', color: '#e2e8f0', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                  <div style={{ fontSize: '0.84rem', color: 'var(--text-primary)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
                     {selectedLead.notes}
                   </div>
                 </div>
               )}
 
               {selectedLead.budget && (
-                <div style={{ background: '#060a12', padding: '0.85rem 1rem', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                <div style={{ background: 'var(--bg-inset)', padding: '0.85rem 1rem', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>
                   <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginBottom: '3px' }}>الميزانية المقترحة</div>
                   <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#10b981' }}>
                     {selectedLead.budget} {bot?.currency || 'دج'}
@@ -3737,8 +3737,8 @@ function GoogleSheetsTab({ bot, onUpdateBot }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       {/* Header Banner */}
-      <div className="card" style={{ padding: '1.5rem', background: '#0a101d', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-        <h3 style={{ fontSize: '1.18rem', fontWeight: 800, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div className="card" style={{ padding: '1.5rem', background: 'var(--bg-deep)', border: '1px solid var(--border-default)' }}>
+        <h3 style={{ fontSize: '1.18rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
           <span>المزامنة التلقائية مع Google Sheets</span>
         </h3>
@@ -3748,10 +3748,10 @@ function GoogleSheetsTab({ bot, onUpdateBot }) {
       </div>
 
       {/* Webhook Configuration Form */}
-      <div className="card" style={{ padding: '1.5rem', background: '#0a101d', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+      <div className="card" style={{ padding: '1.5rem', background: 'var(--bg-deep)', border: '1px solid var(--border-default)' }}>
         <form onSubmit={handleSave}>
           <div style={{ marginBottom: '1.25rem' }}>
-            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: '#ffffff', marginBottom: '8px' }}>
+            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>
               رابط Google Apps Script Webhook URL
             </label>
             <input
@@ -3766,7 +3766,7 @@ function GoogleSheetsTab({ bot, onUpdateBot }) {
                 fontFamily: 'monospace',
                 fontSize: '0.86rem',
                 minHeight: '48px',
-                background: '#060a12',
+                background: 'var(--bg-inset)',
                 borderRadius: '10px',
               }}
             />
@@ -3800,10 +3800,10 @@ function GoogleSheetsTab({ bot, onUpdateBot }) {
       </div>
 
       {/* Code Snippet Box */}
-      <div className="card" style={{ padding: '1.5rem', background: '#0a101d', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+      <div className="card" style={{ padding: '1.5rem', background: 'var(--bg-deep)', border: '1px solid var(--border-default)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <div>
-            <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#ffffff', margin: 0 }}>
+            <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
               الكود البرمجي الجاهز لـ Google Apps Script
             </h4>
             <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
@@ -3823,8 +3823,8 @@ function GoogleSheetsTab({ bot, onUpdateBot }) {
 
         <pre
           style={{
-            background: '#040711',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
+            background: 'var(--bg-app)',
+            border: '1px solid var(--border-default)',
             borderRadius: '10px',
             padding: '1rem',
             color: '#93c5fd',
@@ -3842,37 +3842,37 @@ function GoogleSheetsTab({ bot, onUpdateBot }) {
       </div>
 
       {/* Step by Step Setup Instructions */}
-      <div className="card" style={{ padding: '1.5rem', background: '#0a101d', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-        <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#ffffff', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div className="card" style={{ padding: '1.5rem', background: 'var(--bg-deep)', border: '1px solid var(--border-default)' }}>
+        <h4 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
           <span>خطوات الربط في دقيقتين</span>
         </h4>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-          <div style={{ background: '#060a12', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+          <div style={{ background: 'var(--bg-inset)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
             <strong style={{ color: '#60a5fa', display: 'block', marginBottom: '6px', fontSize: '0.88rem' }}>1. أنشئ الشيت</strong>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
               افتح Google Sheets وأنشئ جدولاً جديداً بأي اسم تريده.
             </p>
           </div>
-          <div style={{ background: '#060a12', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+          <div style={{ background: 'var(--bg-inset)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
             <strong style={{ color: '#10b981', display: 'block', marginBottom: '6px', fontSize: '0.88rem' }}>2. افتح Apps Script</strong>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
               من القائمة العلوية اضغط على <strong>الإضافات (Extensions)</strong> ثم <strong>Apps Script</strong>.
             </p>
           </div>
-          <div style={{ background: '#060a12', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+          <div style={{ background: 'var(--bg-inset)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
             <strong style={{ color: '#facc15', display: 'block', marginBottom: '6px', fontSize: '0.88rem' }}>3. الصق الكود</strong>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
               امسح الكود الافتراضي والصق الكود الموجود في الأعلى واضغط حفظ.
             </p>
           </div>
-          <div style={{ background: '#060a12', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+          <div style={{ background: 'var(--bg-inset)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
             <strong style={{ color: '#c084fc', display: 'block', marginBottom: '6px', fontSize: '0.88rem' }}>4. نشر كتطبيق ويب</strong>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
               اضغط <strong>Deploy</strong> ثم <strong>New deployment</strong> واختر <strong>Web app</strong>، واجعل من يملك الإذن: <strong>Anyone</strong>.
             </p>
           </div>
-          <div style={{ background: '#060a12', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+          <div style={{ background: 'var(--bg-inset)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
             <strong style={{ color: '#38bdf8', display: 'block', marginBottom: '6px', fontSize: '0.88rem' }}>5. الصق الرابط واختبر</strong>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
               انسخ الرابط الناتج والصقه في الخانة أعلاه واضغط "إرسال اختبار فوري".

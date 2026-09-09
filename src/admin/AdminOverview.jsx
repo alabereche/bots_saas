@@ -444,12 +444,34 @@ export default function AdminOverview() {
                       {/* Column 2: Bot Name & Avatar */}
                       <td className="admin-col-name">
                         <div className="admin-user-cell">
-                          <div className="admin-table-avatar" style={{ background: avatarGrad }}>
+                          <div
+                            className="admin-table-avatar"
+                            style={{
+                              background: avatarGrad,
+                              width: '40px',
+                              height: '40px',
+                              minWidth: '40px',
+                              maxWidth: '40px',
+                              borderRadius: '50%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                              color: 'var(--text-primary)',
+                              fontWeight: 800,
+                              fontSize: '1rem',
+                              boxShadow: '0 2px 10px rgba(0,0,0,0.35)',
+                            }}
+                          >
                             {botInitial}
                           </div>
                           <div className="admin-table-name-meta">
                             <span className="admin-bot-title">{bot.name || 'بوت بدون اسم'}</span>
-                            <span className="admin-bot-desc">{bot.description || 'بوت محادثة ذكي'}</span>
+                            <span className="admin-bot-desc" title={bot.description || ''}>
+                              {bot.description
+                                ? (bot.description.length > 45 ? bot.description.slice(0, 45) + '...' : bot.description)
+                                : 'بوت محادثة ذكي'}
+                            </span>
                           </div>
                         </div>
                       </td>

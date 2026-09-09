@@ -15,6 +15,17 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Tajawal:wght@400;500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   </head>
   <body>
+    <!-- Theme applied pre-paint: no flash of the wrong mode -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('ab_theme');
+          if (t === 'light' || t === 'dark') {
+            document.documentElement.dataset.theme = t;
+          }
+        } catch (e) {}
+      })();
+    </script>
     <!-- Boot loader: paints instantly, before the JS bundle parses. Removed by main.jsx on mount. -->
     <div id="boot-loader" aria-label="جاري تجهيز منصتك...">
       <style>

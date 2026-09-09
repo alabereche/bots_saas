@@ -242,7 +242,7 @@ export default function Login() {
                   <circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>
                 </svg>
               </div>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '0.25rem', color: '#ffffff' }}>أكمل إعداد حسابك</h3>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '0.25rem', color: 'var(--text-primary)' }}>أكمل إعداد حسابك</h3>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>اختر دولتك لتخصيص العملة واللهجة المناسبة لنشاطك</p>
             </div>
 

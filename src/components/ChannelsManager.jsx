@@ -369,7 +369,7 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span>قنوات التواصل النشطة</span>
               <span style={{ fontSize: '0.78rem', background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', padding: '2px 8px', borderRadius: '20px', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
                 {connectedCount} من 2 متصلة
@@ -404,7 +404,7 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                   </svg>
                 </div>
                 <div>
-                  <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#ffffff' }}>واتساب (WhatsApp)</div>
+                  <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-primary)' }}>واتساب (WhatsApp)</div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>ربط مباشر وسريع عبر كود الهاتف أو الـ QR</div>
                 </div>
               </div>
@@ -433,7 +433,7 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                 </button>
               </>
             ) : (
-              <button className="btn btn-primary" onClick={() => setShowWaModal(true)} style={{ width: '100%', background: 'linear-gradient(135deg, #25d366 0%, #128c7e 100%)', borderColor: 'transparent', padding: '0.75rem', fontWeight: 800, color: '#ffffff', gap: '8px' }}>
+              <button className="btn btn-primary" onClick={() => setShowWaModal(true)} style={{ width: '100%', background: 'linear-gradient(135deg, #25d366 0%, #128c7e 100%)', borderColor: 'transparent', padding: '0.75rem', fontWeight: 800, color: 'var(--text-on-fill)', gap: '8px' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
                 <span>ربط رقم واتساب (كود الهاتف / QR)</span>
               </button>
@@ -455,7 +455,7 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                   </svg>
                 </div>
                 <div>
-                  <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#ffffff' }}>تيليغرام (Telegram Bot)</div>
+                  <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-primary)' }}>تيليغرام (Telegram Bot)</div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>ربط فوري عبر BotFather Token</div>
                 </div>
               </div>
@@ -484,7 +484,7 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                 </button>
               </>
             ) : (
-              <button className="btn btn-primary" onClick={() => setShowTgModal(true)} style={{ width: '100%', background: 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)', borderColor: 'transparent', padding: '0.75rem', fontWeight: 800, color: '#ffffff', gap: '8px' }}>
+              <button className="btn btn-primary" onClick={() => setShowTgModal(true)} style={{ width: '100%', background: 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)', borderColor: 'transparent', padding: '0.75rem', fontWeight: 800, color: 'var(--text-on-fill)', gap: '8px' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
                 <span>إدخال Bot Token تيليغرام</span>
               </button>
@@ -518,7 +518,7 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                 }}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
                 </div>
-                <div style={{ fontWeight: 800, fontSize: '1.02rem', color: '#ffffff', marginBottom: '4px' }}>
+                <div style={{ fontWeight: 800, fontSize: '1.02rem', color: 'var(--text-primary)', marginBottom: '4px' }}>
                   إضافة قناة {isWa ? 'واتساب' : 'تيليغرام'} لهذا البوت
                 </div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
@@ -597,14 +597,14 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                   <div>
                     <div style={{
                       background: 'linear-gradient(145deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%)',
-                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      border: '1px solid var(--border-default)',
                       borderRadius: '18px',
                       padding: '1.4rem',
                       marginBottom: '1.25rem',
                       textAlign: 'right',
                       boxSizing: 'border-box'
                     }}>
-                      <label style={{ display: 'block', fontSize: '0.88rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '10px' }}>
+                      <label style={{ display: 'block', fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '10px' }}>
                         رقم هاتف واتساب الخاص بمتجرك:
                       </label>
 
@@ -615,7 +615,7 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                           position: 'relative',
                           display: 'flex',
                           alignItems: 'center',
-                          background: 'rgba(255, 255, 255, 0.04)',
+                          background: 'var(--veil-1)',
                           borderRight: '1px solid rgba(255, 255, 255, 0.1)'
                         }}>
                           <select
@@ -626,7 +626,7 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                               padding: '12px 10px 12px 12px',
                               background: 'transparent',
                               border: 'none',
-                              color: '#ffffff',
+                              color: 'var(--text-primary)',
                               fontSize: '0.9rem',
                               fontWeight: 800,
                               cursor: 'pointer',
@@ -637,12 +637,12 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                             }}
                           >
                             {COUNTRIES.map(c => (
-                              <option key={c.code} value={c.code} style={{ background: '#0f172a', color: '#ffffff' }}>
+                              <option key={c.code} value={c.code} style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>
                                 {c.flag} {c.dialCode}
                               </option>
                             ))}
                           </select>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ position: 'absolute', right: '8px', pointerEvents: 'none', color: '#94a3b8' }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ position: 'absolute', right: '8px', pointerEvents: 'none', color: 'var(--text-secondary)' }}>
                             <polyline points="6 9 12 15 18 9"/>
                           </svg>
                         </div>
@@ -667,10 +667,10 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                     {waConnecting || (waStatus === 'initializing' && !pairingCode) ? (
                       <div style={{ padding: '1.25rem 0', textAlign: 'center' }}>
                         <div className="spinner spinner-lg" style={{ margin: '0 auto 1rem', borderColor: '#25d366', borderTopColor: 'transparent' }} />
-                        <div style={{ fontWeight: 800, color: '#ffffff', fontSize: '1rem', marginBottom: '4px' }}>
+                        <div style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '1rem', marginBottom: '4px' }}>
                           جاري تهيئة الاتصال وتوليد كود الربط...
                         </div>
-                        <p style={{ fontSize: '0.82rem', color: '#94a3b8' }}>
+                        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
                           ثوانٍ معدودة وسيظهر كود الربط لتأكيده في تطبيق واتساب.
                         </p>
                       </div>
@@ -686,7 +686,7 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                           padding: '1rem',
                           fontWeight: 800,
                           fontSize: '1rem',
-                          color: '#ffffff',
+                          color: 'var(--text-primary)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -822,7 +822,7 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                     <div className="wa-qr-frame">
                       <img src={qrDataUrl} alt="WhatsApp QR Code" className="wa-qr-img" />
                     </div>
-                    <p style={{ fontSize: '0.78rem', color: '#64748b', margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)', margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
                       <span>يتجدد الرمز تلقائياً — إن انتهت صلاحيته انتظر لحظات</span>
                     </p>
@@ -830,8 +830,8 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                 ) : waConnecting || waStatus === 'initializing' ? (
                   <div style={{ padding: '1.25rem 0' }}>
                     <div className="spinner spinner-lg" style={{ margin: '0 auto 1rem', borderColor: '#25d366', borderTopColor: 'transparent' }} />
-                    <p style={{ fontSize: '0.88rem', fontWeight: 700, color: '#ffffff', margin: '0 0 4px' }}>جاري تهيئة محرك واتساب وتوليد رمز الـ QR...</p>
-                    <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: 0 }}>قد تستغرق العملية حتى دقيقة في المرة الأولى — سيظهر الرمز هنا تلقائياً.</p>
+                    <p style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>جاري تهيئة محرك واتساب وتوليد رمز الـ QR...</p>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>قد تستغرق العملية حتى دقيقة في المرة الأولى — سيظهر الرمز هنا تلقائياً.</p>
                   </div>
                 ) : (
                   <div style={{ padding: waStatus === 'error' ? '0.75rem 0' : '1.25rem 0' }}>
@@ -849,7 +849,7 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                         padding: '0.9rem 1.8rem',
                         fontWeight: 800,
                         fontSize: '0.95rem',
-                        color: '#ffffff',
+                        color: 'var(--text-primary)',
                         borderRadius: '14px',
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -889,8 +889,8 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                 style={{
                   flex: waLinking ? 1 : '0 0 auto',
                   background: 'transparent',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  color: '#94a3b8',
+                  border: '1px solid var(--border-default)',
+                  color: 'var(--text-secondary)',
                   padding: '8px 24px',
                   borderRadius: '10px',
                   cursor: 'pointer',

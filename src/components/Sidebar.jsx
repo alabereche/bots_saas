@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import NotificationBell from './NotificationBell';
+import ThemeToggle from './ThemeToggle';
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
@@ -139,6 +140,8 @@ export default function Sidebar() {
             </div>
           </div>
 
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <ThemeToggle />
           <button
             type="button"
             className="sidebar-collapse-btn"
@@ -162,6 +165,7 @@ export default function Sidebar() {
               <polyline points="15 18 9 12 15 6"/>
             </svg>
           </button>
+          </div>
         </div>
 
         {/* Navigation */}
@@ -276,6 +280,7 @@ export default function Sidebar() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <ThemeToggle />
           <NotificationBell variant="mobile" />
           <div className="sidebar-user-avatar" style={{ width: '30px', height: '30px', fontSize: '0.75rem', overflow: 'hidden' }}>
             {userPhoto ? (

@@ -93,7 +93,7 @@ export default function ShowcaseJourney() {
                   </svg>
                 </div>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#ffffff' }}>إعداد بوت المتجر الجديد</div>
+                  <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>إعداد بوت المتجر الجديد</div>
                   <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>الذكاء الاصطناعي جاهز للتهيئة في دقيقة</div>
                 </div>
               </div>

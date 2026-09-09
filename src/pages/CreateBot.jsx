@@ -123,7 +123,7 @@ function NeumorphicSelect({ value, onChange, options, renderSelected, renderOpti
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden', minWidth: 0 }}>
           {renderSelected ? renderSelected(selectedOpt) : (
-            <span style={{ fontWeight: 600, color: '#ffffff' }}>{selectedOpt.label || selectedOpt.name}</span>
+            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{selectedOpt.label || selectedOpt.name}</span>
           )}
         </div>
         <svg 
@@ -517,7 +517,7 @@ export default function CreateBot() {
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          color: '#ffffff',
+                          color: 'var(--text-primary)',
                           fontSize: '11px',
                           fontWeight: 800
                         }}>
@@ -526,7 +526,7 @@ export default function CreateBot() {
                       </div>
 
                       <div>
-                        <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#ffffff' }}>
+                        <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
                           {ch.name}
                         </div>
                         <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: '2px', lineHeight: 1.3 }}>
@@ -539,9 +539,9 @@ export default function CreateBot() {
               </div>
             </div>
 
-            <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.08)', margin: '1.5rem 0' }} />
+            <div style={{ height: '1px', background: 'var(--veil-2)', margin: '1.5rem 0' }} />
 
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#ffffff', marginBottom: '1.25rem' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1.25rem' }}>
               معلومات النشاط والعملة
             </h3>
 
@@ -558,7 +558,7 @@ export default function CreateBot() {
                 renderSelected={c => (
                   <>
                     <span style={{ fontSize: '1.25rem' }}>{c.flag}</span>
-                    <span style={{ fontWeight: 700, color: '#ffffff', fontSize: '0.95rem' }}>{c.name}</span>
+                    <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.95rem' }}>{c.name}</span>
                     <span style={{ fontSize: '0.78rem', color: '#38bdf8', background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.25)', padding: '2px 8px', borderRadius: '6px', fontWeight: 600 }}>
                       {c.currency} ({c.currencyName})
                     </span>
@@ -598,7 +598,7 @@ export default function CreateBot() {
                     <span style={{ color: '#10b981', fontSize: '1.05rem' }}>
                       {b.value === 'shop' ? '🛍️' : b.value === 'restaurant' ? '🍔' : b.value === 'clinic' ? '🩺' : b.value === 'realestate' ? '🏢' : b.value === 'booking' ? '📅' : b.value === 'education' ? '🎓' : '💼'}
                     </span>
-                    <span style={{ fontWeight: 700, color: '#ffffff', fontSize: '0.95rem' }}>{b.label}</span>
+                    <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.95rem' }}>{b.label}</span>
                   </>
                 )}
                 renderOption={(b, isSelected) => (
@@ -652,7 +652,7 @@ export default function CreateBot() {
 
         {step === 2 && (
           <div className="wizard-body">
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ffffff', marginBottom: '1.25rem' }}>
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1.25rem' }}>
               شخصية البوت وأسلوب التحدث
             </h3>
 
@@ -692,7 +692,7 @@ export default function CreateBot() {
 
         {step === 3 && (
           <div className="wizard-body">
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ffffff', marginBottom: '1.25rem' }}>
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1.25rem' }}>
               الربط والتشغيل الفوري
             </h3>
 
@@ -702,7 +702,7 @@ export default function CreateBot() {
                 <span style={{ color: '#34d399' }}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                 </span>
-                <span style={{ fontWeight: 700, color: '#ffffff', fontSize: '0.95rem' }}>الربط يتم بعد الإنشاء — بلا أي عقبات الآن</span>
+                <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.95rem' }}>الربط يتم بعد الإنشاء — بلا أي عقبات الآن</span>
               </div>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
                 بمجرد الإنشاء ستنتقل لصفحة بوتك وتجد تبويب <strong style={{ color: '#34d399' }}>قنوات الربط</strong> جاهزاً:
@@ -711,8 +711,8 @@ export default function CreateBot() {
             </div>
 
             {/* Channels Summary Card */}
-            <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '1.25rem', marginBottom: '1.25rem' }}>
-              <div style={{ fontWeight: 700, color: '#ffffff', marginBottom: '0.75rem', fontSize: '0.95rem' }}>
+            <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-default)', borderRadius: '12px', padding: '1.25rem', marginBottom: '1.25rem' }}>
+              <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.75rem', fontSize: '0.95rem' }}>
                 القنوات المفعلة للربط في هذا البوت ({selectedChannels.length}):
               </div>
               <div style={{ display: 'grid', gap: '8px' }}>
@@ -720,10 +720,10 @@ export default function CreateBot() {
                   const ch = CHANNELS_CONFIG.find(c => c.id === chId);
                   if (!ch) return null;
                   return (
-                    <div key={ch.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: '8px', background: 'rgba(255, 255, 255, 0.03)' }}>
+                    <div key={ch.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: '8px', background: 'var(--veil-1)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ color: ch.color }}>{ch.icon}</span>
-                        <span style={{ fontWeight: 600, color: '#ffffff', fontSize: '0.9rem' }}>{ch.name}</span>
+                        <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>{ch.name}</span>
                       </div>
                       <span style={{ fontSize: '0.78rem', color: '#10b981', fontWeight: 600 }}>
                         جاهز للربط الفوري ✓

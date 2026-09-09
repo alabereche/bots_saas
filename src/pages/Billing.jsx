@@ -6,7 +6,7 @@ export default function Billing() {
   return (
     <div className="page-container" style={{ maxWidth: '780px', margin: '0 auto', paddingBottom: '3rem' }}>
       <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#ffffff', marginBottom: '0.4rem' }}>
+        <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.4rem' }}>
           الاشتراكات والخطط
         </h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem' }}>
@@ -36,7 +36,7 @@ export default function Billing() {
         <div style={{
           width: '64px', height: '64px',
           margin: '0 auto 1.25rem',
-          background: '#18243b',
+          background: 'var(--bg-cell)',
           color: 'var(--color-primary)',
           borderRadius: 'var(--radius-lg)',
           display: 'flex',
@@ -49,7 +49,7 @@ export default function Billing() {
           </svg>
         </div>
 
-        <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#ffffff', marginBottom: '0.75rem' }}>
+        <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
           تمتع بجميع ميزات المنصة مجاناً
         </h2>
         
@@ -67,7 +67,7 @@ export default function Billing() {
 
       {/* FAQ Section */}
       <div style={{ marginTop: '2rem' }}>
-        <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ffffff', marginBottom: '1rem' }}>
+        <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1rem' }}>
           الأسئلة الشائعة
         </h3>
         

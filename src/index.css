@@ -5615,3 +5615,59 @@ html, body {
 [data-theme='light'] .catalog-hero-card {
   box-shadow: 0 12px 32px -18px rgba(15, 23, 42, 0.14);
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   LIGHT THEME — chat bubbles + secondary buttons (final layer)
+   ═══════════════════════════════════════════════════════════════ */
+[data-theme='light'] .chat-msg--bot .chat-bubble {
+  background: #e9f7ef;
+  color: #14532d;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+[data-theme='light'] .chat-msg--user .chat-bubble {
+  background: #ffffff;
+  color: var(--text-primary);
+}
+[data-theme='light'] .chat-msg--bot .chat-msg-time,
+[data-theme='light'] .chat-msg--user .chat-msg-time { color: var(--text-tertiary); }
+
+[data-theme='light'] .btn-secondary {
+  background: #ffffff;
+  color: var(--text-primary);
+  border-color: var(--border-default);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+[data-theme='light'] .btn-secondary:hover:not(:disabled) {
+  background: var(--veil-1);
+  border-color: var(--border-bright);
+  color: var(--text-primary);
+}
+[data-theme='light'] .btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+[data-theme='light'] .btn-ghost:hover:not(:disabled) {
+  background: var(--veil-1);
+  color: var(--text-primary);
+}
+
+/* Channel link cards (inline dark backgrounds need !important) */
+[data-theme='light'] .channel-card--whatsapp,
+[data-theme='light'] .channel-card--telegram {
+  background: #ffffff !important;
+  border-color: var(--border-default) !important;
+}
+[data-theme='light'] .channel-card--whatsapp .btn-secondary,
+[data-theme='light'] .channel-card--telegram .btn-secondary {
+  background: #ffffff;
+  color: var(--text-primary);
+  border-color: var(--border-default);
+  box-shadow: none;
+}
+[data-theme='light'] .channel-card--whatsapp .btn-danger,
+[data-theme='light'] .channel-card--telegram .btn-danger {
+  background: #ffffff;
+  color: var(--color-error);
+  border-color: rgba(239, 68, 68, 0.35);
+  box-shadow: none;
+}

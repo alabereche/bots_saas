@@ -140,7 +140,7 @@ export default function Sidebar() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div className="sidebar-brand-actions" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <ThemeToggle />
           <button
             type="button"

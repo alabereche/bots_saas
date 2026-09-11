@@ -118,16 +118,16 @@ export default function Sidebar() {
           >
             <div className="sidebar-logo">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="9" stroke="url(#auraRingGrad)" strokeWidth="1.8" strokeDasharray="2.5 2.5"/>
-                <path d="M12 4.5L14.2 9.8L19.5 12L14.2 14.2L12 19.5L9.8 14.2L4.5 12L9.8 9.8L12 4.5Z" fill="url(#auraSparkGrad)"/>
+                <line x1="12" y1="4" x2="12" y2="7" stroke="#ffffff" strokeWidth="1.6" strokeLinecap="round"/>
+                <circle cx="12" cy="3.4" r="1" fill="#ffffff"/>
+                <rect x="4.5" y="7" width="15" height="12" rx="4" fill="#ffffff"/>
+                <circle cx="9.4" cy="12.4" r="1.7" fill="#0b7d5e"/>
+                <circle cx="14.6" cy="12.4" r="1.7" fill="#0b7d5e"/>
+                <path d="M10.2 15.9c.7.6 2.9.6 3.6 0" stroke="#0b7d5e" strokeWidth="1.3" strokeLinecap="round"/>
                 <defs>
-                  <linearGradient id="auraRingGrad" x1="0" y1="0" x2="24" y2="24">
-                    <stop offset="0%" stopColor="#34d399"/>
-                    <stop offset="100%" stopColor="#06b6d4"/>
-                  </linearGradient>
-                  <linearGradient id="auraSparkGrad" x1="4" y1="4" x2="20" y2="20">
-                    <stop offset="0%" stopColor="#6ee7b7"/>
-                    <stop offset="100%" stopColor="#10b981"/>
+                  <linearGradient id="logoTileGrad" x1="0" y1="0" x2="24" y2="24">
+                    <stop offset="0%" stopColor="#10b981"/>
+                    <stop offset="100%" stopColor="#059669"/>
                   </linearGradient>
                 </defs>
               </svg>
@@ -206,8 +206,12 @@ export default function Sidebar() {
           {/* الفراغ المتبقي: علامة مائية متعمدة بدل هوة ميتة */}
           <div className="sidebar-void" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="9" stroke="url(#voidRing)" strokeWidth="1" strokeDasharray="2.5 2.5"/>
-              <path d="M12 4.5L14.2 9.8L19.5 12L14.2 14.2L12 19.5L9.8 14.2L4.5 12L9.8 9.8L12 4.5Z" fill="url(#voidSpark)"/>
+              <line x1="12" y1="4" x2="12" y2="7" stroke="url(#voidRing)" strokeWidth="1.1" strokeLinecap="round"/>
+              <circle cx="12" cy="3.4" r="0.9" fill="url(#voidRing)"/>
+              <rect x="4.5" y="7" width="15" height="12" rx="4" stroke="url(#voidRing)" strokeWidth="1"/>
+              <circle cx="9.4" cy="12.4" r="1.4" fill="url(#voidSpark)"/>
+              <circle cx="14.6" cy="12.4" r="1.4" fill="url(#voidSpark)"/>
+              <path d="M10.2 15.9c.7.6 2.9.6 3.6 0" stroke="url(#voidSpark)" strokeWidth="1" strokeLinecap="round"/>
               <defs>
                 <linearGradient id="voidRing" x1="0" y1="0" x2="24" y2="24">
                   <stop offset="0%" stopColor="#34d399"/>
@@ -259,17 +263,17 @@ export default function Sidebar() {
       <header className="mobile-top-bar">
         <div className="mobile-top-brand">
           <div className="sidebar-logo" style={{ width: '32px', height: '32px' }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="9" stroke="url(#auraRingGradMob)" strokeWidth="1.8" strokeDasharray="2.5 2.5"/>
-              <path d="M12 4.5L14.2 9.8L19.5 12L14.2 14.2L12 19.5L9.8 14.2L4.5 12L9.8 9.8L12 4.5Z" fill="url(#auraSparkGradMob)"/>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <line x1="12" y1="4" x2="12" y2="7" stroke="#ffffff" strokeWidth="1.6" strokeLinecap="round"/>
+              <circle cx="12" cy="3.4" r="1" fill="#ffffff"/>
+              <rect x="4.5" y="7" width="15" height="12" rx="4" fill="#ffffff"/>
+              <circle cx="9.4" cy="12.4" r="1.7" fill="#0b7d5e"/>
+              <circle cx="14.6" cy="12.4" r="1.7" fill="#0b7d5e"/>
+              <path d="M10.2 15.9c.7.6 2.9.6 3.6 0" stroke="#0b7d5e" strokeWidth="1.3" strokeLinecap="round"/>
               <defs>
-                <linearGradient id="auraRingGradMob" x1="0" y1="0" x2="24" y2="24">
-                  <stop offset="0%" stopColor="#34d399"/>
-                  <stop offset="100%" stopColor="#06b6d4"/>
-                </linearGradient>
-                <linearGradient id="auraSparkGradMob" x1="4" y1="4" x2="20" y2="20">
-                  <stop offset="0%" stopColor="#6ee7b7"/>
-                  <stop offset="100%" stopColor="#10b981"/>
+                <linearGradient id="logoTileGradMob" x1="0" y1="0" x2="24" y2="24">
+                  <stop offset="0%" stopColor="#10b981"/>
+                  <stop offset="100%" stopColor="#059669"/>
                 </linearGradient>
               </defs>
             </svg>

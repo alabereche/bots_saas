@@ -171,7 +171,7 @@ export default function Sidebar() {
         {/* Navigation */}
         <nav className="sidebar-nav">
           {navSections.map((sec, sIdx) => (
-            <div key={sIdx} style={{ marginBottom: '6px' }}>
+            <div key={sIdx} className="nav-group">
               <div className="sidebar-section-title">{sec.title}</div>
               {sec.items.map(item => (
                 <NavLink
@@ -181,7 +181,7 @@ export default function Sidebar() {
                   title={collapsed ? item.desktopLabel : undefined}
                   className={({ isActive }) => `sidebar-link ${isActive ? 'sidebar-link--active' : ''}`}
                 >
-                  <div className="sidebar-link-icon">{item.icon}</div>
+                  {item.icon}
                   <span className="sidebar-link-label">{item.desktopLabel}</span>
                   {item.badge && <span className="sidebar-link-badge">{item.badge}</span>}
                 </NavLink>
@@ -226,36 +226,37 @@ export default function Sidebar() {
           </div>
         </nav>
 
-        {/* User Footer */}
+        {/* User Footer — bordered identity card (Untitled-style) */}
         <div className="sidebar-footer">
-          <div className="sidebar-user">
+          <div className="sidebar-user-card">
             <div className="sidebar-user-avatar" style={{ overflow: 'hidden' }}>
               {userPhoto ? (
-                <img 
-                  src={userPhoto} 
-                  alt={displayName} 
-                  referrerPolicy="no-referrer" 
+                <img
+                  src={userPhoto}
+                  alt={displayName}
+                  referrerPolicy="no-referrer"
                   style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
                 />
               ) : displayLetter}
+              <span className="sidebar-user-presence" />
             </div>
             <div className="sidebar-user-info">
               <span className="sidebar-user-name" title={displayName}>{displayName}</span>
               <span className="sidebar-user-email" title={user?.email || ''}>{user?.email || ''}</span>
             </div>
+            <button
+              onClick={handleLogout}
+              className="sidebar-logout"
+              title="تسجيل الخروج"
+              type="button"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+            </button>
           </div>
-          <button 
-            onClick={handleLogout} 
-            className="sidebar-logout" 
-            title="تسجيل الخروج"
-            type="button"
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-              <polyline points="16 17 21 12 16 7"/>
-              <line x1="21" y1="12" x2="9" y2="12"/>
-            </svg>
-          </button>
         </div>
       </aside>
 

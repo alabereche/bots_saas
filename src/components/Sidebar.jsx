@@ -170,6 +170,9 @@ export default function Sidebar() {
 
         {/* Navigation */}
         <nav className="sidebar-nav">
+          <div className="nav-group sidebar-notif-group">
+            <NotificationBell variant="desktop" />
+          </div>
           {navSections.map((sec, sIdx) => (
             <div key={sIdx} className="nav-group">
               <div className="sidebar-section-title">{sec.title}</div>

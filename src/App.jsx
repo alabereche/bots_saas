@@ -6,7 +6,6 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Sidebar from './components/Sidebar';
 import AmbientBackground from './components/AmbientBackground';
 import BotLoader from './components/BotLoader';
-import NotificationBell from './components/NotificationBell';
 
 // Lazy-loaded routes for optimal bundle code-splitting
 const Landing = lazy(() => import('./pages/Landing'));
@@ -61,10 +60,6 @@ function AppLayout() {
                   <AmbientBackground />
                   <Sidebar />
                   <main className="app-main">
-                    {/* Desktop bell — pinned to the content header's far corner */}
-                    <div className="desktop-topbar">
-                      <NotificationBell variant="desktop" />
-                    </div>
                     <Suspense fallback={<PageLoader />}>
                       <Routes>
                         <Route path="/dashboard" element={<Dashboard />} />

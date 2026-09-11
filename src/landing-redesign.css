@@ -789,3 +789,6 @@
 .hero-demo-wrap .chip-1 { top: -3%; left: 3%; }
 .hero-demo-wrap .chip-2 { display: none; }
 .hero-demo-wrap .chip-3 { top: auto; bottom: -3%; right: 3%; }
+
+/* Remove the faint grid overlay from the landing background (user call) */
+.modern-grid-overlay { display: none !important; }

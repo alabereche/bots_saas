@@ -719,14 +719,11 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                           كود الربط (8 خانات)
                         </span>
                         {timeLeft !== null && (
-                          <span style={{
+                          <span className={`wa-ttl-pill${timeLeft < 30 ? ' is-low' : ''}`} style={{
                             fontSize: '0.78rem',
                             fontWeight: 800,
-                            color: timeLeft < 30 ? '#f87171' : '#94a3b8',
-                            background: 'rgba(0, 0, 0, 0.35)',
                             padding: '4px 10px',
                             borderRadius: '8px',
-                            border: `1px solid ${timeLeft < 30 ? 'rgba(239, 68, 68, 0.35)' : 'rgba(255, 255, 255, 0.08)'}`,
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '5px'
@@ -764,6 +761,7 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                         <button
                           type="button"
                           onClick={copyPairingCodeToClipboard}
+                          className="wa-copy-btn"
                           style={{
                             background: copiedCode ? '#10b981' : 'linear-gradient(135deg, rgba(37, 211, 102, 0.25) 0%, rgba(16, 185, 129, 0.2) 100%)',
                             border: copiedCode ? '1px solid transparent' : '1px solid rgba(37, 211, 102, 0.45)',

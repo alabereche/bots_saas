@@ -5725,6 +5725,31 @@ html, body {
   color: var(--text-secondary);
 }
 
+/* Pairing-code box in light theme — ink digits on white tiles (was dark-on-dark),
+   readable countdown pill, and solid copy button */
+[data-theme='light'] .wa-pair-digit {
+  color: #0f172a;
+  background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
+  border-color: rgba(16, 185, 129, 0.5);
+  box-shadow: inset 0 -3px 8px rgba(15, 23, 42, 0.05), 0 4px 12px rgba(15, 23, 42, 0.1);
+}
+[data-theme='light'] .wa-pair-sep { color: #059669; }
+[data-theme='light'] .wa-ttl-pill {
+  color: #475569;
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+}
+[data-theme='light'] .wa-ttl-pill.is-low {
+  color: #dc2626;
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+[data-theme='light'] .wa-copy-btn {
+  background: #10b981 !important;
+  border-color: transparent !important;
+  color: #ffffff !important;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    ORDERS v2 — status tokens + simplified lifecycle cards
    (4 statuses · activity-adaptive labels · dual-theme by tokens)
@@ -6251,4 +6276,16 @@ html, body {
 .notif-panel--floating {
   position: fixed !important;
   z-index: 3000;
+}
+
+/* Pairing-code countdown pill — themed (dark default + light override above) */
+.wa-ttl-pill {
+  color: #94a3b8;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.wa-ttl-pill.is-low {
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
 }

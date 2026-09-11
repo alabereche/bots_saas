@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import InteractivePlayground from '../components/InteractivePlayground';
 import ModernBackground from '../components/ModernBackground';
 import '../landing-redesign.css';
 
@@ -167,35 +166,6 @@ const IconRocketCheck = () => (
   </svg>
 );
 
-/* Product illustration inside the hero chat (geometric GPU card) */
-const GpuIllustration = () => (
-  <svg width="100%" height="86" viewBox="0 0 200 86" fill="none" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-    <rect width="200" height="86" fill="url(#gpuBg)" />
-    <rect x="38" y="26" width="112" height="40" rx="6" fill="#101a2e" stroke="#2b3b58" strokeWidth="1.4" />
-    <circle cx="62" cy="46" r="11" fill="url(#gpuFan)" stroke="#3d5175" strokeWidth="1.2" />
-    <circle cx="62" cy="46" r="5" stroke="#4d648c" strokeWidth="1" />
-    <path d="M62 38v16M54 46h16" stroke="#4d648c" strokeWidth="1" />
-    <circle cx="92" cy="46" r="11" fill="url(#gpuFan)" stroke="#3d5175" strokeWidth="1.2" />
-    <circle cx="92" cy="46" r="5" stroke="#4d648c" strokeWidth="1" />
-    <path d="M92 38v16M84 46h16" stroke="#4d648c" strokeWidth="1" />
-    <rect x="112" y="36" width="28" height="7" rx="2" fill="#10b981" opacity="0.85" />
-    <rect x="112" y="47" width="18" height="4" rx="2" fill="#22d3ee" opacity="0.6" />
-    <path d="M150 20l4-8 4 8-4 8-4-8z" fill="#34d399" opacity="0.9" />
-    <circle cx="168" cy="62" r="2" fill="#22d3ee" />
-    <circle cx="30" cy="16" r="1.6" fill="#34d399" opacity="0.7" />
-    <defs>
-      <linearGradient id="gpuBg" x1="0" y1="0" x2="200" y2="86">
-        <stop offset="0%" stopColor="#0c1526" />
-        <stop offset="100%" stopColor="#0a2233" />
-      </linearGradient>
-      <radialGradient id="gpuFan" cx="0.35" cy="0.35" r="1">
-        <stop offset="0%" stopColor="#1c2c4a" />
-        <stop offset="100%" stopColor="#0e1830" />
-      </radialGradient>
-    </defs>
-  </svg>
-);
-
 export default function Landing() {
   const { isAuthenticated } = useAuth();
   const [dailyMessages, setDailyMessages] = useState(60);
@@ -270,11 +240,9 @@ export default function Landing() {
                   <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
                 </svg>
               </Link>
-              <a href="#interactive-demo" className="hero-btn-secondary">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polygon points="5 3 19 12 5 21 5 3" />
-                </svg>
-                <span>جرّب المحاكي الحي</span>
+              <a href="https://t.me/Zcodybot" target="_blank" rel="noopener noreferrer" className="hero-btn-secondary">
+                <IconTelegram size={16} />
+                <span>جرّب بوتاً حياً</span>
               </a>
             </div>
 
@@ -303,85 +271,41 @@ export default function Landing() {
             </div>
           </div>
 
-          {/* ─── Signature: the 2:47 AM living phone ─── */}
-          <div className="hero-phone-wrap" aria-hidden="true">
+          {/* ─── Live demo card — a real bot, one tap away ─── */}
+          <div className="hero-demo-wrap">
             <div className="phone-glow" />
-            <div className="hero-phone">
-              <div className="phone-screen">
-                <div className="wa-header">
-                  <div className="wa-avatar"><LogoMark size={17} /></div>
-                  <div className="wa-header-info">
-                    <span className="wa-name">باتنة تك — المتجر</span>
-                    <span className="wa-status">متصل • يرد فوراً</span>
-                  </div>
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8b98ad" strokeWidth="1.8">
-                    <circle cx="12" cy="5" r="1.4" fill="#8b98ad" /><circle cx="12" cy="12" r="1.4" fill="#8b98ad" /><circle cx="12" cy="19" r="1.4" fill="#8b98ad" />
-                  </svg>
-                </div>
-
-                <div className="wa-body">
-                  <div className="wa-day-chip">الليلة • 2:47 ص</div>
-
-                  <div className="wa-msg wa-customer wa-seq-1">
-                    سلام خويا، عندكم RTX 4060؟ شحال؟
-                    <span className="wa-time">2:47 ص</span>
-                  </div>
-
-                  <div className="wa-typing wa-seq-2">
-                    <span /><span /><span />
-                  </div>
-
-                  <div className="wa-msg wa-bot wa-seq-3">
-                    <div className="wa-product-card">
-                      <GpuIllustration />
-                      <div className="wa-product-info">
-                        <strong>كارت RTX 4060 8GB</strong>
-                        <div className="wa-price-row">
-                          <span className="wa-price">64,000 دج</span>
-                          <span className="wa-webp-badge">WebP</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="wa-bot-text">واه متوفر خويا! كيما راك، نحجزولك وحدة؟</div>
-                    <span className="wa-time wa-time-bot">2:47 ص <b className="wa-ticks">✓✓</b></span>
-                  </div>
-
-                  <div className="wa-msg wa-customer wa-seq-4">
-                    واه حبيت نكوموندي، ها رقمي 0X XX XX XX XX
-                    <span className="wa-time">2:48 ص</span>
-                  </div>
-
-                  <div className="wa-order-chip wa-seq-5">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.6">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                    تم تأكيد الطلبية — <b>#DZ-K7M2X9</b>
-                  </div>
-                </div>
+            <div className="hero-demo-card">
+              <span className="demo-badge">
+                <span className="demo-badge-dot" />
+                بوت تجريبي — ردود حقيقية بالذكاء الاصطناعي
+              </span>
+              <h3 className="demo-title">جرّب بوتاً حياً الآن</h3>
+              <p className="demo-sub">
+                افتح تيليغرام، اكتب له كما يكتب زبون حقيقي — وشاهد كيف يرد ويعرض
+                المنتجات ويسجّل طلبيتك وحدها.
+              </p>
+              <div className="demo-try-chips">
+                <span>«ماذا لديكم؟»</span>
+                <span>«كم السعر؟»</span>
+                <span>«أريد أطلب»</span>
               </div>
+              <a
+                href="https://t.me/Zcodybot"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="demo-cta-btn"
+              >
+                <IconTelegram size={19} />
+                <span>افتح البوت في تيليغرام</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
+                </svg>
+              </a>
             </div>
 
-            <div className="float-chip chip-1">⚡ يرد في 0.8 ثانية</div>
-            <div className="float-chip chip-2">📦 الطلبية تتسجل وحدتها</div>
-            <div className="float-chip chip-3">🌙 يرد حتى في الليل</div>
+            <div className="float-chip chip-1">⚡ يرد في ثوانٍ</div>
+            <div className="float-chip chip-3">🌙 يعمل حتى وأنت نايم</div>
           </div>
-        </div>
-      </section>
-
-      {/* ─── Interactive Dual-Terminal Section ─── */}
-      <section className="landing-section playground-section" id="interactive-demo">
-        <div className="landing-container">
-          <div className="section-header-center">
-            <div className="section-pill">المعاينة الحية المتزامنة</div>
-            <h2 className="section-title">
-              شاهد كيف يعمل النظام <span className="highlight-text-emerald">بين الزبون ولوحة التحكم</span>
-            </h2>
-            <p className="section-subtitle">
-              تفاعل مع المحاكي، وشاهد كيف تُستخرج الطلبية وتُسجل في لوحة التاجر فوراً وبدقة.
-            </p>
-          </div>
-
-          <InteractivePlayground />
         </div>
       </section>
 

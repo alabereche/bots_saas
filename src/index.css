@@ -6245,3 +6245,10 @@ html, body {
 [data-theme='light'] .notif-bell--desktop .notif-bell-btn { color: #334155; }
 [data-theme='light'] .notif-bell--desktop .notif-bell-btn:hover { background: #f1f5f9; color: #0f172a; }
 [data-theme='light'] .notif-bell--desktop .notif-bell-btn[aria-expanded='true'] { background: #eef2f7; color: #0f172a; }
+
+/* Floating portal panel — rendered in document.body, positioned to the
+   bell button; immune to the sidebar card's overflow clipping */
+.notif-panel--floating {
+  position: fixed !important;
+  z-index: 3000;
+}

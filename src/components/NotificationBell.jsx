@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../services/firebase';
 import { collection, query, where, limit, onSnapshot, updateDoc, writeBatch, doc } from 'firebase/firestore';
@@ -28,11 +29,16 @@ const AlertIcon = (
 );
 
 // Merchant notification bell — realtime Firestore listener, unread badge,
-// dropdown feed. Rendered in both the desktop sidebar and the mobile top bar.
+// dropdown feed. Mobile renders inline under the top bar; desktop renders
+// through a portal anchored to the button, so the floating card (overflow
+// contexts) can never clip it.
 export default function NotificationBell({ variant = 'desktop' }) {
   const [items, setItems] = useState([]);
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState(null); // { top, right, width } for the desktop portal
   const wrapRef = useRef(null);
+  const btnRef = useRef(null);
+  const panelRef = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -48,10 +54,35 @@ export default function NotificationBell({ variant = 'desktop' }) {
     return unsub;
   }, []);
 
+  const updatePos = useCallback(() => {
+    const btn = btnRef.current;
+    if (!btn) return;
+    const r = btn.getBoundingClientRect();
+    setPos({
+      top: r.bottom + 8,
+      right: Math.max(8, window.innerWidth - r.right),
+      width: Math.min(340, window.innerWidth - 24),
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open || variant !== 'desktop') return undefined;
+    updatePos();
+    window.addEventListener('resize', updatePos);
+    window.addEventListener('scroll', updatePos, true);
+    return () => {
+      window.removeEventListener('resize', updatePos);
+      window.removeEventListener('scroll', updatePos, true);
+    };
+  }, [open, variant, updatePos]);
+
   useEffect(() => {
     if (!open) return undefined;
     const onDocClick = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+      if (
+        wrapRef.current && !wrapRef.current.contains(e.target) &&
+        (!panelRef.current || !panelRef.current.contains(e.target))
+      ) setOpen(false);
     };
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
@@ -75,11 +106,54 @@ export default function NotificationBell({ variant = 'desktop' }) {
     if (n.botId) navigate(`/bot/${n.botId}`);
   };
 
+  const panel = (
+    <div
+      className={`notif-panel${variant === 'desktop' ? ' notif-panel--floating' : ''}`}
+      ref={panelRef}
+      style={variant === 'desktop' && pos ? { top: pos.top, right: pos.right, width: pos.width, left: 'auto' } : undefined}
+    >
+      <div className="notif-panel-head">
+        <span className="notif-panel-title">الإشعارات</span>
+        {unread > 0 && (
+          <button type="button" className="notif-mark-read" onClick={markAllRead}>
+            تحديد الكل كمقروء
+          </button>
+        )}
+      </div>
+
+      <div className="notif-list">
+        {items.length === 0 ? (
+          <div className="notif-empty">
+            لا إشعارات بعد — الطلبيات الجديدة والتنبيهات المهمة ستظهر هنا فوراً.
+          </div>
+        ) : items.map(n => (
+          <button
+            type="button"
+            key={n.id}
+            className={`notif-item${n.read ? '' : ' notif-item--unread'}`}
+            onClick={() => openItem(n)}
+          >
+            <span className={`notif-item-icon notif-item-icon--${n.type === 'order' ? 'order' : 'system'}`}>
+              {n.type === 'order' ? BoxIcon : AlertIcon}
+            </span>
+            <span className="notif-item-body">
+              <span className="notif-item-title">{n.title}</span>
+              {n.body && <span className="notif-item-desc">{n.body}</span>}
+              <span className="notif-item-time">{timeAgo(n.createdIso)}</span>
+            </span>
+            {!n.read && <span className="notif-item-dot" />}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div className={`notif-bell notif-bell--${variant}`} ref={wrapRef}>
       <button
         type="button"
         className="notif-bell-btn"
+        ref={btnRef}
         onClick={() => setOpen(o => !o)}
         title="الإشعارات"
         aria-label="الإشعارات"
@@ -92,43 +166,7 @@ export default function NotificationBell({ variant = 'desktop' }) {
         {unread > 0 && <span className="notif-badge">{unread > 9 ? '9+' : unread}</span>}
       </button>
 
-      {open && (
-        <div className="notif-panel">
-          <div className="notif-panel-head">
-            <span className="notif-panel-title">الإشعارات</span>
-            {unread > 0 && (
-              <button type="button" className="notif-mark-read" onClick={markAllRead}>
-                تحديد الكل كمقروء
-              </button>
-            )}
-          </div>
-
-          <div className="notif-list">
-            {items.length === 0 ? (
-              <div className="notif-empty">
-                لا إشعارات بعد — الطلبيات الجديدة والتنبيهات المهمة ستظهر هنا فوراً.
-              </div>
-            ) : items.map(n => (
-              <button
-                type="button"
-                key={n.id}
-                className={`notif-item${n.read ? '' : ' notif-item--unread'}`}
-                onClick={() => openItem(n)}
-              >
-                <span className={`notif-item-icon notif-item-icon--${n.type === 'order' ? 'order' : 'system'}`}>
-                  {n.type === 'order' ? BoxIcon : AlertIcon}
-                </span>
-                <span className="notif-item-body">
-                  <span className="notif-item-title">{n.title}</span>
-                  {n.body && <span className="notif-item-desc">{n.body}</span>}
-                  <span className="notif-item-time">{timeAgo(n.createdIso)}</span>
-                </span>
-                {!n.read && <span className="notif-item-dot" />}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {open && (variant === 'desktop' ? createPortal(panel, document.body) : panel)}
     </div>
   );
 }

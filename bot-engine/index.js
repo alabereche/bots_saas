@@ -20,7 +20,7 @@ import {
   formatSingleOrderCard,
   formatMultipleOrdersList,
   formatNoOrdersFound,
-  DELIVERY_STATUS_LABELS,
+  customerStatusLabel,
   PROVIDER_NAMES,
 } from './tracking-helper.js';
 import { encrypt, decrypt } from './encryption.js';
@@ -290,12 +290,13 @@ async function saveOrderToFirestore(orderData, orderMergeMode = 'merge') {
     const userId = await resolveOwnerUserId(orderData.botId, orderData.ownerUserId);
     const now = new Date().toISOString();
 
-    // Check if merge mode is active and customer has a pending order
+    // Check if merge mode is active and customer has an open (accepted-stage) order
     if (orderMergeMode !== 'separate' && (orderData.customerId || orderData.phone)) {
       try {
+        // 'in' covers the new accepted stage plus legacy pending/preparing rows
         const snap = await db.collection('orders')
           .where('botId', '==', orderData.botId)
-          .where('deliveryStatus', '==', 'pending')
+          .where('deliveryStatus', 'in', ['accepted', 'pending', 'preparing'])
           .limit(10)
           .get();
 
@@ -323,7 +324,7 @@ async function saveOrderToFirestore(orderData, orderMergeMode = 'merge') {
             lastModified: FieldValue.serverTimestamp(),
             statusHistory: FieldValue.arrayUnion({
               orderStatus: 'confirmed',
-              deliveryStatus: 'pending',
+              deliveryStatus: 'accepted',
               timestamp: now,
               note: 'تم تحديث ودمج الطلبية بنجاح',
             })
@@ -340,7 +341,7 @@ async function saveOrderToFirestore(orderData, orderMergeMode = 'merge') {
     const trackingCode = orderData.trackingCode || generateTrackingCode();
     const initialHistory = [{
       orderStatus: 'confirmed',
-      deliveryStatus: 'pending',
+      deliveryStatus: 'accepted',
       timestamp: now,
       note: 'تم تسجيل وتأكيد الطلبية بنجاح',
     }];
@@ -350,7 +351,7 @@ async function saveOrderToFirestore(orderData, orderMergeMode = 'merge') {
       trackingCode,
       userId: userId || '',
       orderStatus: orderData.orderStatus || 'confirmed',
-      deliveryStatus: orderData.deliveryStatus || 'pending',
+      deliveryStatus: orderData.deliveryStatus || 'accepted',
       status: 'new', // backward compatibility
       statusHistory: initialHistory,
       deliveryProvider: orderData.deliveryProvider || 'manual',
@@ -997,9 +998,9 @@ async function startBot(config) {
         let trackingReply = '';
 
         if (orders.length === 1) {
-          trackingReply = formatSingleOrderCard(orders[0]);
+          trackingReply = formatSingleOrderCard(orders[0], currentConfig.businessType);
         } else if (orders.length > 1) {
-          trackingReply = formatMultipleOrdersList(orders);
+          trackingReply = formatMultipleOrdersList(orders, currentConfig.businessType);
         } else {
           trackingReply = formatNoOrdersFound(explicitCode);
         }
@@ -1456,12 +1457,11 @@ app.post('/api/orders/:id/delivery-status', async (req, res) => {
 
   if (notifyCustomer && order && order.customerId && !updateResult.alreadyProcessed) {
     try {
-      const statusLabel = DELIVERY_STATUS_LABELS[deliveryStatus] || deliveryStatus;
+      const statusLabel = customerStatusLabel(deliveryStatus, botConfig.businessType);
       const providerName = PROVIDER_NAMES[provider] || provider || '';
 
-      let notifMsg = `*تحديث حالة طلبيتك:*\n\n`;
-      notifMsg += `أهلاً بك! تم تحديث حالة طردك إلى:\n`;
-      notifMsg += `• ${statusLabel}\n\n`;
+      let notifMsg = `*📢 تحديث حالة طلبيتك:*\n\n`;
+      notifMsg += `${statusLabel}\n\n`;
       if (order.product) {
         notifMsg += `• *المنتج:* ${order.product}\n`;
       }
@@ -1475,7 +1475,7 @@ app.post('/api/orders/:id/delivery-status', async (req, res) => {
         notifMsg += `\n*كود التتبع الخاص بك (لنسخه واستخدامه مباشرة):*\n`;
         notifMsg += `\`${order.trackingCode || 'DZ-XXXXXX'}\`\n\n`;
       }
-      notifMsg += `يمكنك كتابة "تتبع" في أي وقت للاستعلام المباشر عن حالة الطرد.`;
+      notifMsg += `يمكنك كتابة "تتبع" في أي وقت للاستعلام المباشر عن حالة الطلبية.`;
 
       // Dispatch Telegram notification
       const entry = activeBots.get(botId);

@@ -419,12 +419,11 @@ app.post('/api/orders/:id/delivery-status', async (req, res) => {
     const state = getBotState(botId);
     if (state && state.status === 'connected' && state.client) {
       try {
-        const statusLabel = trackingHelper.DELIVERY_STATUS_LABELS[deliveryStatus] || deliveryStatus;
+        const statusLabel = trackingHelper.customerStatusLabel(deliveryStatus, bot.businessType);
         const providerName = trackingHelper.PROVIDER_NAMES[provider] || provider || '';
 
-        let notifMsg = `تحديث حالة طلبيتك:\n\n`;
-        notifMsg += `أهلاً بك! تم تحديث حالة طردك إلى:\n`;
-        notifMsg += `• ${statusLabel}\n\n`;
+        let notifMsg = `📢 تحديث حالة طلبيتك:\n\n`;
+        notifMsg += `${statusLabel}\n\n`;
         if (order.product) {
           notifMsg += `• المنتج: ${order.product}\n`;
         }
@@ -436,7 +435,7 @@ app.post('/api/orders/:id/delivery-status', async (req, res) => {
         }
         notifMsg += `\nكود التتبع الخاص بك (لنسخه واستخدامه مباشرة):\n`;
         notifMsg += `${order.trackingCode || 'DZ-XXXXXX'}\n\n`;
-        notifMsg += `يمكنك كتابة "تتبع" في أي وقت للاستعلام المباشر عن حالة الطرد.`;
+        notifMsg += `يمكنك كتابة "تتبع" في أي وقت للاستعلام المباشر عن حالة الطلبية.`;
 
         let targetId = String(customerTarget).trim();
         if (!targetId.includes('@')) {

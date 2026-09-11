@@ -402,6 +402,7 @@ export async function updateOrderDelivery(botId, orderId, platform = 'whatsapp',
     provider = 'manual',
     trackingNumber = '',
     notifyCustomer = false,
+    note = '',
   } = payload;
 
   const orderRef = doc(db, 'orders', orderId);
@@ -413,7 +414,7 @@ export async function updateOrderDelivery(botId, orderId, platform = 'whatsapp',
     timestamp: now,
     provider,
     trackingNumber,
-    note: `تم تحديث حالة الشحن إلى: ${deliveryStatus}`,
+    note: note || `تم تحديث حالة الشحن إلى: ${deliveryStatus}`,
   };
 
   const updateData = {

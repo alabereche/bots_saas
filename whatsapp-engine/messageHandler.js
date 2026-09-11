@@ -459,9 +459,9 @@ async function handleMessage(msg, config) {
       let trackingReply = '';
 
       if (orders.length === 1) {
-        trackingReply = trackingHelper.formatSingleOrderCard(orders[0]);
+        trackingReply = trackingHelper.formatSingleOrderCard(orders[0], liveConfig.businessType);
       } else if (orders.length > 1) {
-        trackingReply = trackingHelper.formatMultipleOrdersList(orders);
+        trackingReply = trackingHelper.formatMultipleOrdersList(orders, liveConfig.businessType);
       } else {
         trackingReply = trackingHelper.formatNoOrdersFound(explicitCode);
       }

@@ -1,16 +1,58 @@
 // ═══════════════════════════════════════════════════════════════
 // BotForge — Fast-Path Tracking Engine (Zero LLM Calls)
+// 4-status lifecycle: accepted → shipped → delivered (+ cancelled).
+// Legacy 7-stage keys normalize read-time; labels adapt to the
+// bot's business nature (commerce / restaurant / service).
 // ═══════════════════════════════════════════════════════════════
 
-const DELIVERY_STATUS_LABELS = {
-  pending: '⏳ قيد التأكيد والمراجعة من المتجر',
-  preparing: '📦 قيد التجهيز والتغليف في المستودع',
-  shipped: '🚚 تم تسليم الطرد لشركة التوصيل (في الطريق إليك)',
-  out_for_delivery: '🛵 في الطريق للتوصيل إلى عنوانك اليوم',
-  delivered: '✅ تم تسليم الطلبية بنجاح',
-  returned: '↩️ تم إرجاع الطلبية',
-  cancelled: '❌ ملغى',
+const STATUS_ORDER = ['accepted', 'shipped', 'delivered', 'cancelled'];
+
+const LEGACY_MAP = {
+  pending: 'accepted',
+  preparing: 'accepted',
+  out_for_delivery: 'shipped',
+  returned: 'cancelled',
 };
+
+function normalizeDeliveryStatus(s) {
+  if (!s) return 'accepted';
+  if (LEGACY_MAP[s]) return LEGACY_MAP[s];
+  return STATUS_ORDER.includes(s) ? s : 'accepted';
+}
+
+const VOICES = {
+  commerce: {
+    accepted: { label: 'تم القبول', customer: '⏳ طلبيتك مقبولة ومؤكدة، وهي قيد التحضير للشحن' },
+    shipped: { label: 'تم الشحن', customer: '🚚 تم شحن طلبيتك وتسليمها لشركة التوصيل — في الطريق إليك' },
+    delivered: { label: 'تم التوصيل', customer: '✅ تم تسليم طلبيتك بنجاح. شكراً لثقتك بنا!' },
+    cancelled: { label: 'ملغي/مرتجع', customer: '❌ تم إلغاء هذه الطلبية' },
+  },
+  restaurant: {
+    accepted: { label: 'تم التأكيد', customer: '⏳ تم تأكيد طلبك وهو قيد التحضير الآن' },
+    shipped: { label: 'في الطريق', customer: '🛵 طلبك في الطريق إليك الآن' },
+    delivered: { label: 'تم التسليم', customer: '✅ تم تسليم طلبك. بالصحة والهناء!' },
+    cancelled: { label: 'ملغي', customer: '❌ تم إلغاء هذا الطلب' },
+  },
+  service: {
+    accepted: { label: 'تم التأكيد', customer: '⏳ تم تسجيل طلبك وتأكيده بنجاح' },
+    shipped: { label: 'قيد التنفيذ', customer: '🔧 طلبك قيد التنفيذ الآن' },
+    delivered: { label: 'مكتمل', customer: '✅ تم إنجاز طلبك بنجاح. سعدنا بخدمتك!' },
+    cancelled: { label: 'ملغي', customer: '❌ تم إلغاء هذا الطلب' },
+  },
+};
+
+// shop/realestate talk commerce; restaurant gets delivery language;
+// everything else gets neutral service language.
+const TYPE_TO_VOICE = { shop: 'commerce', realestate: 'commerce', restaurant: 'restaurant' };
+
+function voiceFor(businessType) {
+  return VOICES[TYPE_TO_VOICE[businessType] || 'service'];
+}
+
+function customerStatusLabel(status, businessType) {
+  const voice = voiceFor(businessType);
+  return voice[normalizeDeliveryStatus(status)].customer;
+}
 
 const PROVIDER_NAMES = {
   manual: 'التوصيل الخاص بالمتجر',
@@ -37,18 +79,19 @@ function isTrackingIntent(text) {
   return TRACKING_INTENT_REGEX.test(clean) || TRACKING_CODE_REGEX.test(clean);
 }
 
-function formatSingleOrderCard(order) {
+function formatSingleOrderCard(order, businessType) {
+  const voice = voiceFor(businessType);
+  const key = normalizeDeliveryStatus(order.deliveryStatus);
   const code = order.trackingCode || 'DZ-XXXXXX';
-  const statusText = DELIVERY_STATUS_LABELS[order.deliveryStatus] || DELIVERY_STATUS_LABELS.pending;
   const providerText = PROVIDER_NAMES[order.deliveryProvider] || order.deliveryProvider || 'شركة التوصيل';
-  
+
   let card = `📦 حالة طلبيتك (كود التتبع: #${code})\n\n`;
   card += `• المنتج: ${order.product || 'منتج'}\n`;
   if (order.price) card += `• المبلغ الإجمالي: ${order.price} دج (الدفع عند الاستلام)\n`;
-  card += `• حالة الشحن: ${statusText}\n`;
+  card += `• الحالة: ${voice[key].customer}\n`;
 
   if (order.deliveryProvider && order.deliveryProvider !== 'manual') {
-    card += `• شركة الشحن: ${providerText}\n`;
+    card += `• شركة التوصيل: ${providerText}\n`;
   }
   if (order.deliveryTrackingNumber) {
     card += `• رقم بوليصة الشحن: ${order.deliveryTrackingNumber}\n`;
@@ -57,15 +100,24 @@ function formatSingleOrderCard(order) {
     card += `• عنوان الاستلام: ${order.address}\n`;
   }
 
-  card += `\nسيتصل بك الموزع لتأكيد موعد التسليم. شكراً لتسوقك معنا!`;
+  if (key === 'delivered') {
+    card += `\nشكراً لتسوقك معنا!`;
+  } else if (TYPE_TO_VOICE[businessType] === 'restaurant') {
+    card += `\nسيصلك طلبك قريباً. بالصحة والهناء!`;
+  } else if (TYPE_TO_VOICE[businessType] === 'commerce') {
+    card += `\nسيتصل بك الموزع لتأكيد موعد التسليم. شكراً لتسوقك معنا!`;
+  } else {
+    card += `\nسيتم التواصل معك قريباً لمتابعة طلبك. شكراً لثقتك!`;
+  }
   return card;
 }
 
-function formatMultipleOrdersList(orders) {
+function formatMultipleOrdersList(orders, businessType) {
+  const voice = voiceFor(businessType);
   let list = `📦 وجدنا ${orders.length} طلبات مسجلة لك:\n\n`;
   orders.forEach((o, idx) => {
     const code = o.trackingCode || 'DZ-XXXXXX';
-    const statusText = DELIVERY_STATUS_LABELS[o.deliveryStatus] || DELIVERY_STATUS_LABELS.pending;
+    const statusText = voice[normalizeDeliveryStatus(o.deliveryStatus)].label;
     list += `${idx + 1}. #${code} — ${o.product || 'طلب'}\n   الحالة: ${statusText}\n\n`;
   });
   list += `💡 لمعرفة تفاصيل أي طلبية، أرسل كود التتبع الخاص بها (مثال: #${orders[0]?.trackingCode || 'DZ-...'}).`;
@@ -80,11 +132,14 @@ function formatNoOrdersFound(searchedCode = null) {
 }
 
 module.exports = {
+  STATUS_ORDER,
   isTrackingIntent,
   extractTrackingCode,
+  normalizeDeliveryStatus,
+  voiceFor,
+  customerStatusLabel,
   formatSingleOrderCard,
   formatMultipleOrdersList,
   formatNoOrdersFound,
-  DELIVERY_STATUS_LABELS,
   PROVIDER_NAMES,
 };

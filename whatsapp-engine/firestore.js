@@ -234,9 +234,10 @@ async function saveOrder(orderData, orderMergeMode = 'merge') {
     // Check if merge mode is active and customer has a pending order
     if (orderMergeMode !== 'separate' && (orderData.customerId || orderData.phone)) {
       try {
+        // 'in' covers the new accepted stage plus legacy pending/preparing rows
         const snap = await db.collection('orders')
           .where('botId', '==', orderData.botId)
-          .where('deliveryStatus', '==', 'pending')
+          .where('deliveryStatus', 'in', ['accepted', 'pending', 'preparing'])
           .limit(10)
           .get();
 
@@ -264,7 +265,7 @@ async function saveOrder(orderData, orderMergeMode = 'merge') {
             lastModified: FieldValue.serverTimestamp(),
             statusHistory: FieldValue.arrayUnion({
               orderStatus: 'confirmed',
-              deliveryStatus: 'pending',
+              deliveryStatus: 'accepted',
               timestamp: now,
               note: 'تم تحديث ودمج الطلبية بنجاح',
             })
@@ -281,7 +282,7 @@ async function saveOrder(orderData, orderMergeMode = 'merge') {
     const trackingCode = orderData.trackingCode || generateTrackingCode();
     const initialHistory = [{
       orderStatus: 'confirmed',
-      deliveryStatus: 'pending',
+      deliveryStatus: 'accepted',
       timestamp: now,
       note: 'تم تسجيل وتأكيد الطلبية بنجاح',
     }];
@@ -291,7 +292,7 @@ async function saveOrder(orderData, orderMergeMode = 'merge') {
       trackingCode,
       userId: userId || '',
       orderStatus: orderData.orderStatus || 'confirmed',
-      deliveryStatus: orderData.deliveryStatus || 'pending',
+      deliveryStatus: orderData.deliveryStatus || 'accepted',
       status: 'new', // backward compatibility
       statusHistory: initialHistory,
       deliveryProvider: orderData.deliveryProvider || 'manual',

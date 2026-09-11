@@ -5721,3 +5721,300 @@ html, body {
   background: var(--bg-inset);
   color: var(--text-secondary);
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   ORDERS v2 — status tokens + simplified lifecycle cards
+   (4 statuses · activity-adaptive labels · dual-theme by tokens)
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  --st-accepted: #f59e0b;
+  --st-accepted-soft: rgba(245, 158, 11, 0.13);
+  --st-shipped: #38bdf8;
+  --st-shipped-soft: rgba(56, 189, 248, 0.13);
+  --st-delivered: #10b981;
+  --st-delivered-soft: rgba(16, 185, 129, 0.13);
+  --st-cancelled: #f87171;
+  --st-cancelled-soft: rgba(248, 113, 113, 0.13);
+}
+
+/* Toolbar: status chips + search */
+.orders-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 1.1rem;
+}
+.ochips {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+.ochip {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-family: inherit;
+  background: var(--veil-1);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.ochip:hover { color: var(--text-primary); border-color: var(--border-bright); }
+.ochip .odot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.ochip[data-k='accepted'] .odot { background: var(--st-accepted); }
+.ochip[data-k='shipped'] .odot { background: var(--st-shipped); }
+.ochip[data-k='delivered'] .odot { background: var(--st-delivered); }
+.ochip[data-k='cancelled'] .odot { background: var(--st-cancelled); }
+.ochip .ocount {
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--ve-2, var(--veil-2));
+  color: var(--text-secondary);
+}
+.ochip.is-on { background: var(--veil-2); color: var(--text-primary); border-color: var(--border-bright); }
+.ochip.is-on .ocount { background: var(--veil-1); }
+.ochip.is-on[data-k='accepted'] { color: var(--st-accepted); border-color: rgba(245, 158, 11, 0.5); background: var(--st-accepted-soft); }
+.ochip.is-on[data-k='shipped'] { color: var(--st-shipped); border-color: rgba(56, 189, 248, 0.5); background: var(--st-shipped-soft); }
+.ochip.is-on[data-k='delivered'] { color: var(--st-delivered); border-color: rgba(16, 185, 129, 0.5); background: var(--st-delivered-soft); }
+.ochip.is-on[data-k='cancelled'] { color: var(--st-cancelled); border-color: rgba(248, 113, 113, 0.5); background: var(--st-cancelled-soft); }
+
+.osearch { position: relative; }
+.osearch svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+.osearch input {
+  width: 100%;
+  padding: 9px 14px 9px 36px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  background: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.osearch input::placeholder { color: var(--text-tertiary); }
+.osearch input:focus { border-color: var(--color-primary-border); }
+
+/* Order card v2 — read, tap a status, done */
+.ocard {
+  position: relative;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 16px;
+  padding: 1rem 1.15rem;
+  transition: border-color 0.15s ease;
+}
+.ocard:hover { border-color: var(--border-bright); }
+.ocard::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  right: 0;
+  width: 3px;
+  border-radius: 99px 0 0 99px;
+  background: var(--st-accepted);
+}
+.ocard[data-status='shipped']::before { background: var(--st-shipped); }
+.ocard[data-status='delivered']::before { background: var(--st-delivered); }
+.ocard[data-status='cancelled']::before { background: var(--st-cancelled); }
+
+.ocard-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 0.7rem;
+}
+.ocard-id { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ocard-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--veil-1);
+  border: 1px solid var(--border-subtle);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+.ocard-id strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+.ocard-phone {
+  display: block;
+  font-size: 0.74rem;
+  color: var(--text-tertiary);
+  direction: ltr;
+  text-align: right;
+}
+.ocard-meta { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.otime { font-size: 0.72rem; color: var(--text-tertiary); }
+
+.ocard-line {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px dashed var(--border-subtle);
+  margin-bottom: 0.75rem;
+}
+.oproduct { font-size: 0.84rem; font-weight: 600; color: var(--text-primary); }
+.oproduct .oprice { color: var(--color-primary); font-weight: 800; }
+.oaddr {
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.osummary {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  background: var(--veil-1);
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+  line-height: 1.5;
+}
+
+/* Status segments + notify bell — the entire control surface */
+.obar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.osegs { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+.oseg {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: inherit;
+  background: var(--veil-1);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.oseg:hover:not(:disabled):not(.is-on) { transform: translateY(-1px); color: var(--text-primary); border-color: var(--border-bright); }
+.oseg:disabled { opacity: 0.6; cursor: default; }
+.oseg.is-on[data-k='accepted'] { color: var(--st-accepted); background: var(--st-accepted-soft); border-color: rgba(245, 158, 11, 0.5); }
+.oseg.is-on[data-k='shipped'] { color: var(--st-shipped); background: var(--st-shipped-soft); border-color: rgba(56, 189, 248, 0.5); }
+.oseg.is-on[data-k='delivered'] { color: var(--st-delivered); background: var(--st-delivered-soft); border-color: rgba(16, 185, 129, 0.5); }
+.oseg.is-on[data-k='cancelled'] { color: var(--st-cancelled); background: var(--st-cancelled-soft); border-color: rgba(248, 113, 113, 0.5); }
+
+.oseg-spin {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  animation: osegSpin 0.7s linear infinite;
+}
+@keyframes osegSpin { to { transform: rotate(360deg); } }
+
+.obell {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--veil-1);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+.obell.is-on { color: var(--color-primary); border-color: var(--color-primary-border); background: var(--color-primary-subtle); }
+.obell:not(.is-on) { text-decoration: none; }
+
+/* Collapsible shipping details (provider / waybill / history) */
+.omore {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 0.75rem;
+  background: none;
+  border: none;
+  padding: 2px 0;
+  font-size: 0.76rem;
+  font-weight: 700;
+  font-family: inherit;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.omore:hover { color: var(--color-primary); }
+.omore svg { transition: transform 0.2s ease; }
+.omore.is-open svg { transform: rotate(180deg); }
+
+.odetails {
+  margin-top: 0.75rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.odetails-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr auto;
+  gap: 10px;
+  align-items: end;
+}
+.odetails-grid .form-group { margin: 0; }
+.odetails-grid .form-label { font-size: 0.72rem; margin-bottom: 3px; }
+.odetails-grid .form-select,
+.odetails-grid .form-input {
+  padding: 0.45rem 0.6rem;
+  font-size: 0.8rem;
+}
+
+@media (max-width: 640px) {
+  .ocard { padding: 0.85rem 0.9rem; }
+  .ocard-id strong { max-width: 150px; }
+  .obar { flex-direction: column; align-items: stretch; }
+  .osegs { justify-content: space-between; }
+  .oseg { flex: 1; justify-content: center; padding: 7px 8px; font-size: 0.72rem; }
+  .obell { align-self: flex-start; }
+  .odetails-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 400px) {
+  .oseg span { display: none; }
+  .oseg svg { width: 16px; height: 16px; }
+}

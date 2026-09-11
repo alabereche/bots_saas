@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   subscribeBot,
@@ -18,6 +18,7 @@ import {
 import { useToast } from '../context/ToastContext';
 import { COUNTRIES } from '../data/countries';
 import { BUSINESS_TYPES } from './CreateBot';
+import { STATUS_ORDER, normalizeDeliveryStatus, voiceFor } from '../lib/deliveryStatus';
 import { auth } from '../services/firebase';
 import ProductCatalogManager from '../components/ProductCatalogManager';
 import ChannelsManager from '../components/ChannelsManager';
@@ -108,6 +109,10 @@ export default function BotDetail() {
   const [inboxFilter, setInboxFilter] = useState('all'); // 'all' | 'unread' | 'orders' | 'customers'
   const [inboxSearch, setInboxSearch] = useState('');
 
+  // Orders v2 toolbar: lifecycle filter + search
+  const [orderFilter, setOrderFilter] = useState('all');
+  const [orderSearch, setOrderSearch] = useState('');
+
   // Edit form state
   const [editData, setEditData] = useState({
     botName: '',
@@ -192,6 +197,17 @@ export default function BotDetail() {
     if (o.customerId) customerOrdersMap[String(o.customerId)] = o;
     if (o.phone) customerOrdersMap[String(o.phone)] = o;
   });
+
+  // Orders v2: filtered/searchable list
+  const visibleOrders = useMemo(() => {
+    const q = orderSearch.toLowerCase().trim();
+    return orders.filter(o => {
+      if (orderFilter !== 'all' && normalizeDeliveryStatus(o.deliveryStatus) !== orderFilter) return false;
+      if (!q) return true;
+      return [o.customerName, o.phone, o.trackingCode, o.product, o.address]
+        .some(v => String(v || '').toLowerCase().includes(q));
+    });
+  }, [orders, orderFilter, orderSearch]);
 
   const customerThreads = {};
   (allMessages || []).forEach(m => {
@@ -937,13 +953,13 @@ export default function BotDetail() {
       {/* ─── Tab 2: Orders Tab ─── */}
       {activeTab === 'orders' && (
         <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.1rem', flexWrap: 'wrap', gap: '8px' }}>
             <div>
               <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-                الطلبيات والتتبع ({orders.length})
+                الطلبيات ({orders.length})
               </h3>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
-                إدارة حالات الشحن وتتبع الطرود وإرسال الإشعارات التلقائية للزبائن.
+                انقر على الحالة لتحديثها فوراً — وسيصل الزبون إشعار تلقائي إن كان الجرس مفعّلاً.
               </p>
             </div>
             {orders.length > 0 && (
@@ -966,20 +982,35 @@ export default function BotDetail() {
                   <line x1="12" y1="22.08" x2="12" y2="12" />
                 </svg>
               </div>
-              <p style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>لا توجد طلبيات أو طرود مسجلة بعد</p>
+              <p style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>لا توجد طلبيات مسجلة بعد</p>
               <p style={{ fontSize: '0.85rem' }}>يقوم البوت بتسجيل الطلبيات وتوليد كود التتبع (#DZ-XXXXXX) تلقائياً بمجرد تأكيد المشتري في المحادثة.</p>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {orders.map(order => (
-                <OrderDeliveryItem
-                  key={order.id}
-                  order={order}
-                  bot={bot}
-                  onUpdateDelivery={(orderId, payload) => updateOrderDelivery(bot.id, orderId, bot.platform || 'whatsapp', payload)}
-                />
-              ))}
-            </div>
+            <>
+              <OrdersToolbar
+                orders={orders}
+                voice={voiceFor(bot.businessType)}
+                filter={orderFilter}
+                onFilter={setOrderFilter}
+                search={orderSearch}
+                onSearch={setOrderSearch}
+              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                {visibleOrders.map(order => (
+                  <OrderDeliveryItem
+                    key={order.id}
+                    order={order}
+                    bot={bot}
+                    onUpdateDelivery={(orderId, payload) => updateOrderDelivery(bot.id, orderId, bot.platform || 'whatsapp', payload)}
+                  />
+                ))}
+                {visibleOrders.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: '1.5rem 1rem', color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>
+                    لا توجد طلبيات مطابقة لهذا الفلتر أو البحث.
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
       )}
@@ -1361,22 +1392,64 @@ function formatTime(dateStr) {
   return d.toLocaleDateString('ar');
 }
 
-function DeliveryStatusIcon({ status, size = 13 }) {
-  switch (status) {
-    case 'pending':
-      return (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <polyline points="12 6 12 12 16 14" />
+// Orders toolbar — status chips with live counts + search.
+// The chips read the whole pipeline at a glance; tapping one
+// jumps straight to that stage of the funnel.
+function OrdersToolbar({ orders, voice, filter, onFilter, search, onSearch }) {
+  const counts = { all: orders.length };
+  STATUS_ORDER.forEach(k => { counts[k] = 0; });
+  orders.forEach(o => { counts[normalizeDeliveryStatus(o.deliveryStatus)]++; });
+
+  return (
+    <div className="orders-toolbar">
+      <div className="ochips" role="tablist" aria-label="فلترة الطلبيات بالحالة">
+        <button
+          type="button"
+          className={`ochip${filter === 'all' ? ' is-on' : ''}`}
+          onClick={() => onFilter('all')}
+        >
+          الكل
+          <span className="ocount">{counts.all}</span>
+        </button>
+        {STATUS_ORDER.map(k => (
+          <button
+            key={k}
+            type="button"
+            className={`ochip${filter === k ? ' is-on' : ''}`}
+            data-k={k}
+            onClick={() => onFilter(k)}
+          >
+            <span className="odot" />
+            {voice[k].label}
+            <span className="ocount">{counts[k]}</span>
+          </button>
+        ))}
+      </div>
+      <div className="osearch">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
         </svg>
-      );
-    case 'preparing':
+        <input
+          type="text"
+          placeholder="ابحث بالاسم، الهاتف، كود التتبع أو المنتج…"
+          value={search}
+          onChange={e => onSearch(e.target.value)}
+          aria-label="بحث في الطلبيات"
+        />
+      </div>
+    </div>
+  );
+}
+
+function DeliveryStatusIcon({ status, size = 13 }) {
+  switch (normalizeDeliveryStatus(status)) {
+    case 'accepted':
       return (
         <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="16.5" y1="9.4" x2="7.5" y2="4.21" />
-          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-          <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-          <line x1="12" y1="22.08" x2="12" y2="12" />
+          <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+          <rect x="9" y="3" width="6" height="4" rx="1" />
+          <path d="m9 14 2 2 4-4" />
         </svg>
       );
     case 'shipped':
@@ -1388,24 +1461,11 @@ function DeliveryStatusIcon({ status, size = 13 }) {
           <circle cx="18.5" cy="18.5" r="2.5" />
         </svg>
       );
-    case 'out_for_delivery':
-      return (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polygon points="3 11 22 2 13 21 11 13 3 11" />
-        </svg>
-      );
     case 'delivered':
       return (
         <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
           <polyline points="22 4 12 14.01 9 11.01" />
-        </svg>
-      );
-    case 'returned':
-      return (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="1 4 1 10 7 10" />
-          <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
         </svg>
       );
     case 'cancelled':
@@ -1421,14 +1481,11 @@ function DeliveryStatusIcon({ status, size = 13 }) {
   }
 }
 
-const DELIVERY_STATUSES = {
-  pending: { label: 'قيد المراجعة والتأكيد', color: '#f59e0b', bg: '#33230a', border: '#543b12' },
-  preparing: { label: 'قيد التجهيز والتغليف', color: '#38bdf8', bg: '#132b3d', border: '#1d4461' },
-  shipped: { label: 'تم تسليم الطرد لشركة الشحن', color: '#818cf8', bg: '#1e1b4b', border: '#312e81' },
-  out_for_delivery: { label: 'خرج للتوصيل (مع الموزع)', color: '#c084fc', bg: '#3b0764', border: '#581c87' },
-  delivered: { label: 'تم التسليم بنجاح', color: '#34d399', bg: '#132d24', border: '#1c4b3c' },
-  returned: { label: 'تم إرجاع الطرد', color: '#f87171', bg: '#33161a', border: '#541c22' },
-  cancelled: { label: 'ملغى', color: 'var(--text-secondary)', bg: '#1c263c', border: '#26334d' },
+const STATUS_THEME = {
+  accepted: { color: 'var(--st-accepted)', bg: 'var(--st-accepted-soft)', border: 'rgba(245, 158, 11, 0.5)' },
+  shipped: { color: 'var(--st-shipped)', bg: 'var(--st-shipped-soft)', border: 'rgba(56, 189, 248, 0.5)' },
+  delivered: { color: 'var(--st-delivered)', bg: 'var(--st-delivered-soft)', border: 'rgba(16, 185, 129, 0.5)' },
+  cancelled: { color: 'var(--st-cancelled)', bg: 'var(--st-cancelled-soft)', border: 'rgba(248, 113, 113, 0.5)' },
 };
 
 const DELIVERY_PROVIDERS = [
@@ -1441,39 +1498,55 @@ const DELIVERY_PROVIDERS = [
   { key: 'other', label: 'شركة أخرى' },
 ];
 
-function DeliveryStatusBadge({ status }) {
-  const c = DELIVERY_STATUSES[status] || DELIVERY_STATUSES.pending;
-  return (
-    <span style={{ fontSize: '0.74rem', fontWeight: 700, background: c.bg, color: c.color, border: `1px solid ${c.border}`, padding: '2px 8px', borderRadius: 'var(--radius-full)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-      <DeliveryStatusIcon status={status} size={13} />
-      <span>{c.label}</span>
-    </span>
-  );
-}
-
+// Orders v2 — read the card, tap a status segment, done.
+// Provider/waybill/history live behind one collapsible row.
 function OrderDeliveryItem({ order, bot, onUpdateDelivery }) {
-  const [deliveryStatus, setDeliveryStatus] = useState(order.deliveryStatus || 'pending');
+  const voice = voiceFor(bot.businessType);
+  const status = normalizeDeliveryStatus(order.deliveryStatus);
+  const [notify, setNotify] = useState(true);
+  const [busyStatus, setBusyStatus] = useState(null);
+  const [openDetails, setOpenDetails] = useState(false);
   const [provider, setProvider] = useState(order.deliveryProvider || 'manual');
   const [trackingNumber, setTrackingNumber] = useState(order.deliveryTrackingNumber || '');
-  const [notifyCustomer, setNotifyCustomer] = useState(true);
-  const [showTimeline, setShowTimeline] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [savingDetails, setSavingDetails] = useState(false);
   const toast = useToast();
 
-  const handleSave = async () => {
-    setSaving(true);
+  const pickStatus = async (key) => {
+    if (key === status || busyStatus) return;
+    setBusyStatus(key);
     try {
       await onUpdateDelivery(order.id, {
-        deliveryStatus,
+        deliveryStatus: key,
         provider,
         trackingNumber,
-        notifyCustomer,
+        notifyCustomer: notify && !!order.customerId,
+        note: `الحالة: ${voice[key].label}`,
       });
-      toast.success(notifyCustomer ? 'تم تحديث حالة الشحن وإرسال إشعار للزبون بنجاح' : 'تم حفظ حالة الشحن');
+      toast.success(notify && order.customerId
+        ? `تم التحديث إلى «${voice[key].label}» وأُرسل إشعار للزبون`
+        : `تم التحديث إلى «${voice[key].label}»`);
     } catch (e) {
-      toast.error('فشل تحديث حالة الشحن: ' + e.message);
+      toast.error('فشل تحديث الحالة: ' + e.message);
     } finally {
-      setSaving(false);
+      setBusyStatus(null);
+    }
+  };
+
+  const saveDetails = async () => {
+    setSavingDetails(true);
+    try {
+      await onUpdateDelivery(order.id, {
+        deliveryStatus: status,
+        provider,
+        trackingNumber,
+        notifyCustomer: false,
+        note: 'تحديث بيانات الشحن',
+      });
+      toast.success('تم حفظ بيانات الشحن');
+    } catch (e) {
+      toast.error('فشل حفظ بيانات الشحن: ' + e.message);
+    } finally {
+      setSavingDetails(false);
     }
   };
 
@@ -1485,154 +1558,136 @@ function OrderDeliveryItem({ order, bot, onUpdateDelivery }) {
     }
   };
 
+  const initial = (order.customerName || 'ز').charAt(0);
+  const providerLabel = DELIVERY_PROVIDERS.find(p => p.key === provider)?.label || '';
+  const hasHistory = Array.isArray(order.statusHistory) && order.statusHistory.length > 0;
+
   return (
-    <div className="order-card" style={{ padding: '1.25rem' }}>
-      <div className="order-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '0.85rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.98rem' }}>{order.customerName || 'زبون'}</span>
+    <div className="ocard" data-status={status}>
+      <div className="ocard-head">
+        <div className="ocard-id">
+          <span className="ocard-avatar">{initial}</span>
+          <div>
+            <strong>{order.customerName || 'زبون'}</strong>
+            {order.phone && <span className="ocard-phone" dir="ltr">{order.phone}</span>}
+          </div>
+        </div>
+        <div className="ocard-meta">
           {order.trackingCode && (
             <button className="tracking-code-pill" onClick={copyCode} title="انقر لنسخ كود التتبع">
               <span>#{order.trackingCode}</span>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
             </button>
           )}
-          <DeliveryStatusBadge status={order.deliveryStatus || 'pending'} />
+          <span className="otime">{formatTime(order.createdAt)}</span>
         </div>
-        <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>{formatTime(order.createdAt)}</span>
       </div>
 
-      <div className="order-card-body" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.65rem', marginBottom: '0.85rem' }}>
+      <div className="ocard-line">
         {order.product && (
-          <div className="order-field" style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
-            <span>المنتج: {order.product} {order.price ? `(${order.price} ${bot.currency || 'دج'})` : ''}</span>
-          </div>
-        )}
-        {order.phone && (
-          <div className="order-field">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-            <span dir="ltr">{order.phone}</span>
-          </div>
+          <span className="oproduct">
+            {order.product}
+            {order.price ? <span className="oprice"> · {order.price} {bot.currency || 'دج'}</span> : null}
+          </span>
         )}
         {order.address && (
-          <div className="order-field" style={{ gridColumn: '1 / -1' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            <span>{order.address}</span>
-          </div>
+          <span className="oaddr">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            {order.address}
+          </span>
         )}
-        {order.orderSummary && (
-          <div style={{ gridColumn: '1 / -1', fontSize: '0.8rem', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.02)', padding: '0.4rem 0.6rem', borderRadius: 'var(--radius-sm)' }}>
-            {order.orderSummary}
-          </div>
-        )}
+        {order.orderSummary && <span className="osummary">{order.orderSummary}</span>}
       </div>
 
-      {/* Delivery Management Controls */}
-      <div className="delivery-control-box">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-primary)' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-            <span>إدارة حالة الشحن والتوصيل</span>
-          </div>
-          {Array.isArray(order.statusHistory) && order.statusHistory.length > 0 && (
-            <button 
-              type="button" 
-              className="btn btn-secondary btn-sm" 
-              style={{ fontSize: '0.72rem', padding: '2px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
-              onClick={() => setShowTimeline(!showTimeline)}
+      <div className="obar">
+        <div className="osegs" role="group" aria-label="حالة الطلبية">
+          {STATUS_ORDER.map(k => (
+            <button
+              key={k}
+              type="button"
+              className={`oseg${status === k ? ' is-on' : ''}`}
+              data-k={k}
+              onClick={() => pickStatus(k)}
+              disabled={!!busyStatus}
+              title={voice[k].customer}
             >
-              <span>سجل المراحل ({order.statusHistory.length})</span>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: showTimeline ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }}><polyline points="6 9 12 15 18 9"/></svg>
+              {busyStatus === k ? <span className="oseg-spin" /> : <DeliveryStatusIcon status={k} />}
+              <span>{voice[k].label}</span>
             </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          className={`obell${notify ? ' is-on' : ''}`}
+          onClick={() => setNotify(n => !n)}
+          title={notify ? 'الإشعار مفعّل: سيُرسل للزبون رسالة عند كل تغيير حالة' : 'الإشعار موقوف: التغييرات تُحفظ دون مراسلة الزبون'}
+          aria-label="تبديل إشعار الزبون"
+        >
+          {notify ? (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+          ) : (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/><path d="M18.63 13A17.89 17.89 0 0 1 18 8"/><path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"/><path d="M18 8a6 6 0 0 0-9.33-5"/><line x1="1" y1="1" x2="23" y2="23"/>
+            </svg>
           )}
-        </div>
+        </button>
+      </div>
 
-        <div className="delivery-grid-fields">
-          <div className="form-group" style={{ margin: 0 }}>
-            <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '2px' }}>حالة الشحن</label>
-            <select 
-              className="form-select" 
-              style={{ padding: '0.4rem 0.6rem', fontSize: '0.82rem' }}
-              value={deliveryStatus}
-              onChange={e => setDeliveryStatus(e.target.value)}
-            >
-              {Object.entries(DELIVERY_STATUSES).map(([k, v]) => (
-                <option key={k} value={k}>{v.label}</option>
-              ))}
-            </select>
+      <button type="button" className={`omore${openDetails ? ' is-open' : ''}`} onClick={() => setOpenDetails(o => !o)}>
+        تفاصيل الشحن{provider !== 'manual' ? ` · ${providerLabel}` : ''}
+        {order.deliveryTrackingNumber ? ` · ${order.deliveryTrackingNumber}` : ''}
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+
+      {openDetails && (
+        <div className="odetails">
+          <div className="odetails-grid">
+            <div className="form-group">
+              <label className="form-label">شركة التوصيل</label>
+              <select className="form-select" value={provider} onChange={e => setProvider(e.target.value)}>
+                {DELIVERY_PROVIDERS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">رقم بوليصة الشحن</label>
+              <input
+                className="form-input"
+                placeholder="مثال: YAL-98765432"
+                value={trackingNumber}
+                onChange={e => setTrackingNumber(e.target.value)}
+              />
+            </div>
+            <button className="btn btn-primary btn-sm" onClick={saveDetails} disabled={savingDetails}>
+              {savingDetails ? <span className="oseg-spin" /> : 'حفظ'}
+            </button>
           </div>
 
-          <div className="form-group" style={{ margin: 0 }}>
-            <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '2px' }}>شركة التوصيل</label>
-            <select 
-              className="form-select" 
-              style={{ padding: '0.4rem 0.6rem', fontSize: '0.82rem' }}
-              value={provider}
-              onChange={e => setProvider(e.target.value)}
-            >
-              {DELIVERY_PROVIDERS.map(p => (
-                <option key={p.key} value={p.key}>{p.label}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group" style={{ margin: 0 }}>
-            <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '2px' }}>رقم بوليصة الشحن (Tracking No)</label>
-            <input 
-              className="form-input" 
-              style={{ padding: '0.4rem 0.6rem', fontSize: '0.82rem' }}
-              placeholder="مثال: YAL-98765432"
-              value={trackingNumber}
-              onChange={e => setTrackingNumber(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', paddingTop: '4px' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-            <input 
-              type="checkbox" 
-              checked={notifyCustomer} 
-              onChange={e => setNotifyCustomer(e.target.checked)} 
-              disabled={!order.customerId}
-            />
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-              <span>إرسال إشعار فوري وتلقائي للزبون عبر {bot.platform === 'telegram' ? 'تيليغرام' : 'واتساب'}</span>
-            </span>
-          </label>
-
-          <button 
-            className="btn btn-primary btn-sm" 
-            onClick={handleSave}
-            disabled={saving}
-          >
-            {saving ? <span className="spinner" /> : 'حفظ التحديث'}
-          </button>
-        </div>
-
-        {/* Timeline View */}
-        {showTimeline && Array.isArray(order.statusHistory) && (
-          <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-subtle)' }}>
+          {hasHistory && (
             <div className="timeline-container">
-              {order.statusHistory.map((step, idx) => {
-                const sConf = DELIVERY_STATUSES[step.deliveryStatus] || DELIVERY_STATUSES.pending;
+              {[...order.statusHistory].reverse().map((step, idx) => {
+                const stepKey = normalizeDeliveryStatus(step.deliveryStatus);
+                const c = STATUS_THEME[stepKey];
                 return (
                   <div key={idx} className="timeline-step">
                     <div style={{ fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <DeliveryStatusIcon status={step.deliveryStatus} size={14} />
-                      <span>{sConf.label} {step.provider && step.provider !== 'manual' ? `(${step.provider})` : ''}</span>
+                      <span style={{ color: c.color }}><DeliveryStatusIcon status={stepKey} size={14} /></span>
+                      <span>{voice[stepKey].label}{step.provider && step.provider !== 'manual' ? ` (${step.provider})` : ''}</span>
                     </div>
                     {step.trackingNumber && (
-                      <div style={{ fontSize: '0.74rem', color: '#38bdf8', marginTop: '2px' }}>بوليصة: {step.trackingNumber}</div>
+                      <div style={{ fontSize: '0.74rem', color: 'var(--st-shipped)', marginTop: '2px' }}>بوليصة: {step.trackingNumber}</div>
                     )}
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>{new Date(step.timestamp).toLocaleString('ar')}</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                      {new Date(step.timestamp).toLocaleString('ar')}{step.note ? ` — ${step.note}` : ''}
+                    </div>
                   </div>
                 );
               })}
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

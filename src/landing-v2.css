@@ -375,12 +375,30 @@
 
 /* ─── Footer ─── */
 .lp2-footer {
+  position: relative;
+  overflow: hidden;
   padding: clamp(60px, 9vh, 110px) clamp(16px, 4vw, 40px) 34px;
   border-top: 1px solid var(--lp2-border);
-  background:
-    radial-gradient(70% 90% at 50% 120%, rgba(16, 185, 129, 0.1) 0%, transparent 60%),
-    #030303;
+  background: #030303;
 }
+.lp2-footer-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  mix-blend-mode: screen; /* dark passages stay transparent over the base */
+  pointer-events: none;
+}
+.lp2-footer-scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(70% 90% at 50% 120%, rgba(3, 3, 3, 0.55) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(3, 3, 3, 0.72) 0%, rgba(3, 3, 3, 0.3) 45%, rgba(3, 3, 3, 0.55) 100%);
+  pointer-events: none;
+}
+.lp2-footer-inner { position: relative; z-index: 1; }
 .lp2-footer-inner {
   max-width: 640px;
   margin: 0 auto;

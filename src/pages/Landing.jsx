@@ -313,6 +313,14 @@ export default function Landing() {
 
       {/* ══ Footer — the last door ══ */}
       <footer className="lp2-footer">
+        <video
+          className="lp2-footer-video"
+          src="/hero2.mp4"
+          autoPlay loop muted playsInline
+          ref={el => { if (el) { el.muted = true; el.play().catch(() => {}); } }}
+          aria-hidden="true"
+        />
+        <div className="lp2-footer-scrim" aria-hidden="true" />
         <Reveal>
           <div className="lp2-footer-inner">
             <span className="lp2-footer-mark">AuraBot<span className="lp2-footer-star">✦</span></span>

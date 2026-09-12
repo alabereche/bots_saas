@@ -1,0 +1,300 @@
+/* ═══════════════════════════════════════════════════════════════
+   LOGIN v2 — split panels in the landing's cinematic language
+   (emerald story panel + dark form panel inside one framed card)
+   ═══════════════════════════════════════════════════════════════ */
+
+.lg2-root {
+  --lg2-cream: #e6e3d3;
+  --lg2-cream-dim: rgba(230, 227, 211, 0.62);
+  --lg2-gray: #8f8d80;
+  --lg2-emerald: #34d399;
+  --lg2-border: rgba(230, 227, 211, 0.1);
+
+  min-height: 100vh;
+  background: #050505;
+  color: var(--lg2-cream);
+  font-family: 'Almarai', 'Tajawal', -apple-system, 'Segoe UI', sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  position: relative;
+  overflow-x: clip;
+}
+.lg2-root * { box-sizing: border-box; }
+.lg2-root a { color: inherit; }
+
+/* Back button — reuse the floating pill, re-skinned */
+.lg2-root .back-fab {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 16px;
+  border-radius: 999px;
+  background: rgba(230, 227, 211, 0.06);
+  border: 1px solid var(--lg2-border);
+  color: var(--lg2-cream-dim);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+.lg2-root .back-fab:hover {
+  color: var(--lg2-cream);
+  border-color: rgba(230, 227, 211, 0.3);
+  transform: translateY(-2px);
+}
+
+/* ─── The framed split card ─── */
+.lg2-frame {
+  width: min(1120px, 100%);
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 14px;
+  background: #0a0a09;
+  border: 1px solid var(--lg2-border);
+  border-radius: 30px;
+  padding: 14px;
+  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.8);
+  position: relative;
+}
+
+/* ─── Visual panel: emerald story ─── */
+.lg2-visual {
+  position: relative;
+  border-radius: 22px;
+  padding: clamp(28px, 4vw, 52px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 85% at 85% 0%, rgba(255, 255, 255, 0.14) 0%, transparent 55%),
+    radial-gradient(90% 70% at 10% 100%, rgba(4, 18, 12, 0.5) 0%, transparent 70%),
+    linear-gradient(160deg, #10b981 0%, #059669 55%, #047857 100%);
+  color: #ffffff;
+}
+.lg2-visual-noise {
+  position: absolute;
+  inset: 0;
+  opacity: 0.35;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='ln'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23ln)' opacity='0.4'/%3E%3C/svg%3E");
+}
+.lg2-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #04120c;
+  background: rgba(255, 255, 255, 0.88);
+  padding: 6px 13px;
+  border-radius: 999px;
+}
+.lg2-badge-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #059669;
+  animation: lg2Pulse 1.8s ease-in-out infinite;
+}
+@keyframes lg2Pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+.lg2-visual-title {
+  position: relative;
+  font-size: clamp(1.7rem, 3.1vw, 2.6rem);
+  font-weight: 800;
+  line-height: 1.55;
+  margin: 22px 0 0;
+  letter-spacing: -0.2px;
+}
+.lg2-visual-accent { position: relative; display: inline-block; white-space: nowrap; }
+.lg2-squiggle {
+  position: absolute;
+  right: 4%;
+  bottom: -8px;
+  width: 92%;
+  height: 10px;
+}
+.lg2-visual-sub {
+  position: relative;
+  font-size: clamp(0.88rem, 1.3vw, 1rem);
+  font-weight: 400;
+  line-height: 1.95;
+  color: rgba(255, 255, 255, 0.86);
+  margin: 16px 0 0;
+  max-width: 42ch;
+}
+.lg2-proof {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 28px;
+}
+.lg2-proof-chip {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: rgba(4, 18, 12, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  padding: 6px 12px;
+  border-radius: 999px;
+}
+.lg2-demo-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 14px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+  transition: gap 0.2s ease, color 0.2s ease;
+}
+.lg2-demo-link:hover { gap: 11px; color: #ffffff; }
+
+/* ─── Form panel: the door ─── */
+.lg2-formpanel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: clamp(26px, 3.4vw, 46px) clamp(20px, 3vw, 42px);
+}
+.lg2-logo-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.lg2-logo-tile {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+}
+.lg2-logo-name {
+  font-family: 'Instrument Serif', serif;
+  font-style: italic;
+  font-size: 1.55rem;
+  color: var(--lg2-cream);
+  direction: ltr;
+}
+.lg2-logo-name span { color: var(--lg2-emerald); font-style: normal; }
+
+.lg2-welcome {
+  font-size: clamp(1.5rem, 2.6vw, 2rem);
+  font-weight: 800;
+  color: var(--lg2-cream);
+  margin: 26px 0 0;
+}
+.lg2-welcome-sub {
+  font-size: 0.86rem;
+  font-weight: 300;
+  color: var(--lg2-cream-dim);
+  margin: 8px 0 0;
+  line-height: 1.8;
+}
+
+.lg2-google-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  width: 100%;
+  margin-top: 26px;
+  padding: 15px 20px;
+  border-radius: 14px;
+  background: #f4f1e3;
+  border: none;
+  color: #131311;
+  font-family: inherit;
+  font-size: 0.98rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+.lg2-google-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  background: #ffffff;
+  box-shadow: 0 14px 34px -10px rgba(230, 227, 211, 0.35);
+}
+.lg2-google-btn:disabled { opacity: 0.7; cursor: default; }
+.lg2-spin {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(19, 19, 17, 0.25);
+  border-top-color: #131311;
+  animation: lg2Spin 0.7s linear infinite;
+}
+@keyframes lg2Spin { to { transform: rotate(360deg); } }
+
+.lg2-google-hint {
+  font-size: 0.74rem;
+  color: var(--lg2-gray);
+  margin-top: 12px;
+}
+
+.lg2-perks {
+  width: 100%;
+  margin-top: 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.lg2-perk {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  text-align: right;
+  font-size: 0.8rem;
+  font-weight: 300;
+  color: var(--lg2-cream-dim);
+  background: rgba(230, 227, 211, 0.045);
+  border: 1px solid var(--lg2-border);
+  border-radius: 13px;
+  padding: 11px 14px;
+}
+.lg2-perk-ico { flex-shrink: 0; font-size: 0.95rem; }
+
+.lg2-trust {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 24px;
+  font-size: 0.7rem;
+  color: var(--lg2-gray);
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 940px) {
+  .lg2-frame { grid-template-columns: 1fr; gap: 0; padding: 10px; }
+  .lg2-visual { border-radius: 20px 20px 0 0; padding: 64px 22px 26px; }
+  .lg2-visual-sub { display: none; }
+  .lg2-proof { padding-top: 20px; }
+  .lg2-formpanel { padding: 30px 20px 34px; }
+}
+@media (max-width: 480px) {
+  .lg2-root { padding: 8px; }
+  .lg2-visual-title { font-size: 1.42rem; }
+  .lg2-google-btn { font-size: 0.92rem; padding: 14px 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lg2-badge-dot { animation: none; }
+}

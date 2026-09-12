@@ -26,12 +26,28 @@ function HeroVideo({ src }) {
       if (p) p.catch(() => { /* retried below until it sticks */ });
     };
 
+    // Show the first frame even if autoplay is blocked by the browser,
+    // and retry on the user's first interaction (strict autoplay setups)
+    const show = () => video.classList.add('is-playing');
+    video.addEventListener('loadeddata', show);
+    video.addEventListener('playing', show);
+    const interact = () => tryPlay();
+    ['pointerdown', 'wheel', 'touchstart', 'keydown'].forEach(ev =>
+      window.addEventListener(ev, interact, { once: true, passive: true })
+    );
+
     // iOS / Safari play HLS natively
     if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = src;
       video.addEventListener('loadeddata', tryPlay, { once: true });
       tryPlay();
-      return undefined;
+      return () => {
+        video.removeEventListener('loadeddata', show);
+        video.removeEventListener('playing', show);
+        ['pointerdown', 'wheel', 'touchstart', 'keydown'].forEach(ev =>
+          window.removeEventListener(ev, interact)
+        );
+      };
     }
 
     let hls = null;
@@ -60,6 +76,11 @@ function HeroVideo({ src }) {
       cancelled = true;
       clearInterval(retry);
       clearTimeout(giveUp);
+      video.removeEventListener('loadeddata', show);
+      video.removeEventListener('playing', show);
+      ['pointerdown', 'wheel', 'touchstart', 'keydown'].forEach(ev =>
+        window.removeEventListener(ev, interact)
+      );
       if (hls) hls.destroy();
     };
   }, [src]);
@@ -69,7 +90,6 @@ function HeroVideo({ src }) {
       ref={ref}
       className="lp2-hero-video"
       autoPlay loop muted playsInline
-      onPlaying={e => e.currentTarget.classList.add('is-playing')}
     />
   );
 }
@@ -219,14 +239,16 @@ export default function Landing() {
 
         <div className="lp2-hero-content">
           <div className="lp2-hero-wordmark-side">
-            <WordsPullUp text="AuraBot" className="lp2-wordmark" delay={0.15} />
-            <motion.span
-              className="lp2-wordmark-star"
-              initial={{ opacity: 0, scale: 0 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.6, delay: 0.75, ease: EASE }}
-              aria-hidden="true"
-            >✦</motion.span>
+            <span className="lp2-wordmark-box">
+              <WordsPullUp text="AuraBot" className="lp2-wordmark" delay={0.15} />
+              <motion.span
+                className="lp2-wordmark-star"
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.6, delay: 0.75, ease: EASE }}
+                aria-hidden="true"
+              >✦</motion.span>
+            </span>
           </div>
 
           <div className="lp2-hero-cta-side">

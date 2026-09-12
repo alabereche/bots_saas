@@ -85,6 +85,9 @@
   display: block;
   opacity: 0;
   transition: opacity 1s ease;
+  /* screen-blend: the video's black turns transparent, so the emerald
+     abyss glows through its dark passages — the hero never looks dead */
+  mix-blend-mode: screen;
 }
 .lp2-hero-video.is-playing { opacity: 1; }
 /* Fallback until the black-hole video arrives: emerald abyss */
@@ -107,15 +110,18 @@
 .lp2-hero-content {
   position: absolute;
   inset: 0;
-  display: grid;
-  grid-template-columns: 1.5fr 1fr;
-  align-items: end;
-  gap: clamp(18px, 4vw, 56px);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   padding: clamp(84px, 12vh, 130px) clamp(20px, 4.5vw, 58px) clamp(26px, 5vh, 52px);
 }
 
 /* Giant wordmark — the hero IS the name */
-.lp2-hero-wordmark-side { position: relative; align-self: end; }
+.lp2-hero-wordmark-side {
+  align-self: center;
+  margin-top: clamp(4px, 3vh, 34px);
+}
+.lp2-wordmark-box { position: relative; display: inline-block; }
 .lp2-wordmark {
   font-family: 'Instrument Serif', 'Almarai', serif;
   font-style: italic;
@@ -126,7 +132,7 @@
   color: var(--lp2-cream);
   display: block;
   direction: ltr;
-  text-align: right;
+  text-align: center;
 }
 .lp2-wordmark-star {
   position: absolute;
@@ -146,8 +152,8 @@
   flex-direction: column;
   gap: 15px;
   max-width: 430px;
-  justify-self: start;
   width: 100%;
+  margin-top: auto;
 }
 .lp2-hero-line {
   font-size: clamp(1.05rem, 2vw, 1.5rem);
@@ -403,8 +409,8 @@
     gap: 20px;
     padding-bottom: 30px;
   }
-  .lp2-wordmark { font-size: clamp(4rem, 21vw, 7rem); text-align: right; }
-  .lp2-wordmark-star { top: -0.05em; left: auto; right: -0.3em; }
+  .lp2-wordmark { font-size: clamp(4rem, 23vw, 7rem); text-align: center; }
+  .lp2-wordmark-star { top: -0.05em; right: -0.3em; }
   .lp2-hero-cta-side { max-width: 100%; }
   .lp2-nav { gap: 14px; padding: 11px 16px; border-radius: 0 0 16px 16px; }
 }

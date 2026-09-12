@@ -6,6 +6,8 @@ import { COUNTRIES } from '../data/countries';
 import '../login-v2.css';
 
 const DEMO_BOT_URL = 'https://t.me/Zcodybot';
+// خلفية لوحة القصة — فيديو خارجي مباشر (MP4)
+const LOGIN_VIDEO = 'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260803_192301_9231ed6b-c55c-4a48-909c-4ebe11cf2e11.mp4';
 
 /* ─── Bot-face logo mark (approved identity) ─── */
 const BotMark = ({ size = 30 }) => (
@@ -87,9 +89,16 @@ export default function Login() {
       </button>
 
       <div className="lg2-frame">
-        {/* ─── Visual panel — the emerald story ─── */}
+        {/* ─── Visual panel — emerald story over video ─── */}
         <section className="lg2-visual">
+          <video
+            className="lg2-visual-video"
+            src={LOGIN_VIDEO}
+            autoPlay loop muted playsInline
+            aria-hidden="true"
+          />
           <div className="lg2-visual-noise" aria-hidden="true" />
+          <div className="lg2-visual-scrim" aria-hidden="true" />
 
           <span className="lg2-badge">
             <span className="lg2-badge-dot" />

@@ -56,9 +56,11 @@ export default function Login() {
         el.style.setProperty('--ma', `${angle}deg`);
       });
     };
-    el.addEventListener('pointermove', onMove);
+    // track the pointer anywhere near the panel so the glow keeps riding its
+    // edges even while the cursor is just outside it
+    window.addEventListener('pointermove', onMove);
     return () => {
-      el.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointermove', onMove);
       if (raf) cancelAnimationFrame(raf);
     };
   }, []);
@@ -166,8 +168,8 @@ export default function Login() {
           </a>
         </section>
 
-        {/* ─── Form panel — the door ─── */}
-        <aside className="lg2-formpanel">
+        {/* ─── Form panel — the door (pointer-tracking edge glow) ─── */}
+        <aside className="lg2-formpanel" ref={frameRef}>
           <div className="lg2-logo-row">
             <span className="lg2-logo-tile"><BotMark size={26} /></span>
             <span className="lg2-logo-name">Aura<span>Bot</span></span>

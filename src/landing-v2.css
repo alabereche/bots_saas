@@ -83,7 +83,10 @@
   height: 100%;
   object-fit: cover;
   display: block;
+  opacity: 0;
+  transition: opacity 1s ease;
 }
+.lp2-hero-video.is-playing { opacity: 1; }
 /* Fallback until the black-hole video arrives: emerald abyss */
 .lp2-hero-fallback {
   position: absolute;
@@ -117,8 +120,8 @@
   font-family: 'Instrument Serif', 'Almarai', serif;
   font-style: italic;
   font-weight: 400;
-  font-size: clamp(4.6rem, 14.5vw, 15.5rem);
-  line-height: 0.82;
+  font-size: clamp(4.6rem, 19vw, 22rem);
+  line-height: 0.8;
   letter-spacing: -0.045em;
   color: var(--lp2-cream);
   display: block;
@@ -129,7 +132,7 @@
   position: absolute;
   top: 0.16em;
   right: -0.32em;
-  font-size: clamp(1rem, 2.6vw, 2.1rem);
+  font-size: clamp(1.1rem, 3vw, 2.6rem);
   color: var(--lp2-emerald);
   font-style: normal;
 }

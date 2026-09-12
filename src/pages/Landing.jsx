@@ -64,7 +64,14 @@ function HeroVideo({ src }) {
     };
   }, [src]);
 
-  return <video ref={ref} className="lp2-hero-video" autoPlay loop muted playsInline />;
+  return (
+    <video
+      ref={ref}
+      className="lp2-hero-video"
+      autoPlay loop muted playsInline
+      onPlaying={e => e.currentTarget.classList.add('is-playing')}
+    />
+  );
 }
 
 /* ─── Icons (inline, tree-shakeable) ─── */
@@ -202,11 +209,10 @@ export default function Landing() {
       {/* ═══ Scene 1 — cinematic hero ═══ */}
       <section className="lp2-hero-frame">
         <div className="lp2-hero-media" aria-hidden="true">
-          {HERO_VIDEO ? (
-            <HeroVideo src={HERO_VIDEO} />
-          ) : (
-            <div className="lp2-hero-fallback" />
-          )}
+          {/* The emerald abyss stays BEHIND the video always — so the hero is
+              never void-black while the stream buffers or if it ever fails */}
+          <div className="lp2-hero-fallback" />
+          {HERO_VIDEO && <HeroVideo src={HERO_VIDEO} />}
           <div className="lp2-noise" />
           <div className="lp2-hero-scrim" />
         </div>

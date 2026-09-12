@@ -79,6 +79,16 @@ export default function Login() {
 
   return (
     <div className="lg2-root">
+      {/* Full-screen background video behind everything */}
+      <video
+        className="lg2-bg-video"
+        src={LOGIN_VIDEO}
+        autoPlay loop muted playsInline
+        ref={el => { if (el) { el.muted = true; el.play().catch(() => {}); } }}
+        aria-hidden="true"
+      />
+      <div className="lg2-bg-scrim" aria-hidden="true" />
+
       {/* Floating back button */}
       <button type="button" className="back-fab" onClick={handleGoBack} aria-label="الرجوع للصفحة السابقة">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -89,16 +99,9 @@ export default function Login() {
       </button>
 
       <div className="lg2-frame">
-        {/* ─── Visual panel — emerald story over video ─── */}
+        {/* ─── Visual panel — emerald story ─── */}
         <section className="lg2-visual">
-          <video
-            className="lg2-visual-video"
-            src={LOGIN_VIDEO}
-            autoPlay loop muted playsInline
-            aria-hidden="true"
-          />
           <div className="lg2-visual-noise" aria-hidden="true" />
-          <div className="lg2-visual-scrim" aria-hidden="true" />
 
           <span className="lg2-badge">
             <span className="lg2-badge-dot" />

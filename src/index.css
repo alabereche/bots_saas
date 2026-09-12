@@ -874,7 +874,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ─── Soft Rounded Squircle Glass Cards ─── */
 .card, .solid-card {
-  background: rgba(14, 21, 35, 0.65);
+  background: rgba(17, 17, 16, 0.7);
   border: 1px solid var(--veil-2);
   border-radius: 24px;
   padding: 1.75rem;
@@ -1434,7 +1434,7 @@ h1, h2, h3, h4, h5, h6 {
   width: 100%;
   padding: 6px;
   border-radius: 16px;
-  background: rgba(14, 21, 38, 0.75);
+  background: rgba(17, 17, 16, 0.78);
   border: 1px solid var(--veil-2);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -1920,7 +1920,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* 1. Header Banner */
 .catalog-hero-card {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(15, 23, 42, 0.8) 100%);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(17, 17, 16, 0.85) 100%);
   border: 1px solid rgba(16, 185, 129, 0.25);
   border-radius: var(--radius-xl);
   padding: 1.35rem 1.6rem;

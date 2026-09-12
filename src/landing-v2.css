@@ -405,7 +405,7 @@
   .lp2-card { min-height: 250px; }
 }
 @media (max-width: 760px) {
-  .lp2-hero-frame { margin: 8px; min-height: 92svh; }
+  .lp2-hero-frame { margin: 8px; }
   .lp2-hero-content {
     grid-template-columns: 1fr;
     align-items: end;

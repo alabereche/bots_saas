@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -33,6 +33,35 @@ export default function Login() {
   const [savingCountry, setSavingCountry] = useState(false);
 
   const countryObj = COUNTRIES.find(c => c.code === selectedCountry) || COUNTRIES[0];
+
+  // Pointer-following border glow — CSS vars drive the conic-gradient ring.
+  // rAF-throttled so it stays silky; cleaned up on unmount.
+  const frameRef = useRef(null);
+  useEffect(() => {
+    const el = frameRef.current;
+    if (!el) return undefined;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
+
+    let raf = 0;
+    const onMove = (e) => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        const r = el.getBoundingClientRect();
+        const x = e.clientX - r.left;
+        const y = e.clientY - r.top;
+        const angle = (Math.atan2(y - r.height / 2, x - r.width / 2) * 180 / Math.PI + 360) % 360;
+        el.style.setProperty('--mx', `${x}px`);
+        el.style.setProperty('--my', `${y}px`);
+        el.style.setProperty('--ma', `${angle}deg`);
+      });
+    };
+    el.addEventListener('pointermove', onMove);
+    return () => {
+      el.removeEventListener('pointermove', onMove);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
 
   // "Back" from the login screen must be a deterministic exit: history.back()
   // usually lands on a protected page that instantly redirects here again,
@@ -98,7 +127,7 @@ export default function Login() {
         <span>رجوع</span>
       </button>
 
-      <div className="lg2-frame">
+      <div className="lg2-frame" ref={frameRef}>
         {/* ─── Visual panel — emerald story ─── */}
         <section className="lg2-visual">
           <div className="lg2-visual-noise" aria-hidden="true" />

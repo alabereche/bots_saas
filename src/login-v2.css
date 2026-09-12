@@ -52,18 +52,48 @@
 
 /* ─── The framed split card ─── */
 .lg2-frame {
-  position: relative;
   z-index: 2;
   width: min(1120px, 100%);
   display: grid;
   grid-template-columns: 1.05fr 0.95fr;
   gap: 14px;
-  background: #0a0a09;
-  border: 1px solid var(--lg2-border);
   border-radius: 30px;
   padding: 14px;
+  /* translucent glass over the forest video */
+  background: rgba(10, 10, 9, 0.72);
+  backdrop-filter: blur(18px) saturate(1.15);
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
   box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.8);
-  position: relative;
+}
+/* pointer-following gradient ring — emerald on one side, sky on the other,
+   rotated by --ma (pointer angle) set from JS */
+.lg2-frame::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background:
+    conic-gradient(from var(--ma, 0deg),
+      #22d3ee 0deg, #34d399 90deg, transparent 160deg,
+      transparent 200deg, #34d399 270deg, #22d3ee 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask-composite: exclude;
+  opacity: 0.75;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+/* soft halo hugging the cursor just inside the ring */
+.lg2-frame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(340px circle at var(--mx, 50%) var(--my, 50%),
+    rgba(52, 211, 153, 0.12) 0%, rgba(34, 211, 238, 0.06) 40%, transparent 65%);
+  pointer-events: none;
 }
 
 /* ─── Visual panel: emerald story ─── */

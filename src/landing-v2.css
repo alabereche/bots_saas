@@ -69,8 +69,7 @@
 /* ─── Scene 1: hero — the framed film ─── */
 .lp2-hero-frame {
   position: relative;
-  height: 100svh;
-  min-height: 620px;
+  min-height: clamp(560px, 80svh, 880px);
   margin: 10px;
   border-radius: clamp(18px, 2.6vw, 32px);
   overflow: hidden;
@@ -108,12 +107,11 @@
 }
 
 .lp2-hero-content {
-  position: absolute;
-  inset: 0;
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  padding: clamp(84px, 12vh, 130px) clamp(20px, 4.5vw, 58px) clamp(26px, 5vh, 52px);
+  padding: clamp(84px, 12vh, 130px) clamp(20px, 4.5vw, 58px) clamp(48px, 8vh, 96px);
 }
 
 /* Giant wordmark — the hero IS the name */
@@ -154,9 +152,8 @@
   gap: 15px;
   max-width: 620px;
   width: 100%;
-  /* horizontally centered, sitting right under the wordmark —
-     the bottom stays open for the video to breathe */
-  margin: 2.5vh auto 0;
+  /* horizontally centered, vertically centered under the wordmark */
+  margin: auto;
   text-align: center;
 }
 .lp2-hero-cta-side .lp2-cta-row { justify-content: center; }

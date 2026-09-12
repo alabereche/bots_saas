@@ -405,7 +405,10 @@
   .lp2-card { min-height: 250px; }
 }
 @media (max-width: 760px) {
-  .lp2-hero-frame { margin: 8px; }
+  .lp2-hero-frame { margin: 8px 8px 6px; min-height: 0; }
+  /* kill the dead zone: tight bottom pad + section arrives right after */
+  .lp2-hero-content { padding-bottom: 26px; }
+  .lp2-section { padding-top: 44px; }
   .lp2-hero-content {
     grid-template-columns: 1fr;
     align-items: end;

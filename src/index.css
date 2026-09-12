@@ -4684,7 +4684,7 @@ html, body {
 .admin-page-container {
   padding: 24px 32px 64px;
   min-height: 100vh;
-  background: var(--bg-deep);
+  /* no own background — blends with the app canvas (no floating-panel edges) */
   color: var(--text-primary);
   box-sizing: border-box;
   font-family: inherit;

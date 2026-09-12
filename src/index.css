@@ -23,20 +23,20 @@
   --color-telegram-bg: rgba(14, 165, 233, 0.12);
   --color-telegram-border: rgba(14, 165, 233, 0.3);
 
-  /* High-Contrast Canvas Hierarchy */
-  --bg-app: #080c14;          /* Deepest canvas */
-  --bg-sidebar: #06090f;      /* Darkest edge frame */
-  --bg-surface: #101623;      /* Base content layer */
-  --bg-card: #141c2c;         /* Elevated card surface */
-  --bg-card-hover: #192337;   /* Interactive card state */
-  --bg-cell: #0d121d;         /* Sub-component cell */
-  --bg-input: #0a0e18;        /* Recessed input surface */
-  --bg-modal: #141c2c;        /* Modal window */
+  /* High-Contrast Canvas Hierarchy — landing-palette black/warm */
+  --bg-app: #050505;          /* Deepest canvas */
+  --bg-sidebar: #0a0a09;      /* Darkest edge frame (warm) */
+  --bg-surface: #0d0d0c;      /* Base content layer */
+  --bg-card: #111110;         /* Elevated card surface */
+  --bg-card-hover: #1a1a18;   /* Interactive card state */
+  --bg-cell: #0d0d0c;         /* Sub-component cell */
+  --bg-input: #0a0a09;        /* Recessed input surface */
+  --bg-modal: #131312;        /* Modal window */
 
-  /* Razor-Sharp Contrast Borders */
-  --border-subtle: #1e293d;   /* Subtle divider */
-  --border-default: #28364f;  /* Standard card border */
-  --border-bright: #3b4d6e;   /* Hover & active border */
+  /* Razor-Sharp Contrast Borders — warm cream-tinted */
+  --border-subtle: rgba(230, 227, 211, 0.1);
+  --border-default: rgba(230, 227, 211, 0.14);
+  --border-bright: rgba(230, 227, 211, 0.28);
   --border-focus: #10b981;
 
   /* Semantic Feedback */
@@ -48,11 +48,11 @@
   --color-warning: #f59e0b;
   --color-warning-bg: rgba(245, 158, 11, 0.12);
 
-  /* High-Legibility Typography */
-  --text-primary: #ffffff;
-  --text-secondary: #94a3b8;
-  --text-tertiary: #64748b;
-  --text-muted: #475569;
+  /* High-Legibility Typography — warm cream scale */
+  --text-primary: #e6e3d3;
+  --text-secondary: #a5a294;
+  --text-tertiary: #7c7a6e;
+  --text-muted: #56544b;
 
   /* Fonts */
   --font-arabic: 'Cairo', 'Tajawal', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -74,11 +74,11 @@
   --trans-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
 
   /* Semantic surface tokens (map every recurring hardcoded pattern) */
-  --bg-deep: #0a101d;            /* inset panels, chips, form boxes */
-  --bg-inset: #060a12;           /* deepest wells: inputs, table heads */
-  --veil-1: var(--veil-1);  /* hover veils */
-  --veil-2: var(--veil-2);  /* hairlines, chip borders */
-  --veil-3: var(--veil-3);  /* stronger separators */
+  --bg-deep: #0d0d0c;            /* inset panels, chips, form boxes */
+  --bg-inset: #080808;           /* deepest wells: inputs, table heads */
+  --veil-1: rgba(230, 227, 211, 0.05);  /* hover veils (cream-tinted) */
+  --veil-2: rgba(230, 227, 211, 0.09);  /* hairlines, chip borders */
+  --veil-3: rgba(230, 227, 211, 0.16);  /* stronger separators */
   --text-on-fill: #ffffff;       /* text on emerald/colored fills */
 }
 
@@ -1405,7 +1405,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .radio-card:hover {
   border-color: var(--border-bright);
-  background: #141c2c;
+  background: var(--bg-card);
 }
 
 .radio-card.selected {
@@ -1600,7 +1600,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .chat-contact:hover {
-  background: #141c2c;
+  background: var(--bg-card);
 }
 
 .chat-contact.active {
@@ -3755,7 +3755,7 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid #0a0f1c;
+  border: 2px solid var(--bg-app);
   line-height: 1;
 }
 .notif-panel {
@@ -3896,7 +3896,7 @@ html, body {
   background: 
     radial-gradient(900px 500px at 50% 10%, rgba(37, 99, 235, 0.12) 0%, transparent 60%),
     radial-gradient(600px 400px at 50% 90%, rgba(16, 185, 129, 0.06) 0%, transparent 60%),
-    #060a12;
+    var(--bg-inset);
   padding: 1.5rem 1rem;
 }
 .public-chat-page.is-embedded {
@@ -4437,7 +4437,7 @@ html, body {
    Sidebar redesign — Living Cockpit (depth, chips, radar, pulse)
    ═══════════════════════════════════════════════════════════════ */
 .desktop-sidebar {
-  background: linear-gradient(180deg, #080c14 0%, #060a11 100%);
+  background: linear-gradient(180deg, var(--bg-app) 0%, #030303 100%);
   box-shadow: -10px 0 36px rgba(0, 0, 0, 0.5);
 }
 /* emerald hairline on the content-facing edge */
@@ -4594,7 +4594,7 @@ html, body {
   gap: 14px;
 }
 .tpl-card {
-  background: var(--bg-card, #0a101d);
+  background: var(--bg-card);
   border: 1px solid var(--veil-2);
   border-radius: 18px;
   padding: 1.4rem 1.2rem;

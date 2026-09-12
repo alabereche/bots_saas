@@ -1740,7 +1740,7 @@ function OrderBehaviorCard({ bot, onUpdateBot }) {
           style={{
             padding: '1rem',
             borderRadius: '12px',
-            background: currentMode === 'merge' ? 'rgba(16, 185, 129, 0.08)' : '#060a12',
+            background: currentMode === 'merge' ? 'rgba(16, 185, 129, 0.08)' : 'var(--bg-deep)',
             border: `1.5px solid ${currentMode === 'merge' ? '#10b981' : 'rgba(255, 255, 255, 0.08)'}`,
             cursor: saving ? 'wait' : 'pointer',
             transition: 'all 0.2s ease',
@@ -1771,7 +1771,7 @@ function OrderBehaviorCard({ bot, onUpdateBot }) {
           style={{
             padding: '1rem',
             borderRadius: '12px',
-            background: currentMode === 'separate' ? 'rgba(56, 189, 248, 0.08)' : '#060a12',
+            background: currentMode === 'separate' ? 'rgba(56, 189, 248, 0.08)' : 'var(--bg-deep)',
             border: `1.5px solid ${currentMode === 'separate' ? '#38bdf8' : 'rgba(255, 255, 255, 0.08)'}`,
             cursor: saving ? 'wait' : 'pointer',
             transition: 'all 0.2s ease',
@@ -3590,7 +3590,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                       fontWeight: 800,
                       cursor: 'pointer',
                       transition: 'all 0.15s',
-                      background: (selectedLead.status || 'new') === stKey ? stVal.bg : '#060a12',
+                      background: (selectedLead.status || 'new') === stKey ? stVal.bg : 'var(--bg-deep)',
                       color: (selectedLead.status || 'new') === stKey ? stVal.color : 'var(--text-secondary)',
                       border: `1px solid ${(selectedLead.status || 'new') === stKey ? stVal.border : 'rgba(255, 255, 255, 0.08)'}`,
                     }}

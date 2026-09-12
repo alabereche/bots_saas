@@ -8,7 +8,7 @@
   --lp-bg: #060913;
   --lp-surface: #0e1526;
   --lp-surface-hover: #131c33;
-  --lp-card-bg: rgba(14, 21, 38, 0.7);
+  --lp-card-bg: rgba(17, 17, 16, 0.72);
   --lp-border: 1px solid rgba(255, 255, 255, 0.08);
   --lp-border-hover: 1px solid rgba(16, 185, 129, 0.4);
   --lp-emerald: #10b981;
@@ -308,7 +308,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: rgba(14, 21, 38, 0.8);
+  background: rgba(17, 17, 16, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: #ffffff;
   font-size: 0.98rem;
@@ -437,7 +437,7 @@
 }
 
 .niche-tab-btn {
-  background: rgba(14, 21, 38, 0.75);
+  background: rgba(17, 17, 16, 0.76);
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--lp-text-secondary);
   font-size: 0.82rem;
@@ -1039,7 +1039,7 @@
 }
 
 .step-card {
-  background: rgba(14, 21, 38, 0.7);
+  background: rgba(17, 17, 16, 0.72);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 20px;
   padding: 2.5rem 2rem;
@@ -1108,7 +1108,7 @@
 }
 
 .bento-card {
-  background: rgba(14, 21, 38, 0.7);
+  background: rgba(17, 17, 16, 0.72);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 20px;
   padding: 2.25rem 1.75rem;
@@ -1305,7 +1305,7 @@
 }
 
 .pricing-card {
-  background: rgba(14, 21, 38, 0.7);
+  background: rgba(17, 17, 16, 0.72);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 22px;
   padding: 2.75rem 2rem;
@@ -1323,7 +1323,7 @@
 
 .pricing-card.featured {
   border: 2px solid #10b981;
-  background: linear-gradient(180deg, rgba(16, 185, 129, 0.08) 0%, rgba(14, 21, 38, 0.85) 100%);
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.08) 0%, rgba(17, 17, 16, 0.85) 100%);
   transform: scale(1.03);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 30px rgba(16, 185, 129, 0.15);
   z-index: 10;

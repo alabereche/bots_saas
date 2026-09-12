@@ -5,7 +5,7 @@ export default function TermsOfService() {
   return (
     <div className="landing-page-root" style={{ minHeight: '100vh', padding: '4rem 1.5rem', direction: 'rtl' }}>
       <ModernBackground />
-      <div style={{ maxWidth: '850px', margin: '0 auto', background: 'rgba(14, 21, 38, 0.9)', border: '1px solid var(--border-default)', borderRadius: '20px', padding: '2.5rem', position: 'relative', zIndex: 10, backdropFilter: 'blur(10px)' }}>
+      <div style={{ maxWidth: '850px', margin: '0 auto', background: 'rgba(17, 17, 16, 0.9)', border: '1px solid var(--border-default)', borderRadius: '20px', padding: '2.5rem', position: 'relative', zIndex: 10, backdropFilter: 'blur(10px)' }}>
         
         <Link to="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: '#10b981', textDecoration: 'none', marginBottom: '1.5rem', fontWeight: 600, fontSize: '0.9rem' }}>
           ← العودة للرئيسية

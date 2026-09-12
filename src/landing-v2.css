@@ -154,8 +154,8 @@
   gap: 15px;
   max-width: 620px;
   width: 100%;
-  /* vertical + horizontal center in the space under the wordmark */
-  margin: auto;
+  /* horizontally centered, pinned toward the frame's bottom edge */
+  margin: auto auto 0;
   text-align: center;
 }
 .lp2-hero-cta-side .lp2-cta-row { justify-content: center; }

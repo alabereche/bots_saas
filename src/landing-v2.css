@@ -1,0 +1,436 @@
+/* ═══════════════════════════════════════════════════════════════
+   AuraBot Landing v2 — cinematic, minimal, black / cream / emerald
+   Self-contained (lp2-*). Loads after index.css; scopes everything
+   under .lp2-root so the app pages are untouched.
+   ═══════════════════════════════════════════════════════════════ */
+
+.lp2-root {
+  --lp2-bg: #050505;
+  --lp2-card: #111110;
+  --lp2-card-2: #1a1a18;
+  --lp2-cream: #e6e3d3;
+  --lp2-cream-dim: rgba(230, 227, 211, 0.62);
+  --lp2-gray: #8f8d80;
+  --lp2-emerald: #34d399;
+  --lp2-emerald-deep: #10b981;
+  --lp2-border: rgba(230, 227, 211, 0.1);
+
+  min-height: 100vh;
+  background: var(--lp2-bg);
+  color: var(--lp2-cream);
+  font-family: 'Almarai', 'Tajawal', -apple-system, 'Segoe UI', sans-serif;
+  overflow-x: clip;
+  position: relative;
+}
+.lp2-root *,
+.lp2-root *::before,
+.lp2-root *::after { box-sizing: border-box; }
+.lp2-root a { color: inherit; }
+
+/* Film grain utility (inline SVG turbulence) */
+.lp2-noise {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.42'/%3E%3C/svg%3E");
+}
+
+/* ─── Nav pill hanging from the top edge ─── */
+.lp2-nav-wrap {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+}
+.lp2-nav {
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 4vw, 46px);
+  background: #000;
+  border: 1px solid var(--lp2-border);
+  border-top: none;
+  border-radius: 0 0 22px 22px;
+  padding: 13px clamp(16px, 3.4vw, 38px);
+}
+.lp2-nav-link {
+  font-size: clamp(0.68rem, 1.4vw, 0.85rem);
+  font-weight: 400;
+  color: var(--lp2-cream-dim);
+  text-decoration: none;
+  transition: color 0.2s ease;
+  white-space: nowrap;
+}
+.lp2-nav-link:hover { color: var(--lp2-cream); }
+.lp2-nav-link.is-strong { color: var(--lp2-cream); font-weight: 700; }
+
+/* ─── Scene 1: hero — the framed film ─── */
+.lp2-hero-frame {
+  position: relative;
+  height: 100svh;
+  min-height: 620px;
+  margin: 10px;
+  border-radius: clamp(18px, 2.6vw, 32px);
+  overflow: hidden;
+  background: #000;
+  border: 1px solid var(--lp2-border);
+}
+.lp2-hero-media { position: absolute; inset: 0; }
+.lp2-hero-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* Fallback until the black-hole video arrives: emerald abyss */
+.lp2-hero-fallback {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(90% 65% at 50% 88%, rgba(16, 185, 129, 0.22) 0%, transparent 62%),
+    radial-gradient(60% 45% at 82% 12%, rgba(34, 211, 238, 0.08) 0%, transparent 65%),
+    radial-gradient(50% 40% at 12% 20%, rgba(16, 185, 129, 0.06) 0%, transparent 60%),
+    #020403;
+}
+.lp2-hero-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.42) 0%, transparent 34%, transparent 52%, rgba(0, 0, 0, 0.72) 100%);
+  pointer-events: none;
+}
+
+.lp2-hero-content {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  align-items: end;
+  gap: clamp(18px, 4vw, 56px);
+  padding: clamp(84px, 12vh, 130px) clamp(20px, 4.5vw, 58px) clamp(26px, 5vh, 52px);
+}
+
+/* Giant wordmark — the hero IS the name */
+.lp2-hero-wordmark-side { position: relative; align-self: end; }
+.lp2-wordmark {
+  font-family: 'Instrument Serif', 'Almarai', serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: clamp(4.6rem, 14.5vw, 15.5rem);
+  line-height: 0.82;
+  letter-spacing: -0.045em;
+  color: var(--lp2-cream);
+  display: block;
+  direction: ltr;
+  text-align: right;
+}
+.lp2-wordmark-star {
+  position: absolute;
+  top: 0.16em;
+  right: -0.32em;
+  font-size: clamp(1rem, 2.6vw, 2.1rem);
+  color: var(--lp2-emerald);
+  font-style: normal;
+}
+.lp2-pullup { display: inline-block; }
+.lp2-pullup-word-mask { display: inline-block; overflow: hidden; vertical-align: bottom; }
+.lp2-pullup-word { display: inline-block; will-change: transform; }
+
+/* CTA column */
+.lp2-hero-cta-side {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  max-width: 430px;
+  justify-self: start;
+  width: 100%;
+}
+.lp2-hero-line {
+  font-size: clamp(1.05rem, 2vw, 1.5rem);
+  font-weight: 700;
+  line-height: 1.65;
+  color: var(--lp2-cream);
+  margin: 0;
+}
+.lp2-hero-sub {
+  font-size: clamp(0.8rem, 1.2vw, 0.92rem);
+  font-weight: 300;
+  line-height: 1.9;
+  color: var(--lp2-cream-dim);
+  margin: 0;
+}
+
+.lp2-cta-row { display: flex; align-items: center; flex-wrap: wrap; gap: 11px; }
+.lp2-cta-row.is-center { justify-content: center; }
+.lp2-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px 8px 22px;
+  border-radius: 999px;
+  background: var(--lp2-cream);
+  color: #0a0a08;
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+.lp2-btn-primary:hover { transform: translateY(-2px); background: #f2efdf; }
+.lp2-btn-orb {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--lp2-emerald-deep);
+  color: #04120c;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+}
+.lp2-btn-primary:hover .lp2-btn-orb { transform: scale(1.1); }
+.lp2-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 999px;
+  border: 1px solid var(--lp2-border);
+  color: var(--lp2-cream-dim);
+  font-size: 0.88rem;
+  font-weight: 400;
+  text-decoration: none;
+  transition: color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+.lp2-btn-ghost:hover { color: var(--lp2-cream); border-color: rgba(230, 227, 211, 0.32); transform: translateY(-2px); }
+
+.lp2-channels { display: flex; gap: 8px; }
+.lp2-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--lp2-cream-dim);
+  border: 1px solid var(--lp2-border);
+  padding: 5px 12px;
+  border-radius: 999px;
+}
+
+/* ─── Shared section shell ─── */
+.lp2-section {
+  padding: clamp(84px, 13vh, 150px) clamp(16px, 4vw, 40px);
+  display: flex;
+  justify-content: center;
+  scroll-margin-top: 40px;
+}
+
+/* ─── Scene 2: the about card ─── */
+.lp2-about-card {
+  width: min(920px, 100%);
+  background: var(--lp2-card);
+  border: 1px solid var(--lp2-border);
+  border-radius: clamp(20px, 2.4vw, 30px);
+  padding: clamp(38px, 6vw, 84px) clamp(22px, 5vw, 70px);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  position: relative;
+  overflow: hidden;
+}
+.lp2-about-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.05;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23m)'/%3E%3C/svg%3E");
+}
+.lp2-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--lp2-emerald);
+  letter-spacing: 0.06em;
+}
+.lp2-about-title {
+  font-size: clamp(1.55rem, 4vw, 3.1rem);
+  font-weight: 800;
+  line-height: 1.45;
+  color: var(--lp2-cream);
+  margin: 0;
+  max-width: 20ch;
+}
+.lp2-about-body,
+.lp2-scrollreveal {
+  font-size: clamp(1.02rem, 2.1vw, 1.5rem);
+  font-weight: 300;
+  line-height: 2.05;
+  color: var(--lp2-cream);
+  margin: 0;
+  max-width: 34ch;
+}
+.lp2-sr-word { display: inline-block; }
+
+/* ─── Scene 3: features ─── */
+.lp2-features-head {
+  width: min(1100px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: clamp(34px, 5vw, 60px);
+}
+.lp2-features-title {
+  font-size: clamp(1.3rem, 2.9vw, 2.3rem);
+  font-weight: 700;
+  line-height: 1.5;
+  margin: 0;
+}
+.lp2-features-title.is-cream { color: var(--lp2-cream); }
+.lp2-features-title.is-dim { color: var(--lp2-gray); font-weight: 300; }
+
+.lp2-cards {
+  width: min(1100px, 100%);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.lp2-card {
+  position: relative;
+  background: var(--lp2-card-2);
+  border: 1px solid var(--lp2-border);
+  border-radius: 20px;
+  padding: 26px 22px 28px;
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.25s ease, transform 0.25s ease;
+}
+.lp2-card:hover { border-color: rgba(52, 211, 153, 0.35); transform: translateY(-4px); }
+.lp2-card-num {
+  font-family: 'Instrument Serif', serif;
+  font-style: italic;
+  font-size: 1rem;
+  color: var(--lp2-gray);
+}
+.lp2-card-title {
+  font-size: clamp(1.02rem, 1.5vw, 1.22rem);
+  font-weight: 800;
+  color: var(--lp2-cream);
+  line-height: 1.6;
+  margin: 14px 0 auto;
+}
+.lp2-card-list {
+  list-style: none;
+  margin: 26px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.lp2-card-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 0.82rem;
+  font-weight: 300;
+  line-height: 1.7;
+  color: var(--lp2-gray);
+}
+.lp2-card-check {
+  color: var(--lp2-emerald);
+  flex-shrink: 0;
+  margin-top: 4px;
+  display: inline-flex;
+}
+
+/* ─── Footer ─── */
+.lp2-footer {
+  padding: clamp(60px, 9vh, 110px) clamp(16px, 4vw, 40px) 34px;
+  border-top: 1px solid var(--lp2-border);
+  background:
+    radial-gradient(70% 90% at 50% 120%, rgba(16, 185, 129, 0.1) 0%, transparent 60%),
+    #030303;
+}
+.lp2-footer-inner {
+  max-width: 640px;
+  margin: 0 auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.lp2-footer-mark {
+  font-family: 'Instrument Serif', serif;
+  font-style: italic;
+  font-size: 1.7rem;
+  color: var(--lp2-cream);
+  direction: ltr;
+}
+.lp2-footer-star { color: var(--lp2-emerald); font-style: normal; font-size: 0.8em; }
+.lp2-footer-line {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--lp2-cream-dim);
+  margin: 0;
+}
+.lp2-footer-legal {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 26px;
+  font-size: 0.72rem;
+  color: var(--lp2-gray);
+}
+.lp2-footer-legal a { color: var(--lp2-gray); text-decoration: none; transition: color 0.2s ease; }
+.lp2-footer-legal a:hover { color: var(--lp2-cream); }
+
+/* ─── Responsive ─── */
+@media (max-width: 1020px) {
+  .lp2-cards { grid-template-columns: repeat(2, 1fr); }
+  .lp2-card { min-height: 250px; }
+}
+@media (max-width: 760px) {
+  .lp2-hero-frame { margin: 8px; min-height: 92svh; }
+  .lp2-hero-content {
+    grid-template-columns: 1fr;
+    align-items: end;
+    gap: 20px;
+    padding-bottom: 30px;
+  }
+  .lp2-wordmark { font-size: clamp(4rem, 21vw, 7rem); text-align: right; }
+  .lp2-wordmark-star { top: -0.05em; left: auto; right: -0.3em; }
+  .lp2-hero-cta-side { max-width: 100%; }
+  .lp2-nav { gap: 14px; padding: 11px 16px; border-radius: 0 0 16px 16px; }
+}
+@media (max-width: 560px) {
+  .lp2-cards { grid-template-columns: 1fr; }
+  .lp2-card { min-height: 0; }
+  .lp2-section { padding-inline: 14px; }
+  .lp2-btn-primary { padding: 7px 8px 7px 20px; font-size: 0.86rem; }
+}
+
+/* ─── Reduced motion ─── */
+@media (prefers-reduced-motion: reduce) {
+  .lp2-pullup-word,
+  .lp2-root .motion-reduce-safe { transition: none !important; animation: none !important; }
+}
+
+/* Color-restore: `.lp2-root a { color: inherit }` (0-1-1, earlier) is
+   overridden here at equal specificity, later in the cascade */
+.lp2-root a.lp2-btn-primary { color: #0a0a08; }
+.lp2-root a.lp2-btn-ghost { color: var(--lp2-cream-dim); }
+.lp2-root a.lp2-btn-ghost:hover { color: var(--lp2-cream); }
+.lp2-root a.lp2-nav-link { color: var(--lp2-cream-dim); text-decoration: none; }
+.lp2-root a.lp2-nav-link:hover { color: var(--lp2-cream); }
+.lp2-root a.lp2-nav-link.is-strong { color: var(--lp2-cream); font-weight: 700; }
+.lp2-root .lp2-footer-legal a { color: var(--lp2-gray); }
+.lp2-root .lp2-footer-legal a:hover { color: var(--lp2-cream); }
+
+/* Features section stacks: header above the card grid (not side-by-side) */
+.lp2-root #features.lp2-section {
+  flex-direction: column;
+  align-items: center;
+}

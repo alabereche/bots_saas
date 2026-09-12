@@ -77,6 +77,7 @@
 
 /* 3. Subtle Cybernetic Data Grid Matrix */
 .modern-grid-overlay {
+  display: none; /* removed per user call — was a faint grid overlay */
   position: absolute;
   inset: 0;
   background-image: 

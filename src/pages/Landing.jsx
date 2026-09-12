@@ -5,9 +5,9 @@ import { useAuth } from '../context/AuthContext';
 import '../landing-v2.css';
 
 const DEMO_BOT_URL = 'https://t.me/Zcodybot';
-// فيديو الهيرو — بث HLS من Mux. سفاري/آيفون تشغّله أصلاً، وبقية المتصفحات
-// عبر hls.js الذي يُحمَّل ديناميكياً مع هذا القسم فقط
-const HERO_VIDEO = 'https://stream.mux.com/tLkHO1qZoaaQOUeVWo8hEBeGQfySP02EPS02BmnNFyXys.m3u8';
+// فيديو الهيرو — MP4 مُضغوط مُستضاف داخل المشروع (282KB فقط)، يُخدم من
+// نفس نطاق الموقع عبر Cloudflare — بلا أي اعتماد خارجي
+const HERO_VIDEO = '/hero.mp4';
 
 const EASE = [0.16, 1, 0.3, 1];
 
@@ -36,20 +36,6 @@ function HeroVideo({ src }) {
       window.addEventListener(ev, interact, { once: true, passive: true })
     );
 
-    // iOS / Safari play HLS natively
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = src;
-      video.addEventListener('loadeddata', tryPlay, { once: true });
-      tryPlay();
-      return () => {
-        video.removeEventListener('loadeddata', show);
-        video.removeEventListener('playing', show);
-        ['pointerdown', 'wheel', 'touchstart', 'keydown'].forEach(ev =>
-          window.removeEventListener(ev, interact)
-        );
-      };
-    }
-
     let hls = null;
     let cancelled = false;
     const retry = setInterval(() => {
@@ -59,18 +45,28 @@ function HeroVideo({ src }) {
     }, 600);
     const giveUp = setTimeout(() => clearInterval(retry), 20000);
 
-    import('hls.js')
-      .then(({ default: Hls }) => {
-        if (cancelled) return;
-        if (Hls.isSupported()) {
-          hls = new Hls({ enableWorker: true, lowLatencyMode: false });
-          hls.loadSource(src);
-          hls.attachMedia(video);
-        } else {
-          video.src = src; // last resort
-        }
-      })
-      .catch(() => { /* fallback background stays visible behind */ });
+    if (!src.includes('.m3u8')) {
+      // Self-hosted MP4 — plain source, no HLS machinery
+      video.src = src;
+      tryPlay();
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      // iOS / Safari play HLS natively
+      video.src = src;
+      tryPlay();
+    } else {
+      import('hls.js')
+        .then(({ default: Hls }) => {
+          if (cancelled) return;
+          if (Hls.isSupported()) {
+            hls = new Hls({ enableWorker: true, lowLatencyMode: false });
+            hls.loadSource(src);
+            hls.attachMedia(video);
+          } else {
+            video.src = src; // last resort
+          }
+        })
+        .catch(() => { /* fallback background stays visible behind */ });
+    }
 
     return () => {
       cancelled = true;

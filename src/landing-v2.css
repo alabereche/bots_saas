@@ -150,11 +150,16 @@
 .lp2-hero-cta-side {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 15px;
-  max-width: 430px;
+  max-width: 620px;
   width: 100%;
-  margin-top: auto;
+  /* vertical + horizontal center in the space under the wordmark */
+  margin: auto;
+  text-align: center;
 }
+.lp2-hero-cta-side .lp2-cta-row { justify-content: center; }
+.lp2-hero-cta-side .lp2-channels { justify-content: center; }
 .lp2-hero-line {
   font-size: clamp(1.05rem, 2vw, 1.5rem);
   font-weight: 700;

@@ -65,34 +65,42 @@
   -webkit-backdrop-filter: blur(18px) saturate(1.15);
   box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.8);
 }
-/* pointer-following gradient ring — emerald on one side, sky on the other,
-   rotated by --ma (pointer angle) set from JS */
+/* Pointer-following glow ON THE CARD's own edges: a rotating emerald/sky
+   spotlight segment rides the border where the cursor is. The JS sets --ma
+   (angle from card center to cursor) and --mx/--my (cursor position). */
 .lg2-frame::before {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  padding: 1.5px;
+  padding: 2px;
   background:
     conic-gradient(from var(--ma, 0deg),
-      #22d3ee 0deg, #34d399 90deg, transparent 160deg,
-      transparent 200deg, #34d399 270deg, #22d3ee 360deg);
+      rgba(52, 211, 153, 0) 0deg,
+      rgba(52, 211, 153, 0.95) 32deg,
+      #22d3ee 55deg,
+      rgba(52, 211, 153, 0) 110deg,
+      rgba(52, 211, 153, 0) 360deg),
+    rgba(230, 227, 211, 0.14);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
           mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
           mask-composite: exclude;
-  opacity: 0.75;
-  transition: opacity 0.3s ease;
   pointer-events: none;
 }
-/* soft halo hugging the cursor just inside the ring */
+/* luminous bloom spilling slightly inward from the lit border segment */
 .lg2-frame::after {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: radial-gradient(340px circle at var(--mx, 50%) var(--my, 50%),
-    rgba(52, 211, 153, 0.12) 0%, rgba(34, 211, 238, 0.06) 40%, transparent 65%);
+  background:
+    radial-gradient(300px circle at var(--mx, 50%) var(--my, 50%),
+      rgba(52, 211, 153, 0.22) 0%, rgba(34, 211, 238, 0.1) 38%, transparent 62%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask-composite: exclude;
   pointer-events: none;
 }
 

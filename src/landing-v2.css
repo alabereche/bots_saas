@@ -161,14 +161,14 @@
 .lp2-hero-cta-side .lp2-cta-row { justify-content: center; }
 .lp2-hero-cta-side .lp2-channels { justify-content: center; }
 .lp2-hero-line {
-  font-size: clamp(1.05rem, 2vw, 1.5rem);
+  font-size: clamp(1.2rem, 2.5vw, 1.85rem);
   font-weight: 700;
   line-height: 1.65;
   color: var(--lp2-cream);
   margin: 0;
 }
 .lp2-hero-sub {
-  font-size: clamp(0.8rem, 1.2vw, 0.92rem);
+  font-size: clamp(0.92rem, 1.4vw, 1.06rem);
   font-weight: 300;
   line-height: 1.9;
   color: var(--lp2-cream-dim);
@@ -180,20 +180,20 @@
 .lp2-btn-primary {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
-  padding: 8px 10px 8px 22px;
+  gap: 10px;
+  padding: 9px 11px 9px 26px;
   border-radius: 999px;
   background: var(--lp2-cream);
   color: #0a0a08;
-  font-size: 0.92rem;
+  font-size: 1rem;
   font-weight: 700;
   text-decoration: none;
   transition: transform 0.2s ease, background 0.2s ease;
 }
 .lp2-btn-primary:hover { transform: translateY(-2px); background: #f2efdf; }
 .lp2-btn-orb {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: var(--lp2-emerald-deep);
   color: #04120c;
@@ -206,12 +206,12 @@
 .lp2-btn-ghost {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 20px;
+  gap: 9px;
+  padding: 14px 24px;
   border-radius: 999px;
   border: 1px solid var(--lp2-border);
   color: var(--lp2-cream-dim);
-  font-size: 0.88rem;
+  font-size: 0.95rem;
   font-weight: 400;
   text-decoration: none;
   transition: color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;

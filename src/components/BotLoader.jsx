@@ -9,8 +9,8 @@ export default function BotLoader({ fullscreen = false, label = 'جاري تجه
         <svg className="bloader-svg" viewBox="0 0 120 120" fill="none" aria-hidden="true">
           <defs>
             <linearGradient id="bloader-grad" x1="25" y1="30" x2="95" y2="85" gradientUnits="userSpaceOnUse">
-              <stop offset="0" stopColor="#34d399" />
-              <stop offset="1" stopColor="#22d3ee" />
+              <stop offset="0" stopColor="#e6e3d3" />
+              <stop offset="1" stopColor="#34d399" />
             </linearGradient>
           </defs>
           <path
@@ -23,7 +23,7 @@ export default function BotLoader({ fullscreen = false, label = 'جاري تجه
           />
           <circle className="bloader-dot bloader-dot--1" cx="45" cy="51" r="4.5" fill="#34d399" />
           <circle className="bloader-dot bloader-dot--2" cx="60" cy="51" r="4.5" fill="#10b981" />
-          <circle className="bloader-dot bloader-dot--3" cx="75" cy="51" r="4.5" fill="#22d3ee" />
+          <circle className="bloader-dot bloader-dot--3" cx="75" cy="51" r="4.5" fill="#a7f3d0" />
         </svg>
 
         <div className="bloader-word" aria-hidden="true">

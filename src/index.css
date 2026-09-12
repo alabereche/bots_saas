@@ -3598,8 +3598,8 @@ html, body {
   min-height: 100vh;
   background:
     radial-gradient(900px 520px at 50% 36%, rgba(16, 185, 129, 0.10), transparent 65%),
-    radial-gradient(720px 440px at 50% 62%, rgba(34, 211, 238, 0.05), transparent 60%),
-    #040711;
+    radial-gradient(720px 440px at 50% 62%, rgba(230, 227, 211, 0.04), transparent 60%),
+    #050505;
 }
 .bloader-glow {
   position: absolute;
@@ -3641,10 +3641,10 @@ html, body {
   display: flex;
   direction: ltr;
   gap: 1px;
-  font-family: 'Cairo', 'Tajawal', sans-serif;
+  font-family: 'Almarai', 'Cairo', sans-serif;
   font-size: 1.5rem;
-  font-weight: 900;
-  color: var(--text-primary);
+  font-weight: 800;
+  color: #e6e3d3;
   letter-spacing: 0.5px;
   margin-top: 1.05rem;
 }
@@ -3675,13 +3675,13 @@ html, body {
   width: 40%;
   height: 100%;
   border-radius: 99px;
-  background: linear-gradient(90deg, transparent, #34d399 35%, #22d3ee 65%, transparent);
+  background: linear-gradient(90deg, transparent, #34d399 35%, #a7f3d0 65%, transparent);
   animation: bloaderSlide 1.4s ease-in-out 2.05s infinite;
 }
 .bloader-label {
   margin-top: 0.9rem;
   font-size: 0.82rem;
-  color: var(--text-secondary, #94a3b8);
+  color: rgba(230, 227, 211, 0.55);
   opacity: 0;
   animation: bloaderFadeIn 0.6s ease 2.15s forwards;
 }

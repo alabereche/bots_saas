@@ -1,15 +1,71 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useScroll, useTransform, useInView, useReducedMotion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import '../landing-v2.css';
 
 const DEMO_BOT_URL = 'https://t.me/Zcodybot';
-// ضع رابط فيديو الثقب الأسود هنا عند جاهزيته (MP4 < 4MB) — وسيحل تلقائياً
-// مكان الخلفية المتوهجة، مع نفس الطبقات (حبيبات + تعتيم) فوقه
-const HERO_VIDEO = '';
+// فيديو الهيرو — بث HLS من Mux. سفاري/آيفون تشغّله أصلاً، وبقية المتصفحات
+// عبر hls.js الذي يُحمَّل ديناميكياً مع هذا القسم فقط
+const HERO_VIDEO = 'https://stream.mux.com/tLkHO1qZoaaQOUeVWo8hEBeGQfySP02EPS02BmnNFyXys.m3u8';
 
 const EASE = [0.16, 1, 0.3, 1];
+
+/* ─── Hero background video: HLS with native-Safari fast path ─── */
+function HeroVideo({ src }) {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const video = ref.current;
+    if (!video) return undefined;
+
+    // React's `muted` prop is unreliable (react#10389) — keep it forced
+    const tryPlay = () => {
+      video.muted = true;
+      const p = video.play();
+      if (p) p.catch(() => { /* retried below until it sticks */ });
+    };
+
+    // iOS / Safari play HLS natively
+    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = src;
+      video.addEventListener('loadeddata', tryPlay, { once: true });
+      tryPlay();
+      return undefined;
+    }
+
+    let hls = null;
+    let cancelled = false;
+    const retry = setInterval(() => {
+      if (cancelled) return;
+      if (!video.paused) { clearInterval(retry); return; }
+      if (video.readyState >= 2) tryPlay();
+    }, 600);
+    const giveUp = setTimeout(() => clearInterval(retry), 20000);
+
+    import('hls.js')
+      .then(({ default: Hls }) => {
+        if (cancelled) return;
+        if (Hls.isSupported()) {
+          hls = new Hls({ enableWorker: true, lowLatencyMode: false });
+          hls.loadSource(src);
+          hls.attachMedia(video);
+        } else {
+          video.src = src; // last resort
+        }
+      })
+      .catch(() => { /* fallback background stays visible behind */ });
+
+    return () => {
+      cancelled = true;
+      clearInterval(retry);
+      clearTimeout(giveUp);
+      if (hls) hls.destroy();
+    };
+  }, [src]);
+
+  return <video ref={ref} className="lp2-hero-video" autoPlay loop muted playsInline />;
+}
 
 /* ─── Icons (inline, tree-shakeable) ─── */
 const IconTelegram = ({ size = 16 }) => (
@@ -147,12 +203,7 @@ export default function Landing() {
       <section className="lp2-hero-frame">
         <div className="lp2-hero-media" aria-hidden="true">
           {HERO_VIDEO ? (
-            <video
-              className="lp2-hero-video"
-              src={HERO_VIDEO}
-              autoPlay loop muted playsInline
-              poster="/saas-bg.jpg"
-            />
+            <HeroVideo src={HERO_VIDEO} />
           ) : (
             <div className="lp2-hero-fallback" />
           )}

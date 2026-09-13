@@ -33,6 +33,7 @@ const firestore = require('./firestore');
 const { admin, db } = require('./firestore');
 const { setTakeover, getTakeoverMap } = require('./takeover');
 const trackingHelper = require('./tracking-helper');
+const ssrfGuard = require('./ssrf-guard');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -353,6 +354,10 @@ app.post('/api/sheets/test-sync', async (req, res) => {
   }
   const bot = await requireBotAccess(res, req.uid, botId);
   if (!bot) return;
+  if (webhookUrl) {
+    const ssrfError = ssrfGuard.validateWebhookUrl(webhookUrl);
+    if (ssrfError) return res.status(400).json({ error: ssrfError });
+  }
 
   const targetUrl = webhookUrl || bot.googleSheetsWebhookUrl || bot.webhookUrl;
   if (!targetUrl) {

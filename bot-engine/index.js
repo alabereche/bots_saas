@@ -23,6 +23,7 @@ import {
   customerStatusLabel,
   PROVIDER_NAMES,
 } from './tracking-helper.js';
+import { validateWebhookUrl } from './ssrf-guard.js';
 import { encrypt, decrypt } from './encryption.js';
 import { syncToGoogleSheets } from './sheetsSync.js';
 
@@ -1396,6 +1397,10 @@ app.post('/api/sheets/test-sync', async (req, res) => {
   }
   const botConfig = await requireBotAccess(res, req.uid, botId);
   if (!botConfig) return;
+  if (webhookUrl) {
+    const ssrfError = validateWebhookUrl(webhookUrl);
+    if (ssrfError) return res.status(400).json({ error: ssrfError });
+  }
 
   const targetUrl = webhookUrl || botConfig.googleSheetsWebhookUrl || botConfig.webhookUrl;
   if (!targetUrl) {

@@ -720,7 +720,9 @@ async function callGemini(apiKey, model, messages, audioData = null) {
     };
   });
 
-  const isBearer = apiKey && (apiKey.startsWith('AQ') || apiKey.startsWith('ya29') || apiKey.length > 80);
+  // `AQ.`-prefixed strings from AI Studio are API keys → x-goog-api-key.
+  // Bearer is for real OAuth access tokens (ya29…) only.
+  const isBearer = apiKey && (apiKey.startsWith('ya29') || (apiKey.length > 80 && !apiKey.startsWith('AQ.')));
   const urlBase = 'https://generativelanguage.googleapis.com/v1beta/models';
 
   let lastError = null;
@@ -757,6 +759,26 @@ async function callGemini(apiKey, model, messages, audioData = null) {
         // 404 = this model doesn't exist → the next fallback may work.
         // 400/401/403 = bad request or credentials → every model will
         // fail the same way; retrying only multiplies the latency.
+        if ((res.status === 401 || res.status === 403) && !isBearer && apiKey.startsWith('AQ.')) {
+          // New AI Studio keys: header auth rejected → try Bearer once
+          try {
+            const res2 = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+              body: JSON.stringify({
+                systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
+                contents,
+                generationConfig: { maxOutputTokens: 800, temperature: 0.7 },
+              }),
+              signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+            });
+            if (res2.ok) {
+              const data2 = await res2.json();
+              const text2 = data2.candidates?.[0]?.content?.parts?.[0]?.text;
+              if (text2) return text2;
+            }
+          } catch { /* fall through to next model */ }
+        }
         if (res.status === 400 || res.status === 401 || res.status === 403) break;
       }
     } catch (e) {

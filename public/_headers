@@ -1,7 +1,58 @@
+# Security headers — applied by Cloudflare Pages at deploy time.
+#
+# FRAME RULE (do not "simplify"): /chat/:botId is embedded by merchants via
+# widget.js, so /* must NEVER carry X-Frame-Options or CSP frame-ancestors
+# (the deleted vercel.json had XFO: DENY on / — it would have broken every
+# merchant embed had it ever applied). Framing is denied on app paths only.
+#
+# No script/style CSP yet: the app relies on inline styles + Google Fonts +
+# Firebase SDK — a strict CSP needs a dedicated audit, not a config patch.
+
 /*
-  Cache-Control: no-cache, no-store, must-revalidate
-  Pragma: no-cache
-  Expires: 0
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Strict-Transport-Security: max-age=63072000; includeSubDomains
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+/login
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'self'
+
+/dashboard
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'self'
+
+/dashboard/*
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'self'
+
+/create-bot
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'self'
+
+/create-bot/*
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'self'
+
+/bot/*
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'self'
+
+/billing
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'self'
+
+/billing/*
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'self'
+
+/admin
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'self'
+
+/admin/*
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'self'

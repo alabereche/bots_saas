@@ -6340,3 +6340,120 @@ html, body {
   background-color: #f3f6f3;
   background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22280%22%20height%3D%22280%22%20viewBox%3D%220%200%20280%20280%22%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22rgba(6%2C%2078%2C%2059%2C%200.055)%22%20stroke-width%3D%221.1%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cg%20transform%3D%22translate(16%2020)%20rotate(-8%2024%2024)%20scale(2)%22%3E%3Cpath%20d%3D%22M4%209a4%204%200%200%201%204-4h8a4%204%200%200%201%204%204v4a4%204%200%200%201-4%204h-4l-5%204v-4h-3a4%204%200%200%201-4-4z%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate(112%2012)%20rotate(6%2024%2024)%20scale(2)%22%3E%3Cpath%20d%3D%22M22%203L11%2013M22%203l-7%2018-4-8-8-4z%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate(206%2028)%20rotate(-5%2024%2024)%20scale(2)%22%3E%3Cpath%20d%3D%22M21%208l-9-5-9%205v8l9%205%209-5zM3%208l9%205%209-5M12%2013v8M7.5%205.5l9%205%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate(8%20116)%20rotate(7%2024%2024)%20scale(2)%22%3E%3Cpath%20d%3D%22M18%209a6%206%200%201%200-12%200c0%206-2%207-2%207h16s-2-1-2-7zM10%2020a2.5%202.5%200%200%200%204%200%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate(120%20106)%20rotate(-6%2024%2024)%20scale(2)%22%3E%3Cpath%20d%3D%22M3%203h8l10%2010-8%208L3%2011z%22%2F%3E%3Ccircle%20cx%3D%227.5%22%20cy%3D%227.5%22%20r%3D%221.5%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate(218%20118)%20rotate(8%2024%2024)%20scale(2)%22%3E%3Cpath%20d%3D%22M12%203a9%209%200%201%200%200%2018%209%209%200%200%200%200-18zM12%207v5l3%203%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate(28%20212)%20rotate(-6%2024%2024)%20scale(2)%22%3E%3Cpath%20d%3D%22M12%2020s-8-5.3-8-11a4.5%204.5%200%200%201%208-2.8A4.5%204.5%200%200%201%2020%209c0%205.7-8%2011-8%2011z%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate(128%20220)%20rotate(5%2024%2024)%20scale(2)%22%3E%3Cpath%20d%3D%22M12%203l2.7%205.6%206.3.9-4.5%204.3%201%206.2-5.5-3-5.5%203%201-6.2L3%209.5l6.3-.9z%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate(214%20206)%20rotate(-7%2024%2024)%20scale(2)%22%3E%3Cpath%20d%3D%22M8%205h8a4%204%200%200%201%204%204v6a4%204%200%200%201-4%204H8a4%204%200%200%201-4-4V9a4%204%200%200%201%204-4zM12%205V3M9%2011v1.5M15%2011v1.5M9%2016h6%22%2F%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E");
 }
+
+/* ═══ Calm per-platform chat bubbles — appended last to win cascade ═══
+   Outgoing (bot/owner) wears the platform color: deep emerald for WhatsApp
+   threads, deep sky for Telegram threads (keys off the same chat-canvas--wa/tg
+   class that drives the doodle wallpaper — no extra JSX). Incoming stays a calm
+   neutral surface with soft near-white (dark) / near-black (light) text — the
+   old full-emerald bubble text and the public page's blue visitor gradient are
+   retired. Radii 16px with a 4px tail corner.
+   WET-JELLY DEPTH (user decree: looks moist and pseudo-3D without being 3D):
+   vertical gradient body (lighter crown → deeper base) + a specular top edge
+   (inset 0 1px 0 white) + an inner bottom curve shadow + a soft outer lift.
+   Keep all four cues subtle — the bubble should read as gummy glass, not glow. */
+.chat-messages-area .chat-msg--user .chat-bubble {
+  background: linear-gradient(180deg, #202622 0%, #181d1a 55%, #141816 100%);
+  color: var(--text-primary);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 -10px 14px -12px rgba(0, 0, 0, 0.5),
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 6px 14px -8px rgba(0, 0, 0, 0.5);
+  border-radius: 16px;
+  border-bottom-right-radius: 4px;
+}
+
+.chat-messages-area .chat-msg--bot .chat-bubble {
+  background: linear-gradient(180deg, #174434 0%, #0f3023 55%, #0c2719 100%);
+  color: #e7f6ee;
+  border: 1px solid rgba(52, 211, 153, 0.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    inset 0 -10px 16px -12px rgba(0, 0, 0, 0.45),
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 6px 16px -8px rgba(0, 0, 0, 0.55);
+  border-radius: 16px;
+  border-bottom-left-radius: 4px;
+}
+
+.chat-messages-area.chat-canvas--tg .chat-msg--bot .chat-bubble {
+  background: linear-gradient(180deg, #1a3d5e 0%, #102a45 55%, #0d2239 100%);
+  color: #e6f2fd;
+  border-color: rgba(56, 189, 248, 0.2);
+}
+
+[data-theme='light'] .chat-messages-area .chat-msg--user .chat-bubble {
+  background: linear-gradient(180deg, #ffffff 0%, #f6f8f7 100%);
+  color: #1f2937;
+  border-color: rgba(15, 23, 42, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -6px 10px -8px rgba(15, 23, 42, 0.1),
+    0 1px 2px rgba(15, 23, 42, 0.06),
+    0 4px 10px -6px rgba(15, 23, 42, 0.12);
+}
+
+[data-theme='light'] .chat-messages-area .chat-msg--bot .chat-bubble {
+  background: linear-gradient(180deg, #dcf4e8 0%, #ccefdc 100%);
+  color: #1a5c40;
+  border-color: rgba(6, 95, 70, 0.16);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    inset 0 -8px 12px -10px rgba(6, 95, 70, 0.22),
+    0 1px 2px rgba(6, 95, 70, 0.08),
+    0 5px 12px -7px rgba(6, 95, 70, 0.2);
+}
+
+[data-theme='light'] .chat-messages-area.chat-canvas--tg .chat-msg--bot .chat-bubble {
+  background: linear-gradient(180deg, #ddedfc 0%, #c9e4f8 100%);
+  color: #1a5276;
+  border-color: rgba(3, 105, 161, 0.16);
+}
+
+/* Public chat page — same language (platform-agnostic => emerald), visitor
+   bubble loses the legacy blue gradient for the calm neutral. */
+.public-chat-msg-user .public-chat-bubble {
+  background: linear-gradient(180deg, #202622 0%, #181d1a 55%, #141816 100%);
+  color: #eceeeb;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 -10px 14px -12px rgba(0, 0, 0, 0.5),
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 6px 14px -8px rgba(0, 0, 0, 0.5);
+}
+
+.public-chat-msg-bot .public-chat-bubble {
+  background: linear-gradient(180deg, #174434 0%, #0f3023 55%, #0c2719 100%);
+  color: #e7f6ee;
+  border: 1px solid rgba(52, 211, 153, 0.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    inset 0 -10px 16px -12px rgba(0, 0, 0, 0.45),
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 6px 16px -8px rgba(0, 0, 0, 0.55);
+}
+
+[data-theme='light'] .public-chat-msg-user .public-chat-bubble {
+  background: linear-gradient(180deg, #ffffff 0%, #f6f8f7 100%);
+  color: #1f2937;
+  border-color: rgba(15, 23, 42, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -6px 10px -8px rgba(15, 23, 42, 0.1),
+    0 1px 2px rgba(15, 23, 42, 0.06),
+    0 4px 10px -6px rgba(15, 23, 42, 0.12);
+}
+
+[data-theme='light'] .public-chat-msg-bot .public-chat-bubble {
+  background: linear-gradient(180deg, #dcf4e8 0%, #ccefdc 100%);
+  color: #1a5c40;
+  border-color: rgba(6, 95, 70, 0.16);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    inset 0 -8px 12px -10px rgba(6, 95, 70, 0.22),
+    0 1px 2px rgba(6, 95, 70, 0.08),
+    0 5px 12px -7px rgba(6, 95, 70, 0.2);
+}

@@ -62,4 +62,4 @@ function validateWebhookUrl(raw) {
   return null;
 }
 
-module.exports = { validateWebhookUrl };
+export { validateWebhookUrl };

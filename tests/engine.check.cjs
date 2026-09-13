@@ -154,6 +154,61 @@ setTimeout(() => {
   }
 }
 
+// ─── G5: Gemini key-pool functional gate (429 rotation + 400 abort) ───
+const poolPath = path.join(target, 'gemini-pool.js');
+if (fs.existsSync(poolPath)) {
+  console.log('\n[G5] اختبار وظيفي — Gemini key pool');
+  try {
+    const runner = target.includes('bot-engine')
+      ? `import { parseGeminiKeys, runKeyPool } from './gemini-pool.js';
+const keys = parseGeminiKeys({ GEMINI_API_KEYS: 'k1, k2 ,k3' });
+if (keys.length !== 3 || keys[1] !== 'k2') { console.log('FAIL parse'); process.exit(1); }
+let last = '';
+// key1 → 429 (quota), key2 → 429, key3 → success
+const r1 = await runKeyPool(keys, async (k) => { last = k; if (k !== 'k3') { const e = new Error('Gemini m 429: quota'); throw e; } return 'ok3'; });
+if (r1 !== 'ok3' || last !== 'k3') { console.log('FAIL rotation'); process.exit(1); }
+// malformed request (400) must abort the whole pool immediately
+let calls = 0;
+try {
+  await runKeyPool(keys, async () => { calls++; throw new Error('Gemini m 400: bad shape'); });
+  console.log('FAIL 400-should-throw'); process.exit(1);
+} catch (e) { if (!/ 400:/.test(e.message) || calls !== 1) { console.log('FAIL 400-abort'); process.exit(1); } }
+// single-key pool (per-bot custom key) still works
+const r2 = await runKeyPool(['solo'], async () => 'ok');
+if (r2 !== 'ok') { console.log('FAIL solo'); process.exit(1); }
+// empty pool must throw
+try { await runKeyPool([], async () => 'x'); console.log('FAIL empty'); process.exit(1); } catch {}
+console.log('PASS');
+process.exit(0);`
+    : `const { parseGeminiKeys, runKeyPool } = require('./gemini-pool');
+const keys = parseGeminiKeys({ GEMINI_API_KEYS: 'k1, k2 ,k3' });
+if (keys.length !== 3 || keys[1] !== 'k2') { console.log('FAIL parse'); process.exit(1); }
+let last = '';
+(async () => {
+  const r1 = await runKeyPool(keys, async (k) => { last = k; if (k !== 'k3') { throw new Error('Gemini m 429: quota'); } return 'ok3'; });
+  if (r1 !== 'ok3' || last !== 'k3') { console.log('FAIL rotation'); process.exit(1); }
+  let calls = 0;
+  try {
+    await runKeyPool(keys, async () => { calls++; throw new Error('Gemini m 400: bad shape'); });
+    console.log('FAIL 400-should-throw'); process.exit(1);
+  } catch (e) { if (!/ 400:/.test(e.message) || calls !== 1) { console.log('FAIL 400-abort'); process.exit(1); } }
+  const r2 = await runKeyPool(['solo'], async () => 'ok');
+  if (r2 !== 'ok') { console.log('FAIL solo'); process.exit(1); }
+  try { await runKeyPool([], async () => 'x'); console.log('FAIL empty'); process.exit(1); } catch {}
+  console.log('PASS');
+  process.exit(0);
+})();`
+    const out = execFileSync(process.execPath, ['-e', runner], {
+      cwd: target, env: { ...process.env }, stdio: 'pipe',
+    }).toString();
+    if (out.includes('PASS')) pass('دوران المفاتيح عند 429 + إجهاض 400 + المفتاح المنفرد');
+    else fail('gemini-pool: ' + out.trim());
+  } catch (e) {
+    const out = String(e.stdout || '') + '\n[stderr]\n' + String(e.stderr || '') + '\n[exit] ' + e.status;
+    fail('gemini-pool test failed:\n' + out);
+  }
+}
+
 // ─── Verdict ───
 console.log('\n──────────────────────────────');
 if (failures > 0) {

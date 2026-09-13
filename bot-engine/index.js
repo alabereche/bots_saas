@@ -24,6 +24,7 @@ import {
   PROVIDER_NAMES,
 } from './tracking-helper.js';
 import { validateWebhookUrl } from './ssrf-guard.js';
+import { parseGeminiKeys, runKeyPool } from './gemini-pool.js';
 import { encrypt, decrypt } from './encryption.js';
 import { syncToGoogleSheets } from './sheetsSync.js';
 
@@ -94,6 +95,8 @@ function resolveInputMedia(mediaUrl) {
 
 const PORT = process.env.PORT || 3002;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+// Key pool — comma-separated list; on 429 the next key takes over
+const GEMINI_API_KEYS = parseGeminiKeys(process.env);
 const AI_TIMEOUT_MS = 9000;
 const MAX_HISTORY_KEYS = 5000;
 
@@ -779,7 +782,9 @@ async function callGemini(apiKey, model, messages, audioData = null) {
             }
           } catch { /* fall through to next model */ }
         }
-        if (res.status === 400 || res.status === 401 || res.status === 403) break;
+        // 400 = malformed request (key-independent); 401/403 = bad key;
+        // 429 = this key's quota — all three stop this key's model loop.
+        if (res.status === 400 || res.status === 401 || res.status === 403 || res.status === 429) break;
       }
     } catch (e) {
       lastError = e;
@@ -812,11 +817,12 @@ async function askAI(config, userId, userMessage, audioData = null) {
   const systemPrompt = buildSystemPrompt(config);
   const messages = [{ role: 'system', content: systemPrompt }, ...history];
   const model = config.aiModel || 'gemini-3.5-flash-lite';
-  const apiKey = config.customApiKey || config.geminiApiKey || config.apiKey || GEMINI_API_KEY;
+  const customKey = config.customApiKey || config.geminiApiKey || config.apiKey;
+  const keys = customKey ? [customKey] : GEMINI_API_KEYS;
 
   let reply;
   try {
-    reply = await callGemini(apiKey, model, messages, audioData);
+    reply = await runKeyPool(keys, (key) => callGemini(key, model, messages, audioData));
   } catch (err) {
     // The attempt failed: drop the user message so a retry doesn't carry a phantom turn
     if (effectiveMessage) {

@@ -14,6 +14,9 @@ const AI_TIMEOUT_MS = 9000;
 // Gemini API key from environment only — never from client-writable
 // bot documents
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+// Key pool — comma-separated list; on 429 the next key takes over
+const { parseGeminiKeys, runKeyPool } = require('./gemini-pool');
+const GEMINI_API_KEYS = parseGeminiKeys(process.env);
 
 // --- Google Gemini ---
 async function callGemini(apiKey, model, messages, audioData = null) {
@@ -117,7 +120,9 @@ const isBearer = apiKey && (apiKey.startsWith('ya29') || (apiKey.length > 80 && 
             }
           } catch { /* fall through to next model */ }
         }
-        if (res.status === 400 || res.status === 401 || res.status === 403) break;
+        // 400 = malformed request (key-independent); 401/403 = bad key;
+        // 429 = this key's quota — all three stop this key's model loop.
+        if (res.status === 400 || res.status === 401 || res.status === 403 || res.status === 429) break;
       }
     } catch (e) {
       lastError = e;
@@ -154,12 +159,10 @@ async function askOpenRouter(config, userId, userMessage, audioData = null) {
   let reply = null;
 
   try {
-    const apiKey = config.customApiKey || config.geminiApiKey || config.apiKey || process.env.GEMINI_API_KEY || GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error('GEMINI_API_KEY غير مضبوط على المحرك أو إعدادات البوت');
-    }
+    const customKey = config.customApiKey || config.geminiApiKey || config.apiKey;
+    const keys = customKey ? [customKey] : GEMINI_API_KEYS;
     const model = config.aiModel || config.model || process.env.DEFAULT_AI_MODEL || 'gemini-2.5-flash-lite';
-    reply = await callGemini(apiKey, model, messages, audioData);
+    reply = await runKeyPool(keys, (key) => callGemini(key, model, messages, audioData));
   } catch (err) {
     // The attempt failed: drop the user message from history so a
     // retry doesn't carry a phantom turn

@@ -867,7 +867,7 @@ export default function BotDetail() {
                 </div>
 
                 {/* Messages List */}
-                <div className="chat-messages-area">
+                <div className={`chat-messages-area ${(selectedThread?.platform || bot?.platform || 'whatsapp') === 'telegram' ? 'chat-canvas--tg' : 'chat-canvas--wa'}`}>
                   {selectedThread?.messages?.map((msg, i) => (
                     <div key={msg.id || i} className={`chat-msg ${msg.role === 'user' ? 'chat-msg--user' : 'chat-msg--bot'}`}>
                       <div className="chat-bubble">

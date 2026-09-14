@@ -395,7 +395,22 @@ export default function BotDetail() {
   };
 
   const toggleTakeover = async (userId) => {
-    const newState = !takeoverMap[userId];
+    // TRUTH-SEEKING TOGGLE: the local map can be stale (another tab, a
+    // manual reply from an old session) — asking the engine for the live
+    // state before flipping makes the button always do what it says,
+    // even when the label itself is out of date
+    let current = !!takeoverMap[userId];
+    try {
+      const stateRes = await fetch(`${engineUrlFor(bot?.platform)}/api/takeover/${id}`, {
+        headers: await engineHeaders(),
+      });
+      if (stateRes.ok) {
+        const stateData = await stateRes.json().catch(() => ({}));
+        current = !!stateData?.takeovers?.[userId];
+      }
+    } catch { /* fall back to local map */ }
+
+    const newState = !current;
     try {
       const res = await fetch(`${engineUrlFor(bot?.platform)}/api/takeover`, {
         method: 'POST',

@@ -17,6 +17,11 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
   
   // WhatsApp States
   const [waStatus, setWaStatus] = useState(bot?.whatsappStatus || 'not_initialized');
+  // Engine self-update (owner-only): the engine returns 403 for merchant
+  // accounts, so the button simply never renders for them
+  const [engineUpdate, setEngineUpdate] = useState(null); // {installed, latest}
+  const [engineUpdating, setEngineUpdating] = useState(false);
+  const [engineUpdateDone, setEngineUpdateDone] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState(null);
   const [pairingCode, setPairingCode] = useState(null);
   const [pairingExpiresAt, setPairingExpiresAt] = useState(null);
@@ -340,6 +345,57 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
   const isWaReconnecting = waStatus === 'reconnecting' || bot?.whatsappStatus === 'reconnecting';
   const isTgConnected = !!bot?.telegramToken && bot?.telegramEnabled !== false;
 
+  // ─── Engine self-update: silent probe on mount; renders only for the
+  // platform owner (merchants get 403 → button hidden) ───
+  const checkEngineUpdate = async () => {
+    try {
+      const res = await fetch(`${WHATSAPP_ENGINE_URL}/api/engine/check-update`, { headers: await engineHeaders(false) });
+      if (res.status === 403) return;
+      const data = await res.json();
+      if (data.updateAvailable) setEngineUpdate({ installed: data.installed, latest: data.latest });
+      else setEngineUpdate(null);
+    } catch { /* engine unreachable */ }
+  };
+
+  useEffect(() => {
+    checkEngineUpdate();
+  }, []);
+
+  const handleEngineUpdate = async () => {
+    if (engineUpdating) return;
+    setEngineUpdating(true);
+    try {
+      const res = await fetch(`${WHATSAPP_ENGINE_URL}/api/engine/self-update`, {
+        method: 'POST',
+        headers: { ...(await engineHeaders(false)), 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) {
+        alert(data.error || 'فشل التحديث — راجع سجلات المحرك');
+        setEngineUpdating(false);
+        return;
+      }
+      // The engine exits and PM2 revives it on the new libraries — wait for /health
+      await new Promise(r => setTimeout(r, 2000));
+      for (let i = 0; i < 40; i++) {
+        try {
+          const h = await fetch(`${WHATSAPP_ENGINE_URL}/health`);
+          if (h.ok) break;
+        } catch { /* still restarting */ }
+        await new Promise(r => setTimeout(r, 3000));
+      }
+      setEngineUpdateDone(true);
+      setEngineUpdate(null);
+      setTimeout(() => setEngineUpdateDone(false), 15000);
+    } catch {
+      alert('فشل الاتصال بالمحرك أثناء التحديث');
+    } finally {
+      setEngineUpdating(false);
+      checkEngineUpdate();
+    }
+  };
+
   // Respect the channels chosen at creation. Bots created before channel
   // selection existed (no field / empty) default to both — nothing breaks.
   const enabledChannels = Array.isArray(bot?.enabledChannels) && bot.enabledChannels.length > 0
@@ -423,6 +479,26 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                 ? 'البوت يعمل الآن على واتساب ويرد على زبائنك ويسجل طلبياتهم تلقائياً 24/7.'
                 : 'ربط رقم المتجر مباشرة لإرسال صور المنتجات، الإجابة التلقائية على الزبائن، وتسجيل طلبيات التوصيل للـ 58 ولاية تلقائياً.'}
             </p>
+
+            {engineUpdate && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', padding: '0.85rem 1rem', borderRadius: '14px', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.35)', marginBottom: '1rem' }}>
+                <div style={{ fontSize: '0.82rem', color: '#fbbf24', fontWeight: 700 }}>
+                  🔄 تحديث محرك واتساب متوفر ({engineUpdate.installed} → {engineUpdate.latest}) — يُوصى به لتجنّب كسر الربط
+                </div>
+                <button
+                  onClick={handleEngineUpdate}
+                  disabled={engineUpdating}
+                  style={{ background: engineUpdating ? 'rgba(245,158,11,0.3)' : '#f59e0b', color: '#111', border: 'none', borderRadius: '10px', padding: '0.55rem 1.1rem', fontWeight: 800, fontSize: '0.82rem', cursor: engineUpdating ? 'wait' : 'pointer', whiteSpace: 'nowrap' }}
+                >
+                  {engineUpdating ? '⏳ جاري التحديث (دقيقة تقريباً)…' : 'تحديث الآن'}
+                </button>
+              </div>
+            )}
+            {engineUpdateDone && (
+              <div style={{ padding: '0.7rem 1rem', borderRadius: '14px', background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.4)', marginBottom: '1rem', fontSize: '0.82rem', color: '#10b981', fontWeight: 700 }}>
+                ✅ تم تحديث المحرك وإعادة تشغيله — البوتات تعود اتصالها تلقائياً خلال دقيقة
+              </div>
+            )}
           </div>
 
           <div style={{ display: 'flex', gap: '8px', paddingTop: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>

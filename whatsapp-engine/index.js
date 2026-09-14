@@ -35,6 +35,24 @@ const { admin, db } = require('./firestore');
 const { setTakeover, getTakeoverMap } = require('./takeover');
 const trackingHelper = require('./tracking-helper');
 const ssrfGuard = require('./ssrf-guard');
+const selfUpdate = require('./selfUpdate');
+
+// Engine self-update is gated to the platform owner's uid ONLY — this
+// endpoint runs npm install and restarts the process, so it must never
+// be reachable by merchant accounts. Set SUPER_ADMIN_UID in .env.
+const SUPER_ADMIN_UID = process.env.SUPER_ADMIN_UID || '';
+
+function requireSuperAdmin(req, res) {
+  if (!SUPER_ADMIN_UID) {
+    res.status(403).json({ error: 'خاصية التحديث الذاتي غير مهيأة — أضف SUPER_ADMIN_UID في .env' });
+    return false;
+  }
+  if (req.uid !== SUPER_ADMIN_UID) {
+    res.status(403).json({ error: 'هذه العملية متاحة لمالك المنصة فقط' });
+    return false;
+  }
+  return true;
+}
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -358,6 +376,38 @@ app.post('/api/takeover', async (req, res) => {
 app.get('/api/takeover/:botId', async (req, res) => {
   if (!(await requireBotAccess(res, req.uid, req.params.botId))) return;
   res.json({ takeovers: getTakeoverMap(req.params.botId) });
+});
+
+// ─── Engine Self-Update (super admin only) ────────────────────
+
+// GET /api/engine/check-update — installed vs latest whatsapp-web.js
+app.get('/api/engine/check-update', async (req, res) => {
+  if (!requireSuperAdmin(req, res)) return;
+  try {
+    res.json(await selfUpdate.checkForUpdate());
+  } catch (err) {
+    res.status(500).json({ error: 'تعذر التحقق من التحديثات' });
+  }
+});
+
+// POST /api/engine/self-update — npm install @latest + PM2 self-revive
+app.post('/api/engine/self-update', async (req, res) => {
+  if (!requireSuperAdmin(req, res)) return;
+  try {
+    const result = await selfUpdate.performUpdate();
+    if (result.success && SUPER_ADMIN_UID) {
+      firestore.createNotification({
+        userId: SUPER_ADMIN_UID,
+        type: 'system',
+        title: '✅ تم تحديث محرك واتساب',
+        body: result.message,
+      }).catch(() => {});
+    }
+    res.json(result);
+  } catch (err) {
+    console.error('[API] Self-update error:', err.message);
+    res.status(500).json({ error: err.message || 'فشل التحديث' });
+  }
 });
 
 // POST /api/sheets/test-sync — Send a test event to verify Google Sheets Webhook connection
@@ -699,4 +749,27 @@ app.listen(PORT, '0.0.0.0', () => {
   // Run abandoned lead recovery check every 10 minutes
   setInterval(runAbandonedRecoveryCron, 10 * 60 * 1000);
   setTimeout(runAbandonedRecoveryCron, 30 * 1000); // Initial check after 30s
+
+  // ─── Update watcher: WhatsApp drifts ahead of the library constantly —
+  // it is THE recurring breaker. Notice the owner via dashboard
+  // notification; he updates with one click (no silent auto-updates).
+  async function runUpdateCheck() {
+    if (!SUPER_ADMIN_UID) return;
+    try {
+      const status = await selfUpdate.checkForUpdate();
+      if (status.updateAvailable) {
+        await firestore.createNotification({
+          userId: SUPER_ADMIN_UID,
+          type: 'system',
+          title: '🔄 تحديث محرك واتساب متوفر',
+          body: `إصدار جديد للمكتبة (${status.installed} → ${status.latest}) — حدّث من صفحة القنوات بضغطة واحدة قبل أن يكسر التحديث الجديد للواتساب الربط.`,
+        }).catch(() => {});
+        console.log(`[SelfUpdate] Update available: ${status.installed} → ${status.latest}`);
+      }
+    } catch (err) {
+      console.warn('[SelfUpdate] Check failed:', err.message);
+    }
+  }
+  setTimeout(runUpdateCheck, 90 * 1000);
+  setInterval(runUpdateCheck, 24 * 60 * 60 * 1000);
 });

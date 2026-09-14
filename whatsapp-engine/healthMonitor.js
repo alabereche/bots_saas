@@ -17,6 +17,8 @@
 const STATE_CHECK_TIMEOUT_MS = parseInt(process.env.HEALTH_STATE_TIMEOUT_MS || '12000', 10);
 const WATCHDOG_INTERVAL_MS = parseInt(process.env.HEALTH_CHECK_INTERVAL_MS || '30000', 10);
 const INIT_HARD_CAP_MS = parseInt(process.env.HEALTH_INIT_CAP_MS || '180000', 10);
+// Authenticated but never reached 'ready' (hung history sync) — heal it.
+const READY_LATE_CAP_MS = parseInt(process.env.HEALTH_READY_CAP_MS || '240000', 10);
 
 // States that mean the session is genuinely alive. SYNCING/STREAMING are
 // healthy-but-busy (long chat history sync); OPENING persistently is not.
@@ -68,6 +70,15 @@ async function tick(botId) {
   }
 
   if (state.status !== 'connected' || !state.client) return;
+
+  // Authenticated-but-not-ready grace: history sync may legitimately take
+  // a couple of minutes. Past the cap without 'ready', the client is a
+  // zombie (this exact hung state left today's relink unguarded).
+  if (!state.readySeen && state.authenticatedAt) {
+    if (Date.now() - state.authenticatedAt < READY_LATE_CAP_MS) return;
+    console.warn(`[Health] ⚠️ Bot ${botId} authenticated >${Math.round(READY_LATE_CAP_MS / 1000)}s without ready — treating as zombie.`);
+    return bm.healBot(botId, 'authenticated but ready never fired');
+  }
 
   let raw = null;
   try {

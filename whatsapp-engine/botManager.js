@@ -186,6 +186,14 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
     botState.pairingCode = null;
     botState.pairingCodeExpiresAt = null;
 
+    // 'ready' can lag behind authentication by minutes (history sync) or,
+    // in rare page states, never fire at all — the watchdog must be on
+    // duty from the auth moment either way. healthMonitor enforces the
+    // ready-late cap; here we just arm it early.
+    botState.readySeen = false;
+    botState.authenticatedAt = Date.now();
+    healthMonitor.startWatch(botId);
+
     await firestore.updateBotStatus(botId, 'connected', {
       whatsappConnectedAt: new Date().toISOString(),
     }).catch(() => {});
@@ -195,6 +203,7 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
   client.on('ready', async () => {
     console.log(`[BotManager] 🚀 Bot "${config.botName}" fully ready and synced on WhatsApp!`);
     botState.status = 'connected';
+    botState.readySeen = true;
     botState.qrCode = null;
     botState.qrDataUrl = null;
     botState.pairingCode = null;

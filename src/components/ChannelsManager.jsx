@@ -335,6 +335,9 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
   };
 
   const isWaConnected = waStatus === 'connected' || bot?.whatsappStatus === 'connected';
+  // The engine is self-healing: a transient disconnect auto-revives on the
+  // saved session — shown as its own state, not "disconnected"
+  const isWaReconnecting = waStatus === 'reconnecting' || bot?.whatsappStatus === 'reconnecting';
   const isTgConnected = !!bot?.telegramToken && bot?.telegramEnabled !== false;
 
   // Respect the channels chosen at creation. Bots created before channel
@@ -410,8 +413,8 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
               </div>
 
               <span className={`channel-status-pill ${isWaConnected ? 'channel-status-pill--online' : 'channel-status-pill--offline'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <span className={`channel-dot ${isWaConnected ? 'channel-dot--online' : 'channel-dot--offline'}`} />
-                <span>{isWaConnected ? 'متصل' : 'غير متصل'}</span>
+                <span className={`channel-dot ${isWaConnected ? 'channel-dot--online' : isWaReconnecting ? 'channel-dot--reconnecting' : 'channel-dot--offline'}`} />
+                <span>{isWaConnected ? 'متصل' : isWaReconnecting ? 'إعادة اتصال تلقائي…' : 'غير متصل'}</span>
               </span>
             </div>
 

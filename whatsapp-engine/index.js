@@ -28,6 +28,7 @@ const {
   getQRCode,
   restoreBotsOnStartup,
   getAllBotStatuses,
+  healBot,
 } = require('./botManager');
 const firestore = require('./firestore');
 const { admin, db } = require('./firestore');
@@ -159,6 +160,18 @@ async function requireBotAccess(res, uid, botId) {
 }
 
 const pairingAttempts = new Map(); // uid -> { count, start }
+
+// A send that dies with a session/page error means a zombie client that
+// still LOOKS connected — hand it to the self-healing path instead of
+// failing silently until the next watchdog pass
+function maybeHealClient(botId, err) {
+  const msgText = String((err && err.message) || '');
+  if (/Session closed|Target closed|Protocol error|Execution context|Evaluation failed|browser has been closed/i.test(msgText)) {
+    try {
+      healBot(botId, `send failure: ${msgText.slice(0, 100)}`);
+    } catch { /* healing is best-effort */ }
+  }
+}
 
 function checkPairingRateLimit(uid) {
   const now = Date.now();
@@ -322,6 +335,7 @@ app.post('/api/reply', async (req, res) => {
     console.log(`[API] Manual reply sent for bot ${botId} (${isWeb ? 'Web' : 'WhatsApp'})`);
     res.json({ success: true, takeover: true });
   } catch (err) {
+    maybeHealClient(botId, err);
     console.error('[API] Reply error:', err.message);
     res.status(500).json({ error: 'فشل إرسال الرسالة — يرجى المحاولة لاحقاً' });
   }
@@ -462,6 +476,7 @@ app.post('/api/orders/:id/delivery-status', async (req, res) => {
           message: notifMsg,
         }).catch(() => {});
       } catch (sendErr) {
+        maybeHealClient(botId, sendErr);
         console.error(`[API] ❌ Notification send failed for customer ${customerTarget}:`, sendErr.message);
       }
     } else {
@@ -649,6 +664,7 @@ async function runAbandonedRecoveryCron() {
           await firestore.recordAbandonedReminder(bot.id, lead.customerId);
           console.log(`[Recovery] Sent abandoned reminder to ${lead.customerId} for bot ${bot.id}`);
         } catch (sendErr) {
+          maybeHealClient(bot.id, sendErr);
           console.warn(`[Recovery] Failed to send reminder to ${lead.customerId}:`, sendErr.message);
         }
       }

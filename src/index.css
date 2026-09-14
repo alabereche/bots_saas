@@ -3115,6 +3115,16 @@ html, body {
 .channel-dot--offline {
   background: #94a3b8;
 }
+/* engine self-healing in progress — amber pulse, distinct from online/offline */
+.channel-dot--reconnecting {
+  background: #f59e0b;
+  box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.55);
+  animation: channelPulseDotAmber 1.4s ease-out infinite;
+}
+@keyframes channelPulseDotAmber {
+  70% { box-shadow: 0 0 0 7px rgba(245, 158, 11, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
 @keyframes channelPulseDot {
   70% { box-shadow: 0 0 0 7px rgba(16, 185, 129, 0); }
   100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }

@@ -11,9 +11,22 @@ const QRCode = require('qrcode');
 const firestore = require('./firestore');
 const { handleMessage } = require('./messageHandler');
 const messageQueue = require('./messageQueue');
+const healthMonitor = require('./healthMonitor');
 
 // Active bots: botId -> { client, config, qrCode, status }
 const activeBots = new Map();
+
+// ─── Self-healing state ───────────────────────────────────────
+// reconnectTimers: one pending auto-restart per bot (dedupes watchdog
+// heal + disconnected event from double-scheduling the same revive).
+// reconnectAttempts: backoff counter, reset on every successful 'ready'.
+// lastDisconnectAt / lastHealthyAt: recovery windows — messages that
+// arrived while the session was deaf are replayed from the unread queue.
+const reconnectTimers = new Map();
+const reconnectAttempts = new Map();
+const lastDisconnectAt = new Map();
+const lastHealthyAt = new Map();
+const RESTART_DELAYS = [10000, 30000, 60000, 120000, 300000];
 
 function cleanSession(botId) {
   try {
@@ -40,6 +53,13 @@ function clearStaleLocks(botId) {
 
 // ─── Create a WhatsApp Bot ────────────────────────────────────
 async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = false) {
+  // A fresh create supersedes any pending auto-restart for this bot
+  const pending = reconnectTimers.get(botId);
+  if (pending) {
+    clearTimeout(pending);
+    reconnectTimers.delete(botId);
+  }
+
   if (activeBots.has(botId)) {
     const existing = activeBots.get(botId);
     if (existing.status === 'connected' && !phoneNumber && !forceNew) {
@@ -71,11 +91,14 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
 
   const botState = {
     client: null,
+    botId,
     config,
     qrCode: null,
     qrDataUrl: null,
     pairingCode: null,
     status: 'initializing',
+    startedAt: Date.now(),
+    hadDisconnectNotice: false,
   };
   activeBots.set(botId, botState);
 
@@ -98,10 +121,15 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
         '--disable-default-apps',
         '--disable-translate',
         '--disable-sync',
+        // keep the renderer from being throttled/frozen when the tab is
+        // backgrounded — a throttled page stops answering message events
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
         '--window-size=1280,800',
       ],
       defaultViewport: { width: 1280, height: 800 },
-      timeout: 60000,
+      timeout: 90000,
     },
     // Local cache: the remote wppconnect archive 404s for the pinned web
     // version, which made every boot fall back to a fragile live-page load
@@ -177,12 +205,45 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
       whatsappConnectedAt: new Date().toISOString(),
       ...(phoneNum ? { whatsappNumber: phoneNum, phoneNumber: phoneNum } : {}),
     }).catch(() => {});
+
+    // ─── Self-healing bookkeeping ───
+    reconnectAttempts.delete(botId);
+    healthMonitor.startWatch(botId);
+    lastHealthyAt.set(botId, Date.now());
+
+    // Missed-message recovery: only when THIS ready follows a known
+    // disconnect inside this process (never on a fresh first link — the
+    // merchant's personal unread chats must not be answered by the bot).
+    const since = lastDisconnectAt.get(botId);
+    if (since) {
+      const recoverSince = Math.max(Date.now() - 6 * 60 * 60 * 1000, since - 120000);
+      lastDisconnectAt.delete(botId);
+      await recoverUnreadMessages(botState, recoverSince);
+    }
+
+    // The merchant was told we dropped — tell him we came back on our own.
+    if (botState.hadDisconnectNotice) {
+      botState.hadDisconnectNotice = false;
+      if (config.userId && config.notificationsEnabled !== false) {
+        firestore.createNotification({
+          userId: config.userId,
+          botId,
+          type: 'system',
+          title: '✅ عاد اتصال واتساب تلقائياً',
+          body: `البوت "${config.botName}" استعاد اتصاله بنفسه — وتمت معالجة أي رسائل وصلت أثناء الانقطاع.`,
+        }).catch(() => {});
+      }
+    }
   });
 
   // Authentication Failure
   client.on('auth_failure', async (msg) => {
     console.error(`[BotManager] Auth failure for "${config.botName}":`, msg);
     botState.status = 'auth_failure';
+    healthMonitor.stopWatch(botId);
+    reconnectAttempts.delete(botId);
+    lastDisconnectAt.delete(botId);
+    lastHealthyAt.delete(botId);
     firestore.updateBotStatus(botId, 'auth_failure').catch(() => {});
     // Release the slot immediately, and only if THIS client still owns
     // it (a restart may have replaced the map entry meanwhile)
@@ -192,28 +253,45 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
     try { await client.destroy(); } catch {}
   });
 
-  // Disconnected
+  // Disconnected — the moment of truth: a real logout means the merchant
+  // must re-link, but the overwhelming majority of disconnects (network
+  // blips, renderer crash, NAVIGATION, timeouts) leave the SAVED session
+  // perfectly valid. Those we auto-restart on the saved session instead
+  // of demanding the merchant scan a QR again.
   client.on('disconnected', async (reason) => {
-    console.log(`[BotManager] Bot "${config.botName}" disconnected:`, reason);
-    botState.status = 'disconnected';
-    firestore.updateBotStatus(botId, 'disconnected').catch(() => {});
-    // The merchant must know his storefront went offline — gated by his
-    // notifications setting (default on)
+    if (botState.disconnectHandled) return; // destroy() can re-emit — handle once
+    botState.disconnectHandled = true;
+    const reasonStr = String(reason || '');
+    const isLogout = /LOGOFF|LOGOUT|auth/i.test(reasonStr);
+    console.log(`[BotManager] Bot "${config.botName}" disconnected (${reasonStr}) — ${isLogout ? 'logout, merchant must re-link' : 'transient, auto-restarting on saved session'}`);
+    botState.status = isLogout ? 'disconnected' : 'reconnecting';
+    healthMonitor.stopWatch(botId);
+    lastHealthyAt.delete(botId);
+    lastDisconnectAt.set(botId, Date.now());
+
+    firestore.updateBotStatus(botId, isLogout ? 'disconnected' : 'reconnecting').catch(() => {});
+
     if (config.userId && config.notificationsEnabled !== false) {
+      botState.hadDisconnectNotice = true;
       firestore.createNotification({
         userId: config.userId,
         botId,
         type: 'system',
-        title: 'انقطع اتصال واتساب',
-        body: `البوت "${config.botName}" فقد الاتصال — أعد الربط من صفحة القنوات.`,
+        title: isLogout ? 'انقطع اتصال واتساب' : '⚠️ انقطع اتصال واتساب — الإنقاذ التلقائي جارٍ',
+        body: isLogout
+          ? `البوت "${config.botName}" سجّل خروجاً — أعد الربط من صفحة القنوات.`
+          : `البوت "${config.botName}" فقد الاتصال. المحرك يعيد الاتصال تلقائياً بالجلسة المحفوظة — لا حاجة لأي خطوة منك.`,
       }).catch(() => {});
     }
+
     // Release the slot immediately, and only if THIS client still owns
     // it (a restart may have replaced the map entry meanwhile)
     if (activeBots.get(botId) === botState) activeBots.delete(botId);
     // Destroy the browser explicitly — dropping the map entry alone
     // leaks a Chromium process and its memory
     try { await client.destroy(); } catch {}
+
+    if (!isLogout) scheduleAutoRestart(botId, config);
   });
 
   // Incoming Messages
@@ -263,6 +341,10 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
           // starves every future create attempt on the 4GB VPS
           try { await client.destroy(); } catch {}
           if (activeBots.get(botId) === botState) activeBots.delete(botId);
+          // The "linking sometimes fails" complaint: a failed boot no longer
+          // dead-ends the merchant — it goes into the same backoff revive
+          // queue, and the frontend /qr polling picks the fresh QR up.
+          scheduleAutoRestart(botId, config);
           break;
         }
 
@@ -277,8 +359,129 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
   return botState;
 }
 
+// ─── Self-Healing: auto-restart / heal / missed-message replay ─
+
+// Revive a bot on its SAVED session with escalating backoff. Called by
+// the 'disconnected' handler (transient reasons) and by healBot().
+function scheduleAutoRestart(botId, config) {
+  if (reconnectTimers.has(botId)) return; // one pending revive per bot
+  const attempts = reconnectAttempts.get(botId) || 0;
+  if (attempts >= RESTART_DELAYS.length) {
+    console.error(`[BotManager] ❌ All ${RESTART_DELAYS.length} auto-restart attempts exhausted for "${config.botName}" — handing back to the merchant.`);
+    firestore.updateBotStatus(botId, 'disconnected').catch(() => {});
+    if (config.userId && config.notificationsEnabled !== false) {
+      firestore.createNotification({
+        userId: config.userId,
+        botId,
+        type: 'system',
+        title: '❌ تعذّر استعادة الاتصال تلقائياً',
+        body: `البوت "${config.botName}" لم ينجح في إعادة الاتصال — يرجى إعادة الربط من صفحة القنوات.`,
+      }).catch(() => {});
+    }
+    return;
+  }
+  const delay = RESTART_DELAYS[attempts];
+  reconnectAttempts.set(botId, attempts + 1);
+  console.log(`[BotManager] ♻️ Auto-restart #${attempts + 1} for "${config.botName}" in ${delay / 1000}s`);
+  const timer = setTimeout(async () => {
+    reconnectTimers.delete(botId);
+    try {
+      await createWhatsAppBot(botId, config);
+    } catch (e) {
+      console.error(`[BotManager] Auto-restart failed for "${config.botName}":`, e.message);
+      scheduleAutoRestart(botId, config); // next backoff rung
+    }
+  }, delay);
+  reconnectTimers.set(botId, timer);
+}
+
+// Called by the health watchdog when a "connected" bot is actually deaf
+// (zombie page) or stuck initializing. Surgical: destroy + revive on the
+// saved session. The recovery window is anchored so messages that
+// arrived while the bot was deaf get replayed after it revives.
+async function healBot(botId, reason = 'unhealthy') {
+  const entry = activeBots.get(botId);
+  if (!entry) return;
+  console.warn(`[BotManager] 🩺 Healing bot "${entry.config?.botName || botId}" — ${reason}`);
+  lastDisconnectAt.set(botId, Date.now());
+  reconnectTimers.delete(botId); // heal supersedes any pending revive
+  try {
+    await Promise.race([
+      entry.client.destroy().catch(() => {}),
+      new Promise(r => setTimeout(r, 5000)),
+    ]);
+  } catch { /* best effort */ }
+  if (activeBots.get(botId) === entry) activeBots.delete(botId);
+  scheduleAutoRestart(botId, entry.config);
+}
+
+// Watchdog bookkeeping — lastHealthyAt anchors the replay window when a
+// zombie is detected (the bot may have been deaf since the LAST pass).
+function markHealthy(botId) {
+  lastHealthyAt.set(botId, Date.now());
+}
+
+function markUnhealthy(botId) {
+  // keep the value — healBot uses the LAST healthy pass as the window start
+  const last = lastHealthyAt.get(botId);
+  if (!last) lastHealthyAt.set(botId, Date.now() - 2 * 60 * 1000);
+}
+
+// Replay customer messages that arrived while the session was deaf.
+// Reads each chat's server-side unread counter, so messages answered
+// live are never re-processed. Only used on reconnects — never on a
+// fresh first link (the merchant's personal unread chats must not be
+// answered by the bot).
+async function recoverUnreadMessages(botState, sinceMs) {
+  const { client, config } = botState;
+  try {
+    const chats = await client.getChats();
+    let recovered = 0;
+    for (const chat of chats) {
+      const unread = chat.unreadCount || 0;
+      if (unread < 1) continue;
+      let msgs = [];
+      try {
+        msgs = await chat.fetchMessages({ limit: Math.min(unread, 20) });
+      } catch (e) {
+        console.warn(`[Recovery] fetch failed for ${chat.id?._serialized || 'chat'}:`, e.message);
+        continue;
+      }
+      for (const m of msgs) {
+        if (m.fromMe) continue;
+        if ((m.timestamp * 1000) < sinceMs) continue;
+        console.log(`[Recovery] 🔁 Replaying missed message from ${m.from}: "${(m.body || '').slice(0, 60)}"`);
+        messageQueue.enqueueCustomerMessage(botState.botId, m, async (items) => {
+          for (const item of items) {
+            await handleMessage(item, config);
+          }
+        });
+        recovered++;
+      }
+      try { await chat.sendSeen(); } catch { /* cosmetic */ }
+    }
+    if (recovered > 0) {
+      console.log(`[Recovery] ✅ ${recovered} missed message(s) replayed for "${config.botName}"`);
+    }
+  } catch (e) {
+    console.warn(`[Recovery] Pass failed for "${config.botName}":`, e.message);
+  }
+}
+
 // Stop Bot & Purge Session
 async function stopWhatsAppBot(botId, purgeSession = true) {
+  // A merchant-initiated stop must silence every self-healing path —
+  // the bot must not resurrect itself behind his back
+  const pendingTimer = reconnectTimers.get(botId);
+  if (pendingTimer) {
+    clearTimeout(pendingTimer);
+    reconnectTimers.delete(botId);
+  }
+  reconnectAttempts.delete(botId);
+  lastDisconnectAt.delete(botId);
+  lastHealthyAt.delete(botId);
+  healthMonitor.stopWatch(botId);
+
   const entry = activeBots.get(botId);
   activeBots.delete(botId);
 
@@ -381,4 +584,10 @@ module.exports = {
   getQRCode,
   restoreBotsOnStartup,
   getAllBotStatuses,
+  healBot,
+  markHealthy,
+  markUnhealthy,
 };
+
+// Wire the watchdog to us (injected, not required — avoids a load cycle)
+healthMonitor.install({ getBotState, healBot, markHealthy, markUnhealthy });

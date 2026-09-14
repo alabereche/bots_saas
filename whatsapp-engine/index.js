@@ -760,7 +760,8 @@ app.listen(PORT, '0.0.0.0', () => {
     if (!SUPER_ADMIN_UID) return;
     try {
       const status = await selfUpdate.checkForUpdate();
-      if (status.updateAvailable) {
+      if (status.updateAvailable && !selfUpdate.alreadyNotified(status.installed, status.latest)) {
+        selfUpdate.markNotified(status.installed, status.latest);
         await firestore.createNotification({
           userId: SUPER_ADMIN_UID,
           type: 'system',

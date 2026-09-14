@@ -22,6 +22,22 @@ const https = require('https');
 const ENGINE_DIR = __dirname;
 const NPM_TIMEOUT_MS = 3 * 60 * 1000;
 
+// Dedupe key of the last version pair we alerted about — the daily cron
+// must not re-notify for the same stale version every day
+let lastNotifiedKey = null;
+
+function notifiedKey(installed, latest) {
+  return `${installed}->${latest}`;
+}
+
+function markNotified(installed, latest) {
+  lastNotifiedKey = notifiedKey(installed, latest);
+}
+
+function alreadyNotified(installed, latest) {
+  return lastNotifiedKey === notifiedKey(installed, latest);
+}
+
 function installedVersion() {
   try {
     return require('whatsapp-web.js/package.json').version;
@@ -101,4 +117,4 @@ async function performUpdate() {
   return { success: true, message: `تم التحديث إلى ${latest} — المحرك يعيد تشغيل نفسه الآن`, restarted: true };
 }
 
-module.exports = { checkForUpdate, performUpdate, installedVersion };
+module.exports = { checkForUpdate, performUpdate, installedVersion, markNotified, alreadyNotified };

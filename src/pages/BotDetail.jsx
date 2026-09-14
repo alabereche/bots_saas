@@ -179,16 +179,24 @@ export default function BotDetail() {
   }, [allMessages, selectedUserId]);
 
   // Load current manual-mode (takeover) state from the WhatsApp engine,
-  // so the UI matches reality after a page reload
+  // so the UI matches reality after a page reload — and KEEP it fresh on
+  // a 30s poll: a stale map makes «إعادة تشغيل البوت» flip the wrong
+  // direction and silently re-mute the AI
   useEffect(() => {
     if (!id || !bot || bot.platform !== 'whatsapp') return;
-    engineHeaders(false)
-      .then(headers => fetch(`${WHATSAPP_ENGINE_URL}/api/takeover/${id}`, { headers }))
-      .then(res => (res.ok ? res.json() : null))
-      .then(data => {
-        if (data?.takeovers) setTakeoverMap(data.takeovers);
-      })
-      .catch(() => {});
+    let cancelled = false;
+    const load = () => {
+      engineHeaders(false)
+        .then(headers => fetch(`${WHATSAPP_ENGINE_URL}/api/takeover/${id}`, { headers }))
+        .then(res => (res.ok ? res.json() : null))
+        .then(data => {
+          if (!cancelled && data?.takeovers) setTakeoverMap(data.takeovers);
+        })
+        .catch(() => {});
+    };
+    load();
+    const interval = setInterval(load, 30000);
+    return () => { cancelled = true; clearInterval(interval); };
   }, [id, bot?.platform]);
 
   // Group messages by customer and link to orders & channels

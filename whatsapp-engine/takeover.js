@@ -13,7 +13,7 @@
 // customer goes quiet past the window.
 // ═══════════════════════════════════════════════════════════════
 
-const TTL_MS = parseInt(process.env.MANUAL_TAKEOVER_TTL_MINUTES || '60', 10) * 60 * 1000;
+const TTL_MS = parseInt(process.env.MANUAL_TAKEOVER_TTL_MINUTES || '10', 10) * 60 * 1000;
 
 // Key: `${botId}_${chatId}` -> enabledAt epoch ms
 const humanTakeoverMap = new Map();

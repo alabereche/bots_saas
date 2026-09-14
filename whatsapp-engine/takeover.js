@@ -23,8 +23,15 @@ function setTakeover(botId, chatId, enabled) {
   if (enabled) {
     humanTakeoverMap.set(key, Date.now());
   } else {
+    // Only log OFF when something was actually on — a no-op OFF (stale
+    // dashboard state) would otherwise spam the log and mislead diagnosis
+    if (humanTakeoverMap.has(key)) {
+      console.log(`[Takeover] 🤖 OFF key=${key} — AI resumes`);
+    }
     humanTakeoverMap.delete(key);
+    return;
   }
+  console.log(`[Takeover] ✋ ON key=${key} — AI muted (auto-expires in ${TTL_MS / 60000}min)`);
 }
 
 function isTakeoverActive(botId, chatId) {

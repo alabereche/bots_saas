@@ -22,16 +22,18 @@ function setTakeover(botId, chatId, enabled) {
   const key = `${botId}_${chatId}`;
   if (enabled) {
     humanTakeoverMap.set(key, Date.now());
-  } else {
-    // Only log OFF when something was actually on — a no-op OFF (stale
-    // dashboard state) would otherwise spam the log and mislead diagnosis
-    if (humanTakeoverMap.has(key)) {
-      console.log(`[Takeover] 🤖 OFF key=${key} — AI resumes`);
-    }
-    humanTakeoverMap.delete(key);
+    console.log(`[Takeover] ✋ ON key=${key} — AI muted (auto-expires in ${TTL_MS / 60000}min)`);
     return;
   }
-  console.log(`[Takeover] ✋ ON key=${key} — AI muted (auto-expires in ${TTL_MS / 60000}min)`);
+  // Log EVERY off request, including no-ops: a silent no-op OFF on a wrong
+  // key (duplicate thread id for the same human) is exactly the bug class
+  // being hunted — invisible no-ops made the button look dead
+  if (humanTakeoverMap.has(key)) {
+    console.log(`[Takeover] 🤖 OFF key=${key} — AI resumes`);
+  } else {
+    console.log(`[Takeover] 🤖 OFF (no-op, was not muted) key=${key}`);
+  }
+  humanTakeoverMap.delete(key);
 }
 
 function isTakeoverActive(botId, chatId) {

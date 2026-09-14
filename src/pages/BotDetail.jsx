@@ -45,7 +45,13 @@ const WHATSAPP_ENGINE_URL = import.meta.env.VITE_WHATSAPP_ENGINE_URL || 'https:/
 const TELEGRAM_ENGINE_URL = import.meta.env.VITE_ENGINE_URL || 'https://tg.nosfir.online';
 
 function engineUrlFor(platform) {
-  return platform === 'whatsapp' ? WHATSAPP_ENGINE_URL : TELEGRAM_ENGINE_URL;
+  // Legacy bots predate the platform field — they are WhatsApp-era. Default
+  // ANYTHING not explicitly telegram to the WhatsApp engine (matches the
+  // `|| 'whatsapp'` convention used across the codebase). The old
+  // `=== 'whatsapp' ? WA : TG` default sent undefined-platform bots'
+  // takeover toggles to the TELEGRAM engine — the "bot never comes back"
+  // bug: the OFF executed on the wrong engine, invisible in WA logs.
+  return platform === 'telegram' ? TELEGRAM_ENGINE_URL : WHATSAPP_ENGINE_URL;
 }
 
 // Engines authenticate the signed-in dashboard user via their
@@ -395,13 +401,17 @@ export default function BotDetail() {
   };
 
   const toggleTakeover = async (userId) => {
+    // Same thread-aware engine as the manual reply — never trust bot.platform
+    // alone (legacy bots have no field and must land on the WhatsApp engine)
+    const targetEngine = engineUrlFor(selectedThread?.platform || bot?.platform || 'whatsapp');
+
     // TRUTH-SEEKING TOGGLE: the local map can be stale (another tab, a
     // manual reply from an old session) — asking the engine for the live
     // state before flipping makes the button always do what it says,
     // even when the label itself is out of date
     let current = !!takeoverMap[userId];
     try {
-      const stateRes = await fetch(`${engineUrlFor(bot?.platform)}/api/takeover/${id}`, {
+      const stateRes = await fetch(`${targetEngine}/api/takeover/${id}`, {
         headers: await engineHeaders(),
       });
       if (stateRes.ok) {
@@ -412,7 +422,7 @@ export default function BotDetail() {
 
     const newState = !current;
     try {
-      const res = await fetch(`${engineUrlFor(bot?.platform)}/api/takeover`, {
+      const res = await fetch(`${targetEngine}/api/takeover`, {
         method: 'POST',
         headers: await engineHeaders(),
         body: JSON.stringify({ botId: id, telegramUserId: userId, enabled: newState }),

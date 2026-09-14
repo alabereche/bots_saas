@@ -366,6 +366,9 @@ app.post('/api/takeover', async (req, res) => {
     return res.status(400).json({ error: 'معطيات ناقصة (telegramUserId)' });
   }
   if (!(await requireBotAccess(res, req.uid, botId))) return;
+  // Boundary log: EVERY toggle request is visible the moment it lands on
+  // THIS engine — a mute that never ends has nowhere left to hide
+  console.log(`[API] Takeover request on WA engine: bot=${botId} chat=${telegramUserId} enabled=${!!enabled}`);
   setTakeover(botId, telegramUserId, !!enabled);
   console.log(`[API] ${enabled ? '🖐️' : '🤖'} Takeover ${enabled ? 'ON' : 'OFF'} (bot ${botId})`);
   res.json({ success: true, takeover: !!enabled });

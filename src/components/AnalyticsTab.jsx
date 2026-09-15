@@ -262,7 +262,11 @@ export default function AnalyticsTab({ allMessages = [], orders = [], leads = []
     <div class="grid3">
       <div class="sale sale-g"><div class="sale-l">قيمة المسلّمة</div><div class="sale-v">${stats.conv(stats.deliveredValue)} دج</div></div>
       <div class="sale sale-o"><div class="sale-l">في الطريق (قيد التوصيل)</div><div class="sale-v">${stats.conv(stats.pipelineValue)} دج</div></div>
-      <div class="sale sale-n"><div class="sale-l">مسلّمة / مشحونة / ملغاة</div><div class="sale-v">${stats.statusCounts.delivered} / ${stats.statusCounts.shipped} / ${stats.statusCounts.cancelled}</div></div>
+      <div class="sale sale-n" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center">
+        <div><div class="sale-l">مسلّمة</div><div class="sale-v" style="color:#10b981;font-size:1.15rem;padding-top:2px">${stats.statusCounts.delivered}</div></div>
+        <div style="border-right:1px solid rgba(255,255,255,.08);border-left:1px solid rgba(255,255,255,.08)"><div class="sale-l">مشحونة</div><div class="sale-v" style="color:#f59e0b;font-size:1.15rem;padding-top:2px">${stats.statusCounts.shipped}</div></div>
+        <div><div class="sale-l">ملغاة</div><div class="sale-v" style="color:#ef4444;font-size:1.15rem;padding-top:2px">${stats.statusCounts.cancelled}</div></div>
+      </div>
     </div>
     <div class="sale-l" style="margin-bottom:6px">الأكثر طلباً:</div>${productsHtml}
   </div>
@@ -441,10 +445,18 @@ export default function AnalyticsTab({ allMessages = [], orders = [], leads = []
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontWeight: 700 }}>في الطريق (قيد التوصيل)</div>
                 <div style={{ fontSize: '1.3rem', fontWeight: 900, color: '#f59e0b' }}>{stats.conv(stats.pipelineValue)} دج</div>
               </div>
-              <div style={{ padding: '0.8rem 1rem', borderRadius: 14, background: 'var(--veil-1)', border: '1px solid var(--border-subtle)' }}>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontWeight: 700 }}>مسلّمة / مشحونة / ملغاة</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--text-primary)' }}>
-                  {stats.statusCounts.delivered} / {stats.statusCounts.shipped} / {stats.statusCounts.cancelled}
+              <div style={{ padding: '0.8rem 1rem', borderRadius: 14, background: 'var(--veil-1)', border: '1px solid var(--border-subtle)', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, textAlign: 'center' }}>
+                <div>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-tertiary)', fontWeight: 700, marginBottom: 3 }}>مسلّمة</div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 900, color: '#10b981' }}>{stats.statusCounts.delivered}</div>
+                </div>
+                <div style={{ borderRight: '1px solid var(--border-subtle)', borderLeft: '1px solid var(--border-subtle)' }}>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-tertiary)', fontWeight: 700, marginBottom: 3 }}>مشحونة</div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 900, color: '#f59e0b' }}>{stats.statusCounts.shipped}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-tertiary)', fontWeight: 700, marginBottom: 3 }}>ملغاة</div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 900, color: '#ef4444' }}>{stats.statusCounts.cancelled}</div>
                 </div>
               </div>
             </div>

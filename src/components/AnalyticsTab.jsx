@@ -390,10 +390,18 @@ export default function AnalyticsTab({ allMessages = [], orders = [], leads = []
       </div>
 
       {stats.asked.length === 0 && stats.periodOrders.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '4rem 1rem', color: 'var(--text-secondary)' }}>
-          
-          <div style={{ fontWeight: 700, marginBottom: '0.4rem', color: 'var(--text-primary)' }}>لا توجد بيانات في هذه الفترة</div>
-          <div style={{ fontSize: '0.85rem' }}>جرّب مدى أوسع — أو انتظر أول محادثة، والأرقام ستُبنى هنا تلقائياً.</div>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 18, padding: '4rem 1.5rem', textAlign: 'center' }}>
+          <div style={{ width: 64, height: 64, borderRadius: 18, background: 'var(--veil-1)', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="20" x2="18" y2="10"/>
+              <line x1="12" y1="20" x2="12" y2="4"/>
+              <line x1="6" y1="20" x2="6" y2="14"/>
+            </svg>
+          </div>
+          <div style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '1.05rem', marginBottom: '0.4rem' }}>لا توجد بيانات في هذه الفترة</div>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', maxWidth: 420, margin: '0 auto', lineHeight: 1.6 }}>
+            جرّب مدى زمنياً أوسع — أو انتظر أول محادثة، والأرقام ستُبنى هنا تلقائياً مع كل تفاعل.
+          </div>
         </div>
       ) : (
         <>

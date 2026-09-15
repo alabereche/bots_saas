@@ -157,18 +157,157 @@ export default function AnalyticsTab({ allMessages = [], orders = [], leads = []
     return { threadList, customerMsgs, botReplies, periodOrders, asked, askedPrice, ordered, delivered, statusCounts, deliveredValue, pipelineValue, priced, unpriced, topProducts, returned, returnedBought, noOrder, closingRate, conv };
   }, [allMessages, orders, bot, period]);
 
-  // ─── Summary export (CSV with BOM so Excel renders Arabic correctly) ───
-  const downloadSummary = () => {
+  // ─── Summary exports ───
+  // CRITICAL: the funnel stages live in `funnelStages` (component scope),
+  // NOT inside stats — referencing stats.funnel here threw and silently
+  // killed the whole download. Stages are rebuilt from stats fields below.
+
+  const esc = (s) => String(s ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+  const stageDefs = [
+    { label: 'سألوا البوت', count: stats.asked.length, color: '#10b981', items: stats.asked },
+    { label: 'سألوا عن السعر', count: stats.askedPrice.length, color: '#34d399', items: stats.askedPrice },
+    { label: 'طلبوا فعلاً', count: stats.ordered.length, color: '#f59e0b', items: stats.ordered },
+    { label: 'وصلت طلبياتهم', count: stats.delivered.length, color: '#38bdf8', items: stats.delivered },
+  ];
+  const periodLabel = PERIODS.find(p => p.key === period)?.label || '';
+  const generatedAt = new Date().toLocaleString('ar-DZ');
+  const reportTitle = `تقرير تحليلات — ${bot?.botName || 'البوت'}`;
+
+  const buildSummaryHtml = () => {
+    const funnelMax = Math.max(1, ...stageDefs.map(s => s.count));
+    const funnelHtml = stageDefs.map((s, i) => {
+      const prev = i > 0 ? stageDefs[i - 1].count : null;
+      const pct = i > 0 && prev ? Math.round((s.count / prev) * 100) : null;
+      return `<div class="stage">
+        <div class="stage-head"><span class="stage-label">${esc(s.label)}</span>
+        <span class="stage-num"><b>${stats.conv(s.count)}</b>${pct !== null ? ` <span class="pct">· ${pct}% من السابق</span>` : ''}</span></div>
+        <div class="bar"><div class="fill" style="width:${Math.max(2, (s.count / funnelMax) * 100)}%;background:linear-gradient(90deg,${s.color},${s.color}99)"></div></div>
+      </div>`;
+    }).join('');
+
+    const kpiHtml = [
+      ['زبائن تفاعلوا', stats.conv(stats.asked.length), '#10b981'],
+      ['رسائل زبائن', stats.conv(stats.customerMsgs), '#34d399'],
+      ['ردود البوت', stats.conv(stats.botReplies), '#38bdf8'],
+      ['طلبيات', stats.conv(stats.periodOrders.length), '#f59e0b'],
+      ['نسبة الإغلاق', stats.closingRate + '%', '#a78bfa'],
+      ['عادوا بعد صمت', stats.conv(stats.returned.length), '#fb923c'],
+    ].map(([l, v, c]) => `<div class="kpi"><div class="kpi-l">${esc(l)}</div><div class="kpi-v" style="color:${c}">${esc(v)}</div></div>`).join('');
+
+    const productsHtml = stats.topProducts.length
+      ? `<div class="chips">${stats.topProducts.map(([n, c]) => `<span class="chip">${esc(n)} · ${c}</span>`).join('')}</div>`
+      : '<div class="muted">لا طلبيات في هذه الفترة</div>';
+
+    const noOrderRows = stats.noOrder.slice(0, 30).map(t => `<tr>
+      <td><b>${esc(t.name)}</b>${t.priceIntent ? ' <span class="tag">سأل عن السعر</span>' : ''}${t.returns > 0 ? ` <span class="tag tag-blue">عاد ${t.returns} مرة</span>` : ''}</td>
+      <td>${esc(t.lastContent)}</td>
+      <td>${t.msgs.length}</td>
+      <td>${esc(fmtTime(t.lastAt))}</td>
+    </tr>`).join('');
+
+    return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<title>${esc(reportTitle)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  body{background:#0a0a09;color:#f3f0e8;font-family:'Almarai',system-ui,sans-serif;margin:0;padding:32px 16px}
+  .wrap{max-width:860px;margin:0 auto}
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .brand-dot{width:12px;height:12px;border-radius:50%;background:#10b981;box-shadow:0 0 12px rgba(16,185,129,.7)}
+  .brand b{font-size:.95rem;letter-spacing:.5px}
+  h1{font-size:1.5rem;margin:0 0 4px}
+  .meta{color:#8a8778;font-size:.8rem;margin-bottom:26px}
+  .card{background:#111110;border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:20px 22px;margin-bottom:18px}
+  .card h2{font-size:1rem;margin:0 0 14px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:18px}
+  .kpi{background:#111110;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:14px 16px}
+  .kpi-l{font-size:.72rem;color:#8a8778;font-weight:700;margin-bottom:4px}
+  .kpi-v{font-size:1.4rem;font-weight:900}
+  .stage{margin-bottom:14px}
+  .stage-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px}
+  .stage-label{font-size:.86rem;font-weight:800}
+  .stage-num b{font-size:.98rem}
+  .pct{color:#8a8778;font-size:.76rem}
+  .bar{height:12px;background:rgba(255,255,255,.04);border-radius:999px;overflow:hidden}
+  .fill{height:100%;border-radius:999px}
+  .grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+  .sale{padding:12px 16px;border-radius:14px}
+  .sale-l{font-size:.7rem;color:#8a8778;font-weight:700;margin-bottom:3px}
+  .sale-v{font-size:1.25rem;font-weight:900}
+  .sale-g{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3)} .sale-g .sale-v{color:#10b981}
+  .sale-o{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3)} .sale-o .sale-v{color:#f59e0b}
+  .sale-n{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)} .sale-n .sale-v{color:#f3f0e8;font-size:1rem;padding-top:6px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{font-size:.75rem;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);font-weight:700}
+  .line{font-size:.88rem;color:#b8b4a8;display:flex;gap:22px;flex-wrap:wrap}
+  .line b{color:#f3f0e8}
+  table{width:100%;border-collapse:collapse;font-size:.82rem}
+  th{color:#8a8778;font-size:.72rem;text-align:right;padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.1)}
+  td{padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top}
+  .tag{font-size:.66rem;color:#f59e0b;font-weight:800;margin-right:6px}
+  .tag-blue{color:#38bdf8}
+  .muted{color:#8a8778;font-size:.85rem}
+  .foot{color:#8a8778;font-size:.72rem;text-align:center;margin-top:26px}
+  .foot b{color:#10b981}
+  @media print{ body{background:#fff;color:#111} .card,.kpi{background:#fafafa;border-color:#ddd} .kpi-l,.pct,.meta,.muted,th,.foot,.line{color:#555} .brand b,.foot b{color:#111} .sale-n .sale-v{color:#111} }
+</style></head><body><div class="wrap">
+  <div class="brand"><span class="brand-dot"></span><b>BotForge Analytics</b></div>
+  <h1>${esc(reportTitle)}</h1>
+  <div class="meta">الفترة: ${esc(periodLabel)} · أُنشئ التقرير في ${esc(generatedAt)}</div>
+  <div class="kpis">${kpiHtml}</div>
+  <div class="card"><h2>قمع البيع — أين توقفوا؟</h2>${funnelHtml}</div>
+  <div class="card"><h2>المبيعات (قيمة الطلبيات حسب أسعار الكتالوج)</h2>
+    <div class="grid3">
+      <div class="sale sale-g"><div class="sale-l">قيمة المسلّمة</div><div class="sale-v">${stats.conv(stats.deliveredValue)} دج</div></div>
+      <div class="sale sale-o"><div class="sale-l">في الطريق (قيد التوصيل)</div><div class="sale-v">${stats.conv(stats.pipelineValue)} دج</div></div>
+      <div class="sale sale-n"><div class="sale-l">مسلّمة / مشحونة / ملغاة</div><div class="sale-v">${stats.statusCounts.delivered} / ${stats.statusCounts.shipped} / ${stats.statusCounts.cancelled}</div></div>
+    </div>
+    <div class="sale-l" style="margin-bottom:6px">الأكثر طلباً:</div>${productsHtml}
+  </div>
+  <div class="card"><h2>حصاد الصمت — من عاد بعد الانقطاع؟</h2>
+    <div class="line"><span>عادوا بعد صمت ≥ ساعتين: <b>${stats.conv(stats.returned.length)}</b></span><span>منهم من طلب بعد عودته: <b>${stats.conv(stats.returnedBought.length)}</b></span><span>نسبة الصيد: <b>${stats.returned.length ? Math.round((stats.returnedBought.length / stats.returned.length) * 100) : 0}%</b></span></div>
+  </div>
+  <div class="card"><h2>سألوا ولم يطلبوا بعد (${stats.noOrder.length})</h2>
+    ${stats.noOrder.length === 0 ? '<div class="muted">كل من سأل في هذه الفترة أصبح له طلبية — أداء ممتاز.</div>' :
+    `<table><thead><tr><th>الزبون</th><th>آخر رسالة</th><th>رسائل</th><th>آخر نشاط</th></tr></thead><tbody>${noOrderRows}</tbody></table>`}
+  </div>
+  <div class="foot">أُنشئ هذا التقرير تلقائياً بواسطة <b>BotForge</b> — بائعك الآلي الذي لا ينام</div>
+</div></body></html>`;
+  };
+
+  const downloadFile = (content, filename, mime) => {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  };
+
+  const stamp = `${period}-${new Date().toISOString().slice(0, 10)}`;
+  const botSlug = String(bot?.botName || 'bot').replace(/[^\p{L}\p{N}]+/gu, '-').slice(0, 30);
+
+  const downloadHtmlReport = () => {
+    downloadFile(buildSummaryHtml(), `botforge-report-${botSlug}-${stamp}.html`, 'text/html;charset=utf-8;');
+  };
+
+  const downloadCsv = () => {
+    const stages = stageDefs.map(s => [s.label, s.count]);
     const rows = [['القسم', 'البند', 'القيمة']];
     rows.push(['مؤشرات', 'زبائن تفاعلوا', stats.asked.length]);
     rows.push(['مؤشرات', 'رسائل زبائن', stats.customerMsgs]);
     rows.push(['مؤشرات', 'ردود البوت', stats.botReplies]);
     rows.push(['مؤشرات', 'طلبيات', stats.periodOrders.length]);
     rows.push(['مؤشرات', 'نسبة الإغلاق %', stats.closingRate]);
-    stats.funnel.forEach((s, i) => {
-      rows.push(['قمع البيع', s.label, s.items.length]);
-      if (i > 0 && stats.funnel[i - 1].items.length) {
-        rows.push(['قمع البيع', `${s.label} — نسبة التحويل %`, Math.round((s.items.length / stats.funnel[i - 1].items.length) * 100)]);
+    stages.forEach(([label, count], i) => {
+      rows.push(['قمع البيع', label, count]);
+      if (i > 0 && stages[i - 1][1]) {
+        rows.push(['قمع البيع', `${label} — نسبة التحويل %`, Math.round((count / stages[i - 1][1]) * 100)]);
       }
     });
     rows.push(['المبيعات', 'قيمة الطلبيات المسلّمة (دج)', stats.deliveredValue]);
@@ -186,16 +325,7 @@ export default function AnalyticsTab({ allMessages = [], orders = [], leads = []
     const csv = '\uFEFF' + rows
       .map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))
       .join('\r\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const botSlug = String(bot?.botName || 'bot').replace(/[^\p{L}\p{N}]+/gu, '-').slice(0, 30);
-    a.download = `botforge-analytics-${botSlug}-${period}-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    downloadFile(csv, `botforge-analytics-${botSlug}-${stamp}.csv`, 'text/csv;charset=utf-8;');
   };
 
   const funnelStages = [
@@ -232,10 +362,10 @@ export default function AnalyticsTab({ allMessages = [], orders = [], leads = []
             </button>
           ))}
           <button
-            onClick={downloadSummary}
-            className="btn btn-sm btn-secondary"
+            onClick={downloadHtmlReport}
+            className="btn btn-sm btn-primary"
             style={{ borderRadius: '999px', padding: '0.4rem 1rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-            title="تصدير الملخص الكامل إلى ملف CSV يفتح في Excel"
+            title="تحميل تقرير كامل أنيق — يفتح بالمتصفح ويُطبع PDF"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -243,6 +373,14 @@ export default function AnalyticsTab({ allMessages = [], orders = [], leads = []
               <line x1="12" y1="15" x2="12" y2="3"/>
             </svg>
             تحميل الملخص
+          </button>
+          <button
+            onClick={downloadCsv}
+            className="btn btn-sm btn-secondary"
+            style={{ borderRadius: '999px', padding: '0.4rem 0.9rem', fontSize: '0.78rem' }}
+            title="تصدير البيانات الخام إلى CSV يفتح في Excel"
+          >
+            CSV
           </button>
         </div>
       </div>

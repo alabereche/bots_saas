@@ -426,8 +426,20 @@ export default function BotDetail() {
 
   useEffect(() => {
     updateTabsNav();
+    // The strip's width changes AFTER mount (subscription count badges,
+    // Arabic webfonts) — that overflow has no window resize event, so a
+    // window-only listener leaves the arrows stale until the user resizes.
+    // ResizeObserver fires on ANY element size change, whatever caused it.
+    let ro = null;
+    if (tabsRef.current && typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => updateTabsNav());
+      ro.observe(tabsRef.current);
+    }
     window.addEventListener('resize', updateTabsNav);
-    return () => window.removeEventListener('resize', updateTabsNav);
+    return () => {
+      if (ro) ro.disconnect();
+      window.removeEventListener('resize', updateTabsNav);
+    };
   }, []);
 
   const toggleTakeover = async (userId) => {

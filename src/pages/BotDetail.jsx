@@ -2680,7 +2680,7 @@ function WebWidgetTab({ bot, onUpdateBot }) {
         </h4>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
           <div style={{ background: 'var(--bg-app)', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-default)' }}>
-            <strong style={{ color: '#60a5fa', display: 'block', marginBottom: '4px', fontSize: '0.85rem' }}>YouCan</strong>
+            <strong style={{ color: '#34d399', display: 'block', marginBottom: '4px', fontSize: '0.85rem' }}>YouCan</strong>
             <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
               الإعدادات (Settings) ← أونلاين (Online) ← أكواد CSS & JS ← الصق الكود في خانة أكواد JavaScript (Header أو Footer).
             </p>
@@ -2704,7 +2704,7 @@ function WebWidgetTab({ bot, onUpdateBot }) {
 }
 
 // ─── Component: Qualified Leads & CRM Tab (Ultra-Clean & Responsive) ──
-function LeadsTab({ bot, leads = [], onUpdateBot }) {
+function LeadsTab({ bot, leads = [], orders = [], onUpdateBot, onOpenChat }) {
   const toast = useToast();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -2712,14 +2712,30 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
   const [updatingId, setUpdatingId] = useState(null);
   const [selectedLead, setSelectedLead] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [convertedView, setConvertedView] = useState(false);
+
+  // Conversion awareness: a lead whose phone matches a real order has
+  // left the pipeline — shown only under the «محوّلين» chip
+  const digitsOf = (v) => String(v || '').replace(/[^0-9]/g, '');
+  const convertedIds = useMemo(() => {
+    const set = new Set();
+    for (const o of orders) {
+      if (o.customerId) set.add(digitsOf(o.customerId));
+      if (o.phone) set.add(digitsOf(o.phone));
+    }
+    return set;
+  }, [orders]);
+  const isConvertedLead = (lead) => convertedIds.has(digitsOf(lead.phone));
+  const convertedCount = leads.filter(isConvertedLead).length;
 
   // Status mapping and colors
+  // Reduced palette: emerald / neutral / amber / red only — no rainbow
   const STATUS_CONFIG = {
-    new: { label: 'جديد', bg: 'rgba(59, 130, 246, 0.12)', color: '#60a5fa', border: 'rgba(59, 130, 246, 0.3)' },
-    contacted: { label: 'تم التواصل', bg: 'rgba(234, 179, 8, 0.12)', color: '#facc15', border: 'rgba(234, 179, 8, 0.3)' },
-    qualified: { label: 'مؤهل للشراء', bg: 'rgba(168, 85, 247, 0.12)', color: '#c084fc', border: 'rgba(168, 85, 247, 0.3)' },
-    closed: { label: 'تم التعاقد', bg: 'rgba(34, 197, 94, 0.12)', color: '#4ade80', border: 'rgba(34, 197, 94, 0.3)' },
-    lost: { label: 'ملغي', bg: 'rgba(239, 68, 68, 0.12)', color: '#f87171', border: 'rgba(239, 68, 68, 0.3)' },
+    new: { label: 'جديد', bg: 'rgba(16, 185, 129, 0.1)', color: '#34d399', border: 'rgba(16, 185, 129, 0.3)' },
+    contacted: { label: 'تم التواصل', bg: 'rgba(148, 163, 184, 0.1)', color: 'var(--text-secondary)', border: 'rgba(148, 163, 184, 0.2)' },
+    qualified: { label: 'مؤهل للشراء', bg: 'rgba(245, 158, 11, 0.1)', color: '#fbbf24', border: 'rgba(245, 158, 11, 0.3)' },
+    closed: { label: 'تم التعاقد', bg: 'rgba(16, 185, 129, 0.16)', color: '#10b981', border: 'rgba(16, 185, 129, 0.4)' },
+    lost: { label: 'ملغي', bg: 'rgba(239, 68, 68, 0.1)', color: '#f87171', border: 'rgba(239, 68, 68, 0.3)' },
   };
 
   const PRIORITY_CONFIG = {
@@ -2729,6 +2745,9 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
   };
 
   const filteredLeads = leads.filter(lead => {
+    const isConv = isConvertedLead(lead);
+    if (convertedView) { if (!isConv) return false; }
+    else if (isConv && !search.trim()) return false;
     if (hotOnly && lead.leadStatus !== 'hot') return false;
     if (statusFilter !== 'all' && (lead.status || 'new') !== statusFilter) return false;
     if (search.trim()) {
@@ -2880,7 +2899,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
           },
           {
             key: 'contacted', label: 'تم التواصل والمتابعة', value: contactedCount,
-            color: '#60a5fa', bg: 'rgba(59, 130, 246, 0.12)', border: 'rgba(59, 130, 246, 0.28)',
+            color: '#34d399', bg: 'rgba(59, 130, 246, 0.12)', border: 'rgba(59, 130, 246, 0.28)',
             icon: <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><polyline points="20 6 9 17 4 12"/></svg>,
           },
         ].map(card => (
@@ -2949,29 +2968,41 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
             </button>
           </div>
 
-          <select
-            className="form-select"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            style={{
-              fontSize: '0.8rem',
-              padding: '0.4rem 0.85rem',
-              borderRadius: '10px',
-              background: 'var(--bg-inset)',
-              color: 'var(--text-primary)',
-              border: '1px solid var(--border-default)',
-              minHeight: '38px',
-              cursor: 'pointer',
-              fontWeight: 600,
-            }}
-          >
-            <option value="all" style={{ background: 'var(--bg-deep)', color: 'var(--text-primary)' }}>كل الحالات</option>
-            <option value="new" style={{ background: 'var(--bg-deep)', color: '#60a5fa' }}>جديد</option>
-            <option value="contacted" style={{ background: 'var(--bg-deep)', color: '#facc15' }}>تم التواصل</option>
-            <option value="qualified" style={{ background: 'var(--bg-deep)', color: '#c084fc' }}>مؤهل</option>
-            <option value="closed" style={{ background: 'var(--bg-deep)', color: '#4ade80' }}>تم التعاقد</option>
-            <option value="lost" style={{ background: 'var(--bg-deep)', color: '#f87171' }}>ملغي</option>
-          </select>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+            {[
+              { key: 'all', label: 'الكل' },
+              { key: 'new', label: 'جديد' },
+              { key: 'contacted', label: 'تم التواصل' },
+              { key: 'qualified', label: 'مؤهل' },
+              { key: 'converted', label: `محوّلين (${convertedCount})` },
+              { key: 'lost', label: 'ملغي' },
+            ].map(chip => {
+              const active = chip.key === 'converted' ? convertedView : (!convertedView && statusFilter === chip.key);
+              return (
+                <button
+                  key={chip.key}
+                  type="button"
+                  onClick={() => {
+                    if (chip.key === 'converted') { setConvertedView(v => !v); setStatusFilter('all'); }
+                    else { setConvertedView(false); setStatusFilter(chip.key); }
+                  }}
+                  style={{
+                    padding: '0.38rem 0.9rem',
+                    borderRadius: '999px',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                    border: active ? '1px solid rgba(16, 185, 129, 0.45)' : '1px solid var(--border-subtle)',
+                    background: active ? 'rgba(16, 185, 129, 0.16)' : 'var(--bg-inset)',
+                    color: active ? '#34d399' : 'var(--text-secondary)',
+                  }}
+                >
+                  {chip.label}
+                </button>
+              );
+            })}
+          </div>
 
           <button
             type="button"
@@ -3063,7 +3094,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                             height: '34px',
                             borderRadius: '8px',
                             background: isHot ? 'rgba(239, 68, 68, 0.15)' : 'rgba(59, 130, 246, 0.15)',
-                            border: `1px solid ${isHot ? 'rgba(239, 68, 68, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`,
+                            border: `1px solid ${isHot ? 'rgba(239, 68, 68, 0.3)' : 'var(--border-subtle)'}`,
                             color: isHot ? '#f87171' : '#60a5fa',
                             display: 'flex',
                             alignItems: 'center',
@@ -3105,10 +3136,10 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                             onClick={() => copyPhone(lead.phone)}
                             style={{
                               fontFamily: 'monospace',
-                              color: '#60a5fa',
+                              color: 'var(--text-primary)',
                               fontWeight: 700,
                               fontSize: '0.84rem',
-                              background: 'rgba(59, 130, 246, 0.08)',
+                              background: 'var(--veil-1)',
                               padding: '2px 6px',
                               borderRadius: '6px',
                               border: '1px solid rgba(59, 130, 246, 0.2)',
@@ -3118,7 +3149,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                           >
                             {lead.phone || '—'}
                           </span>
-                          {cleanPhone && (
+                          {cleanPhone && lead.platform !== 'telegram' && (
                             <div style={{ display: 'flex', gap: '4px' }}>
                               <a
                                 href={getWhatsAppLink(lead)}
@@ -3147,17 +3178,38 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                                   width: '26px',
                                   height: '26px',
                                   borderRadius: '6px',
-                                  background: 'rgba(59, 130, 246, 0.15)',
-                                  color: '#60a5fa',
+                                  background: 'var(--veil-1)',
+                                  color: 'var(--text-secondary)',
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
                                   textDecoration: 'none',
-                                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                                  border: '1px solid var(--border-subtle)',
                                 }}
                               >
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
                               </a>
+                                                            {lead.platform === 'telegram' && (
+                                <button
+                                  type="button"
+                                  onClick={() => onOpenChat(lead.customerId)}
+                                  title="افتح المحادثة في صندوق الرسائل"
+                                  style={{
+                                    width: '13px',
+                                    height: '13px',
+                                    borderRadius: '8px',
+                                    background: 'rgba(56, 189, 248, 0.15)',
+                                    color: '#38bdf8',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    border: '1px solid rgba(56, 189, 248, 0.3)',
+                                  }}
+                                >
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                                </button>
+                              )}
                             </div>
                           )}
                         </div>
@@ -3339,7 +3391,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                         height: '38px',
                         borderRadius: '10px',
                         background: isHot ? 'rgba(239, 68, 68, 0.15)' : 'rgba(59, 130, 246, 0.15)',
-                        border: `1px solid ${isHot ? 'rgba(239, 68, 68, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`,
+                        border: `1px solid ${isHot ? 'rgba(239, 68, 68, 0.3)' : 'var(--border-subtle)'}`,
                         color: isHot ? '#f87171' : '#60a5fa',
                         display: 'flex',
                         alignItems: 'center',
@@ -3419,10 +3471,10 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                         onClick={() => copyPhone(lead.phone)}
                         style={{
                           fontFamily: 'monospace',
-                          color: '#60a5fa',
+                          color: 'var(--text-primary)',
                           fontWeight: 700,
-                          fontSize: '0.86rem',
-                          background: 'rgba(59, 130, 246, 0.08)',
+                          fontSize: '0.84rem',
+                          background: 'var(--veil-1)',
                           padding: '3px 8px',
                           borderRadius: '6px',
                           border: '1px solid rgba(59, 130, 246, 0.2)',
@@ -3433,7 +3485,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                         {lead.phone || '—'}
                       </span>
 
-                      {cleanPhone && (
+                      {cleanPhone && lead.platform !== 'telegram' && (
                         <>
                           <a
                             href={getWhatsAppLink(lead)}
@@ -3460,17 +3512,38 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
                               width: '30px',
                               height: '30px',
                               borderRadius: '8px',
-                              background: 'rgba(59, 130, 246, 0.15)',
-                              color: '#60a5fa',
+                              background: 'var(--veil-1)',
+                              color: 'var(--text-secondary)',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
                               textDecoration: 'none',
-                              border: '1px solid rgba(59, 130, 246, 0.3)',
+                              border: '1px solid var(--border-subtle)',
                             }}
                           >
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
                           </a>
+                                                    {lead.platform === 'telegram' && (
+                            <button
+                              type="button"
+                              onClick={() => onOpenChat(lead.customerId)}
+                              title="افتح المحادثة في صندوق الرسائل"
+                              style={{
+                                width: '15px',
+                                height: '15px',
+                                borderRadius: '8px',
+                                background: 'rgba(56, 189, 248, 0.15)',
+                                color: '#38bdf8',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                border: '1px solid rgba(56, 189, 248, 0.3)',
+                              }}
+                            >
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            </button>
+                          )}
                         </>
                       )}
                     </div>
@@ -3611,7 +3684,7 @@ function LeadsTab({ bot, leads = [], onUpdateBot }) {
             <div style={{ background: 'var(--bg-inset)', padding: '0.85rem 1rem', borderRadius: '10px', border: '1px solid var(--border-subtle)', display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>رقم الهاتف</div>
-                <div style={{ fontSize: '0.98rem', fontWeight: 800, color: '#60a5fa', fontFamily: 'monospace' }}>
+                <div style={{ fontSize: '0.98rem', fontWeight: 800, color: '#34d399', fontFamily: 'monospace' }}>
                   {selectedLead.phone || 'غير محدد'}
                 </div>
               </div>
@@ -3998,7 +4071,7 @@ function GoogleSheetsTab({ bot, onUpdateBot }) {
         </h4>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
           <div style={{ background: 'var(--bg-inset)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
-            <strong style={{ color: '#60a5fa', display: 'block', marginBottom: '6px', fontSize: '0.88rem' }}>1. أنشئ الشيت</strong>
+            <strong style={{ color: '#34d399', display: 'block', marginBottom: '6px', fontSize: '0.88rem' }}>1. أنشئ الشيت</strong>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
               افتح Google Sheets وأنشئ جدولاً جديداً بأي اسم تريده.
             </p>

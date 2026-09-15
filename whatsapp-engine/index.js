@@ -402,7 +402,7 @@ app.post('/api/engine/self-update', async (req, res) => {
       firestore.createNotification({
         userId: SUPER_ADMIN_UID,
         type: 'system',
-        title: '✅ تم تحديث محرك واتساب',
+        title: 'تم تحديث محرك واتساب',
         body: result.message,
       }).catch(() => {});
     }
@@ -765,7 +765,7 @@ app.listen(PORT, '0.0.0.0', () => {
         await firestore.createNotification({
           userId: SUPER_ADMIN_UID,
           type: 'system',
-          title: '🔄 تحديث محرك واتساب متوفر',
+          title: 'تحديث محرك واتساب متوفر',
           body: `إصدار جديد للمكتبة (${status.installed} → ${status.latest}) — حدّث من صفحة القنوات بضغطة واحدة قبل أن يكسر التحديث الجديد للواتساب الربط.`,
         }).catch(() => {});
         console.log(`[SelfUpdate] Update available: ${status.installed} → ${status.latest}`);

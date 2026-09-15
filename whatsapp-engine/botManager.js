@@ -238,7 +238,7 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
           userId: config.userId,
           botId,
           type: 'system',
-          title: '✅ عاد اتصال واتساب تلقائياً',
+          title: 'عاد اتصال واتساب تلقائياً',
           body: `البوت "${config.botName}" استعاد اتصاله بنفسه — وتمت معالجة أي رسائل وصلت أثناء الانقطاع.`,
         }).catch(() => {});
       }
@@ -286,7 +286,7 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
         userId: config.userId,
         botId,
         type: 'system',
-        title: isLogout ? 'انقطع اتصال واتساب' : '⚠️ انقطع اتصال واتساب — الإنقاذ التلقائي جارٍ',
+        title: isLogout ? 'انقطع اتصال واتساب' : 'انقطع اتصال واتساب — الإنقاذ التلقائي جارٍ',
         body: isLogout
           ? `البوت "${config.botName}" سجّل خروجاً — أعد الربط من صفحة القنوات.`
           : `البوت "${config.botName}" فقد الاتصال. المحرك يعيد الاتصال تلقائياً بالجلسة المحفوظة — لا حاجة لأي خطوة منك.`,
@@ -383,7 +383,7 @@ function scheduleAutoRestart(botId, config) {
         userId: config.userId,
         botId,
         type: 'system',
-        title: '❌ تعذّر استعادة الاتصال تلقائياً',
+        title: 'تعذر استعادة الاتصال تلقائياً',
         body: `البوت "${config.botName}" لم ينجح في إعادة الاتصال — يرجى إعادة الربط من صفحة القنوات.`,
       }).catch(() => {});
     }

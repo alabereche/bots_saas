@@ -483,20 +483,20 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
             {engineUpdate && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', padding: '0.85rem 1rem', borderRadius: '14px', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.35)', marginBottom: '1rem' }}>
                 <div style={{ fontSize: '0.82rem', color: '#fbbf24', fontWeight: 700 }}>
-                  🔄 تحديث محرك واتساب متوفر ({engineUpdate.installed} → {engineUpdate.latest}) — يُوصى به لتجنّب كسر الربط
+                  تحديث محرك واتساب متوفر ({engineUpdate.installed} → {engineUpdate.latest}) — يُوصى به لتجنّب كسر الربط
                 </div>
                 <button
                   onClick={handleEngineUpdate}
                   disabled={engineUpdating}
                   style={{ background: engineUpdating ? 'rgba(245,158,11,0.3)' : '#f59e0b', color: '#111', border: 'none', borderRadius: '10px', padding: '0.55rem 1.1rem', fontWeight: 800, fontSize: '0.82rem', cursor: engineUpdating ? 'wait' : 'pointer', whiteSpace: 'nowrap' }}
                 >
-                  {engineUpdating ? '⏳ جاري التحديث (دقيقة تقريباً)…' : 'تحديث الآن'}
+                  {engineUpdating ? 'جاري التحديث (دقيقة تقريباً)…' : 'تحديث الآن'}
                 </button>
               </div>
             )}
             {engineUpdateDone && (
               <div style={{ padding: '0.7rem 1rem', borderRadius: '14px', background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.4)', marginBottom: '1rem', fontSize: '0.82rem', color: '#10b981', fontWeight: 700 }}>
-                ✅ تم تحديث المحرك وإعادة تشغيله — البوتات تعود اتصالها تلقائياً خلال دقيقة
+                تم تحديث المحرك وإعادة تشغيله — البوتات تعود اتصالها تلقائياً خلال دقيقة
               </div>
             )}
           </div>

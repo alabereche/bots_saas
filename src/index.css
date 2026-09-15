@@ -6477,3 +6477,33 @@ html, body {
   overflow-x: visible;
   row-gap: 6px;
 }
+
+/* ═══ Tabs strip navigation arrows ═══
+   Scroll chevrons at both ends of the bot-page tab strip — appear only
+   when tabs overflow, vanish at the scroll edges. Strip design untouched. */
+.tabs-wrap { position: relative; }
+.tabs-nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 6;
+  padding: 0;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: background 0.15s ease;
+}
+.tabs-nav-btn:hover { background: rgba(255, 255, 255, 0.16); }
+.tabs-nav-btn--left { left: 8px; }
+.tabs-nav-btn--right { right: 8px; }
+[data-theme=light] .tabs-nav-btn { background: rgba(15, 23, 42, 0.06); border-color: rgba(15, 23, 42, 0.15); color: #1f2937; }
+[data-theme=light] .tabs-nav-btn:hover { background: rgba(15, 23, 42, 0.12); }

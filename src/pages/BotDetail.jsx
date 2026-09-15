@@ -96,6 +96,9 @@ export default function BotDetail() {
   const [leads, setLeads] = useState([]);
   const [activeTab, setActiveTab] = useState('chat'); // 'chat' | 'orders' | 'leads' | 'sheets' | 'catalog' | 'widget' | 'channels' | 'info'
   const [selectedUserId, setSelectedUserId] = useState(null);
+  // Tabs strip scroll arrows: reveal hidden tabs on narrow screens
+  const tabsRef = useRef(null);
+  const [tabsNav, setTabsNav] = useState({ left: false, right: false });
   const [replyText, setReplyText] = useState('');
   const [sending, setSending] = useState(false);
   const [takeoverMap, setTakeoverMap] = useState({});
@@ -401,6 +404,32 @@ export default function BotDetail() {
     }
   };
 
+  // Tabs strip navigation arrows (RTL-aware): reveal hidden tabs at both ends
+  const updateTabsNav = () => {
+    const el = tabsRef.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    if (max <= 4) {
+      setTabsNav(prev => (prev.left || prev.right ? { left: false, right: false } : prev));
+      return;
+    }
+    const abs = Math.abs(el.scrollLeft);
+    setTabsNav(prev => {
+      const next = { left: abs < max - 2, right: abs > 2 };
+      return (next.left === prev.left && next.right === prev.right) ? prev : next;
+    });
+  };
+
+  const scrollTabs = (dir) => {
+    tabsRef.current?.scrollBy({ left: dir * 260, behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    updateTabsNav();
+    window.addEventListener('resize', updateTabsNav);
+    return () => window.removeEventListener('resize', updateTabsNav);
+  }, []);
+
   const toggleTakeover = async (userId) => {
     // Same thread-aware engine as the manual reply — never trust bot.platform
     // alone (legacy bots have no field and must land on the WhatsApp engine)
@@ -580,7 +609,8 @@ export default function BotDetail() {
       </div>
 
       {/* ─── Ultra-Sleek Glassmorphic Responsive Tabs Bar ─── */}
-      <div className="tabs-container">
+      <div className="tabs-wrap">
+        <div className="tabs-container" ref={tabsRef} onScroll={updateTabsNav}>
         {[
           {
             key: 'chat',
@@ -705,6 +735,17 @@ export default function BotDetail() {
             )}
           </button>
         ))}
+        </div>
+        {tabsNav.left && (
+          <button type="button" className="tabs-nav-btn tabs-nav-btn--left" onClick={() => scrollTabs(-1)} aria-label="تبويبات على اليسار">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+        )}
+        {tabsNav.right && (
+          <button type="button" className="tabs-nav-btn tabs-nav-btn--right" onClick={() => scrollTabs(1)} aria-label="تبويبات على اليمين">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        )}
       </div>
 
       {/* ─── Tab 1: Commerce-First Chat Layout ─── */}

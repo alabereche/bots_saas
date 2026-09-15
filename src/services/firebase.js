@@ -367,7 +367,6 @@ export function sanitizeBotFeatures(features = {}) {
     orderTracking: features.orderTracking ?? false,
     delivery: features.delivery ?? false,
     notifications: features.notifications ?? false,
-    bookings: features.bookings ?? false,
     webhooks: features.webhooks ?? false,
     webWidget: features.webWidget ?? true,
     abandonedRecovery: features.abandonedRecovery ?? false,

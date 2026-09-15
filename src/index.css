@@ -6487,21 +6487,33 @@ html, body {
   position: absolute;
   top: 6px;
   bottom: 6px;
-  width: 46px;
+  width: 52px;
   z-index: 5;
   pointer-events: none;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
 }
-.tabs-edge-fade--left {
-  left: 4px;
-  -webkit-mask-image: linear-gradient(to left, #000 35%, transparent);
-  mask-image: linear-gradient(to left, #000 35%, transparent);
+/* Chromium ignores backdrop-filter when a mask sits on the same element —
+   so the blur and the feather live on two separate layers */
+.tabs-edge-blur {
+  position: absolute;
+  inset: 0;
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
 }
-.tabs-edge-fade--right {
-  right: 4px;
-  -webkit-mask-image: linear-gradient(to right, #000 35%, transparent);
-  mask-image: linear-gradient(to right, #000 35%, transparent);
+.tabs-edge-veil {
+  position: absolute;
+  inset: 0;
+}
+.tabs-edge-fade--left .tabs-edge-veil {
+  background: linear-gradient(to left, rgba(17, 17, 16, 0.92) 0%, rgba(17, 17, 16, 0.45) 45%, rgba(17, 17, 16, 0) 100%);
+}
+.tabs-edge-fade--right .tabs-edge-veil {
+  background: linear-gradient(to right, rgba(17, 17, 16, 0.92) 0%, rgba(17, 17, 16, 0.45) 45%, rgba(17, 17, 16, 0) 100%);
+}
+[data-theme=light] .tabs-edge-fade--left .tabs-edge-veil {
+  background: linear-gradient(to left, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.4) 45%, rgba(255, 255, 255, 0) 100%);
+}
+[data-theme=light] .tabs-edge-fade--right .tabs-edge-veil {
+  background: linear-gradient(to right, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.4) 45%, rgba(255, 255, 255, 0) 100%);
 }
 .tabs-nav-btn {
   position: absolute;

@@ -738,7 +738,7 @@ export default function BotDetail() {
         </div>
         {tabsNav.left && (
           <>
-            <div className="tabs-edge-fade tabs-edge-fade--left" />
+            <div className="tabs-edge-fade tabs-edge-fade--left"><div className="tabs-edge-blur" /><div className="tabs-edge-veil" /></div>
             <button type="button" className="tabs-nav-btn tabs-nav-btn--left" onClick={() => scrollTabs(-1)} aria-label="تبويبات على اليسار">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
             </button>
@@ -746,7 +746,7 @@ export default function BotDetail() {
         )}
         {tabsNav.right && (
           <>
-            <div className="tabs-edge-fade tabs-edge-fade--right" />
+            <div className="tabs-edge-fade tabs-edge-fade--right"><div className="tabs-edge-blur" /><div className="tabs-edge-veil" /></div>
             <button type="button" className="tabs-nav-btn tabs-nav-btn--right" onClick={() => scrollTabs(1)} aria-label="تبويبات على اليمين">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
             </button>

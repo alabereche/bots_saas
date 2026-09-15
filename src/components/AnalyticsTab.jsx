@@ -157,6 +157,47 @@ export default function AnalyticsTab({ allMessages = [], orders = [], leads = []
     return { threadList, customerMsgs, botReplies, periodOrders, asked, askedPrice, ordered, delivered, statusCounts, deliveredValue, pipelineValue, priced, unpriced, topProducts, returned, returnedBought, noOrder, closingRate, conv };
   }, [allMessages, orders, bot, period]);
 
+  // ─── Summary export (CSV with BOM so Excel renders Arabic correctly) ───
+  const downloadSummary = () => {
+    const rows = [['القسم', 'البند', 'القيمة']];
+    rows.push(['مؤشرات', 'زبائن تفاعلوا', stats.asked.length]);
+    rows.push(['مؤشرات', 'رسائل زبائن', stats.customerMsgs]);
+    rows.push(['مؤشرات', 'ردود البوت', stats.botReplies]);
+    rows.push(['مؤشرات', 'طلبيات', stats.periodOrders.length]);
+    rows.push(['مؤشرات', 'نسبة الإغلاق %', stats.closingRate]);
+    stats.funnel.forEach((s, i) => {
+      rows.push(['قمع البيع', s.label, s.items.length]);
+      if (i > 0 && stats.funnel[i - 1].items.length) {
+        rows.push(['قمع البيع', `${s.label} — نسبة التحويل %`, Math.round((s.items.length / stats.funnel[i - 1].items.length) * 100)]);
+      }
+    });
+    rows.push(['المبيعات', 'قيمة الطلبيات المسلّمة (دج)', stats.deliveredValue]);
+    rows.push(['المبيعات', 'قيمة الطلبيات في الطريق (دج)', stats.pipelineValue]);
+    rows.push(['المبيعات', 'مسلّمة', stats.statusCounts.delivered]);
+    rows.push(['المبيعات', 'مشحونة', stats.statusCounts.shipped]);
+    rows.push(['المبيعات', 'ملغاة', stats.statusCounts.cancelled]);
+    stats.topProducts.forEach(([name, count]) => rows.push(['الأكثر طلباً', name, count]));
+    rows.push(['حصاد الصمت', 'عادوا بعد صمت >= ساعتين', stats.returned.length]);
+    rows.push(['حصاد الصمت', 'طلبوا بعد العودة', stats.returnedBought.length]);
+    stats.noOrder.forEach(t => {
+      rows.push(['سألوا ولم يطلبوا', `${t.name} (${t.id})`, `آخر رسالة: ${t.lastContent} | ${fmtTime(t.lastAt)} | ${t.msgs.length} رسالة`]);
+    });
+
+    const csv = '\uFEFF' + rows
+      .map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))
+      .join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const botSlug = String(bot?.botName || 'bot').replace(/[^\p{L}\p{N}]+/gu, '-').slice(0, 30);
+    a.download = `botforge-analytics-${botSlug}-${period}-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const funnelStages = [
     { label: 'سألوا البوت', items: stats.asked, color: '#10b981', hint: 'زبائن أرسلوا رسالة واحدة على الأقل' },
     { label: 'سألوا عن السعر', items: stats.askedPrice, color: '#34d399', hint: 'كلامهم تضمن استفساراً عن السعر أو المنتج' },
@@ -179,7 +220,7 @@ export default function AnalyticsTab({ allMessages = [], orders = [], leads = []
       {/* Period switcher */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: '1.25rem' }}>
         <h2 style={{ margin: 0, fontSize: '1.15rem', color: 'var(--text-primary)', fontWeight: 800 }}>تحليلات البوت</h2>
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           {PERIODS.map(p => (
             <button
               key={p.key}
@@ -190,6 +231,19 @@ export default function AnalyticsTab({ allMessages = [], orders = [], leads = []
               {p.label}
             </button>
           ))}
+          <button
+            onClick={downloadSummary}
+            className="btn btn-sm btn-secondary"
+            style={{ borderRadius: '999px', padding: '0.4rem 1rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            title="تصدير الملخص الكامل إلى ملف CSV يفتح في Excel"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            تحميل الملخص
+          </button>
         </div>
       </div>
 

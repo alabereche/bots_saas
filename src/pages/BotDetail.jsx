@@ -426,21 +426,18 @@ export default function BotDetail() {
 
   useEffect(() => {
     updateTabsNav();
-    // The strip's width changes AFTER mount (subscription count badges,
-    // Arabic webfonts) — that overflow has no window resize event, so a
-    // window-only listener leaves the arrows stale until the user resizes.
-    // ResizeObserver fires on ANY element size change, whatever caused it.
-    let ro = null;
-    if (tabsRef.current && typeof ResizeObserver !== 'undefined') {
-      ro = new ResizeObserver(() => updateTabsNav());
-      ro.observe(tabsRef.current);
-    }
+    // The whole page returns null until the bot subscription delivers —
+    // the tab strip MOUNTS LATER, so on first run tabsRef.current is null
+    // and nothing observes it. Re-run when the strip actually exists.
+    if (!tabsRef.current || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => updateTabsNav());
+    ro.observe(tabsRef.current);
     window.addEventListener('resize', updateTabsNav);
     return () => {
-      if (ro) ro.disconnect();
+      ro.disconnect();
       window.removeEventListener('resize', updateTabsNav);
     };
-  }, []);
+  }, [!!bot]);
 
   const toggleTakeover = async (userId) => {
     // Same thread-aware engine as the manual reply — never trust bot.platform

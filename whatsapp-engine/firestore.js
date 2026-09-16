@@ -424,14 +424,19 @@ async function createNotification({ userId, botId, type = 'system', title, body 
 
 async function getConversationHistory(botId, customerId, limitCount = 10) {
   try {
+    // No orderBy in the query: composite indexes are not provisioned on
+    // this project (codebase convention — see findAbandonedLeads). Fetch
+    // a wider window and sort in memory instead.
     const snap = await db.collection('conversations')
       .where('botId', '==', botId)
       .where('telegramUserId', '==', String(customerId))
-      .orderBy('createdAt', 'desc')
-      .limit(limitCount)
+      .limit(limitCount * 4 + 20)
       .get();
-    
-    return snap.docs.map(d => d.data()).reverse();
+
+    return snap.docs
+      .map(d => d.data())
+      .sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')))
+      .slice(-limitCount);
   } catch (e) {
     console.error('[Firestore] Get conversation history error:', e.message);
     return [];

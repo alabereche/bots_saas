@@ -369,7 +369,7 @@ h1, h2, h3, h4, h5, h6 {
 .ambient-vignette-aperture {
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse 85% 65% at 50% 35%, transparent 40%, rgba(3, 5, 10, 0.7) 85%, #020306 100%);
+  background: radial-gradient(ellipse 85% 65% at 50% 35%, transparent 55%, rgba(3, 5, 10, 0.38) 85%, rgba(2, 3, 6, 0.55) 100%);
 }
 
 @keyframes orbDrift1 {

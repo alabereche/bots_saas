@@ -317,6 +317,10 @@ h1, h2, h3, h4, h5, h6 {
   pointer-events: none;
   overflow: hidden;
   background: var(--bg-app);
+  /* compositing hints: the wallpaper canvas never repaints on scroll —
+     promote it to its own GPU layer instead (zero visual change) */
+  transform: translateZ(0);
+  contain: strict;
 }
 
 .ambient-deep-canvas {

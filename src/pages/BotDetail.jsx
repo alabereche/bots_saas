@@ -209,12 +209,46 @@ export default function BotDetail() {
     return () => { cancelled = true; clearInterval(interval); };
   }, [id, bot?.platform]);
 
-  // Group messages by customer and link to orders & channels
-  const customerOrdersMap = {};
-  (orders || []).forEach(o => {
-    if (o.customerId) customerOrdersMap[String(o.customerId)] = o;
-    if (o.phone) customerOrdersMap[String(o.phone)] = o;
-  });
+  // Group messages by customer and link to orders & channels.
+  // Memoized: this grouping runs over EVERY conversation message and was
+  // previously recomputed on each render (every incoming message, every
+  // keystroke in search, every 30s takeover poll) — pure render cost,
+  // identical output.
+  const { customerOrdersMap, customerThreads, sortedCustomers } = useMemo(() => {
+    const ordersMap = {};
+    (orders || []).forEach(o => {
+      if (o.customerId) ordersMap[String(o.customerId)] = o;
+      if (o.phone) ordersMap[String(o.phone)] = o;
+    });
+
+    const threads = {};
+    (allMessages || []).forEach(m => {
+      if (!m) return;
+      const uid = m.telegramUserId || m.customerId || m.userId || 'default';
+      if (!threads[uid]) {
+        threads[uid] = {
+          userId: uid,
+          userName: m.userName || 'مستخدم',
+          userAvatar: m.userAvatar || null,
+          platform: m.platform || bot?.platform || 'whatsapp',
+          messages: [],
+          lastTime: m.createdAt || new Date().toISOString()
+        };
+      }
+      threads[uid].messages.push(m);
+      if (m.platform) threads[uid].platform = m.platform;
+      if (m.userAvatar) threads[uid].userAvatar = m.userAvatar;
+      if (new Date(m.createdAt) > new Date(threads[uid].lastTime)) {
+        threads[uid].lastTime = m.createdAt;
+        if (m.role === 'user' && m.userName) threads[uid].userName = m.userName;
+      }
+    });
+
+    const sorted = Object.values(threads)
+      .sort((a, b) => new Date(b.lastTime) - new Date(a.lastTime));
+
+    return { customerOrdersMap: ordersMap, customerThreads: threads, sortedCustomers: sorted };
+  }, [orders, allMessages, bot?.platform]);
 
   // Orders v2: filtered/searchable list
   const visibleOrders = useMemo(() => {
@@ -226,32 +260,6 @@ export default function BotDetail() {
         .some(v => String(v || '').toLowerCase().includes(q));
     });
   }, [orders, orderFilter, orderSearch]);
-
-  const customerThreads = {};
-  (allMessages || []).forEach(m => {
-    if (!m) return;
-    const uid = m.telegramUserId || m.customerId || m.userId || 'default';
-    if (!customerThreads[uid]) {
-      customerThreads[uid] = { 
-        userId: uid, 
-        userName: m.userName || 'مستخدم', 
-        userAvatar: m.userAvatar || null,
-        platform: m.platform || bot?.platform || 'whatsapp',
-        messages: [], 
-        lastTime: m.createdAt || new Date().toISOString()
-      };
-    }
-    customerThreads[uid].messages.push(m);
-    if (m.platform) customerThreads[uid].platform = m.platform;
-    if (m.userAvatar) customerThreads[uid].userAvatar = m.userAvatar;
-    if (new Date(m.createdAt) > new Date(customerThreads[uid].lastTime)) {
-      customerThreads[uid].lastTime = m.createdAt;
-      if (m.role === 'user' && m.userName) customerThreads[uid].userName = m.userName;
-    }
-  });
-
-  const sortedCustomers = Object.values(customerThreads)
-    .sort((a, b) => new Date(b.lastTime) - new Date(a.lastTime));
 
   const filteredCustomers = sortedCustomers.filter(c => {
     if (inboxSearch.trim()) {

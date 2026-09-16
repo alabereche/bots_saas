@@ -753,6 +753,33 @@ app.listen(PORT, '0.0.0.0', () => {
   setInterval(runAbandonedRecoveryCron, 10 * 60 * 1000);
   setTimeout(runAbandonedRecoveryCron, 30 * 1000); // Initial check after 30s
 
+  // ─── Dawn renewal (preventive): sessions age and their internal
+  // channels rot silently. Every day at DAWN_RENEWAL_HOUR (default 4am,
+  // the dead hour) each CONNECTED bot is reborn on its saved session —
+  // fresh channel before it ever has a chance to die mid-day. Merchant
+  // notifications stay quiet: this is maintenance, not an incident.
+  const DAWN_HOUR = parseInt(process.env.DAWN_RENEWAL_HOUR ?? '4', 10);
+  const dawnEnabled = (process.env.DAWN_RENEWAL_ENABLED ?? 'true') !== 'false';
+  let dawnLastRunDate = '';
+  setInterval(async () => {
+    if (!dawnEnabled) return;
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    if (now.getHours() !== DAWN_HOUR || dawnLastRunDate === today) return;
+    dawnLastRunDate = today;
+    try {
+      const statuses = getAllBotStatuses().filter(s => s.status === 'connected');
+      console.log(`[DawnRenewal] 🌅 Renewing ${statuses.length} session(s) for a fresh day...`);
+      for (const s of statuses) {
+        // staggered: each reborn Chromium costs ~150MB — never together
+        await healBot(s.id, 'scheduled dawn renewal');
+        await new Promise(r => setTimeout(r, 8000));
+      }
+    } catch (err) {
+      console.error('[DawnRenewal] Failed:', err.message);
+    }
+  }, 15 * 60 * 1000);
+
   // ─── Update watcher: WhatsApp drifts ahead of the library constantly —
   // it is THE recurring breaker. Notice the owner via dashboard
   // notification; he updates with one click (no silent auto-updates).

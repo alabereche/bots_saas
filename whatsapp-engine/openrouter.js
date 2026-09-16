@@ -6,10 +6,29 @@
 
 const { buildSystemPrompt } = require('./promptGenerator');
 
-const conversationHistory = new Map();
+const conversationHistory = new Map(); // key -> { msgs: [], lastUsedAt }
 const MAX_HISTORY = 20;
 const MAX_HISTORY_KEYS = 5000;
 const AI_TIMEOUT_MS = 9000;
+// Idle entries are pruned after this long — memory stays flat without
+// forgetting anyone mid-conversation (12h covers any realistic chat)
+const HISTORY_IDLE_TTL_MS = parseInt(process.env.AI_HISTORY_TTL_HOURS || '12', 10) * 3600 * 1000;
+
+const firestore = require('./firestore');
+
+// Periodic sweep: drop customer contexts untouched past the TTL. One map
+// walk per hour — nothing measurable. unref: never holds the process open.
+setInterval(() => {
+  const now = Date.now();
+  let pruned = 0;
+  for (const [key, entry] of conversationHistory) {
+    if (now - entry.lastUsedAt > HISTORY_IDLE_TTL_MS) {
+      conversationHistory.delete(key);
+      pruned++;
+    }
+  }
+  if (pruned > 0) console.log(`[AI-Memory] pruned ${pruned} idle conversation context(s)`);
+}, 60 * 60 * 1000).unref();
 
 // Gemini API key from environment only — never from client-writable
 // bot documents
@@ -142,9 +161,27 @@ async function askOpenRouter(config, userId, userMessage, audioData = null) {
       const oldestKey = conversationHistory.keys().next().value;
       conversationHistory.delete(oldestKey);
     }
-    conversationHistory.set(historyKey, []);
+    // Hydrate from Firestore on a cache miss (engine restart / TTL prune /
+    // FIFO eviction): the bot greets a returning customer with his context
+    // intact instead of amnesia. Persisted logs remain the source of truth.
+    let seed = [];
+    try {
+      const docs = await firestore.getConversationHistory(config.id, userId, MAX_HISTORY);
+      seed = docs
+        .filter(d => d && typeof d.content === 'string' && d.content.trim())
+        .map(d => ({
+          role: d.role === 'bot' ? 'assistant' : (d.role === 'owner' ? 'assistant' : 'user'),
+          content: d.content,
+        }));
+    } catch { /* hydration is best-effort — a fresh start is acceptable */ }
+    if (seed.length > 0) {
+      console.log(`[AI-Memory] hydrated ${seed.length} turns for ${historyKey} from Firestore`);
+    }
+    conversationHistory.set(historyKey, { msgs: seed.slice(-MAX_HISTORY), lastUsedAt: Date.now() });
   }
-  const history = conversationHistory.get(historyKey);
+  const entry = conversationHistory.get(historyKey);
+  entry.lastUsedAt = Date.now();
+  const history = entry.msgs;
   const effectiveMessage = userMessage || (audioData ? '[رسالة صوتية]' : '');
   if (effectiveMessage) {
     history.push({ role: 'user', content: effectiveMessage });

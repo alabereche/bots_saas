@@ -547,6 +547,41 @@ async function recordAbandonedReminder(botId, customerId) {
   }
 }
 
+// ─── Channel unlink purge ─────────────────────────────────────
+// Called ONLY when WhatsApp itself logs the number out (merchant tapped
+// «تسجيل الخروج» on his phone): the linking is gone for good, so nothing
+// of that channel may stay on our server — conversations, leads and
+// reminders are wiped in batches. Orders survive: they are the
+// merchant's business records, not channel state.
+async function purgeBotChannelData(botId) {
+  const collections = ['conversations', 'leads', 'abandoned_reminders'];
+  const counts = {};
+  try {
+    for (const name of collections) {
+      let deleted = 0;
+      // query-delete loop: Firestore batches cap at 500 writes
+      for (;;) {
+        const snap = await db.collection(name)
+          .where('botId', '==', botId)
+          .limit(400)
+          .get();
+        if (snap.empty) break;
+        const batch = db.batch();
+        snap.docs.forEach(d => batch.delete(d.ref));
+        await batch.commit();
+        deleted += snap.size;
+        if (snap.size < 400) break;
+      }
+      counts[name] = deleted;
+    }
+    console.log(`[Firestore] 🧨 Channel data purged for bot ${botId}:`, JSON.stringify(counts));
+    return counts;
+  } catch (e) {
+    console.error('[Firestore] Purge channel data error:', e.message);
+    return null;
+  }
+}
+
 // Auto-Heal: repairs existing leads in Firestore that have empty or mismatched userId
 async function repairOrphanLeads(botId, ownerUserId) {
   if (!botId) return;
@@ -649,6 +684,7 @@ module.exports = {
   getConversationHistory,
   findAbandonedLeads,
   recordAbandonedReminder,
+  purgeBotChannelData,
   saveLead,
   findLeads,
   repairOrphanLeads,

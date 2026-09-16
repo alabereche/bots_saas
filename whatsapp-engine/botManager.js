@@ -219,6 +219,10 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
     reconnectAttempts.delete(botId);
     healthMonitor.startWatch(botId);
     lastHealthyAt.set(botId, Date.now());
+    // A session can be born paralyzed: ceremony passes (auth+ready) while
+    // the channel never wakes (autopsy 2026-09-16: 9 deaf hours). One
+    // server-forcing probe shortly after every birth catches it in a minute.
+    healthMonitor.scheduleBirthProbe(botId);
 
     // Missed-message recovery: only when THIS ready follows a known
     // disconnect inside this process (never on a fresh first link — the
@@ -250,6 +254,7 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
     console.error(`[BotManager] Auth failure for "${config.botName}":`, msg);
     botState.status = 'auth_failure';
     healthMonitor.stopWatch(botId);
+    healthMonitor.forget(botId);
     reconnectAttempts.delete(botId);
     lastDisconnectAt.delete(botId);
     lastHealthyAt.delete(botId);
@@ -260,6 +265,8 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
     // Destroy the browser explicitly — dropping the map entry alone
     // leaks a Chromium process and its memory
     try { await client.destroy(); } catch {}
+    // The saved session was rejected — it is dead weight on disk
+    cleanSession(botId);
   });
 
   // Disconnected — the moment of truth: a real logout means the merchant
@@ -286,9 +293,9 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
         userId: config.userId,
         botId,
         type: 'system',
-        title: isLogout ? 'انقطع اتصال واتساب' : 'انقطع اتصال واتساب — الإنقاذ التلقائي جارٍ',
+        title: isLogout ? 'أُلغي ربط واتساب من الهاتف' : 'انقطع اتصال واتساب — الإنقاذ التلقائي جارٍ',
         body: isLogout
-          ? `البوت "${config.botName}" سجّل خروجاً — أعد الربط من صفحة القنوات.`
+          ? `تم تسجيل خروج رقم البوت "${config.botName}" من واتساب. حُذفت الجلسة وكل المحادثات والعملاء المرتبطين بها من السيرفر نهائياً — أعد الربط من صفحة القنوات عند الحاجة.`
           : `البوت "${config.botName}" فقد الاتصال. المحرك يعيد الاتصال تلقائياً بالجلسة المحفوظة — لا حاجة لأي خطوة منك.`,
       }).catch(() => {});
     }
@@ -300,7 +307,21 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
     // leaks a Chromium process and its memory
     try { await client.destroy(); } catch {}
 
-    if (!isLogout) scheduleAutoRestart(botId, config);
+    if (isLogout) {
+      // The linking is dead BY THE MERCHANT'S OWN HAND on his phone —
+      // nothing of this channel may remain on the server: saved session,
+      // conversations, leads, reminders. Orders survive (business records).
+      cleanSession(botId);
+      await firestore.purgeBotChannelData(botId).catch(() => {});
+      healthMonitor.forget(botId);
+      reconnectAttempts.delete(botId);
+      lastDisconnectAt.delete(botId);
+      lastHealthyAt.delete(botId);
+      console.log(`[BotManager] 🧨 WhatsApp-side logout for "${config.botName}" — session + channel data purged from server.`);
+      return;
+    }
+
+    scheduleAutoRestart(botId, config);
   });
 
   // Incoming Messages
@@ -310,6 +331,9 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
   client.on('message', (msg) => {
     console.log(`[BotManager] Incoming WhatsApp message from ${msg.from}: "${msg.body}"`);
     if (msg.fromMe) return;
+    // Fresh traffic = the channel is provably alive — resets the liveness
+    // probe countdown so an active bot is never probed needlessly
+    healthMonitor.markIncoming(botId);
     messageQueue.enqueueCustomerMessage(botId, msg, async (items) => {
       for (const item of items) {
         await handleMessage(item, config);
@@ -490,6 +514,7 @@ async function stopWhatsAppBot(botId, purgeSession = true) {
   lastDisconnectAt.delete(botId);
   lastHealthyAt.delete(botId);
   healthMonitor.stopWatch(botId);
+  healthMonitor.forget(botId);
 
   const entry = activeBots.get(botId);
   activeBots.delete(botId);

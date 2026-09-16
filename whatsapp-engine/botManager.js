@@ -218,11 +218,12 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
     // ─── Self-healing bookkeeping ───
     reconnectAttempts.delete(botId);
     healthMonitor.startWatch(botId);
+    healthMonitor.markReady(botId);
     lastHealthyAt.set(botId, Date.now());
     // A session can be born paralyzed: ceremony passes (auth+ready) while
-    // the channel never wakes (autopsy 2026-09-16: 9 deaf hours). One
-    // server-forcing probe shortly after every birth catches it in a minute.
-    healthMonitor.scheduleBirthProbe(botId);
+    // the channel never wakes. A soft probe shortly after birth adds a
+    // data point (throws are debounced — only sustained failure heals).
+    healthMonitor.scheduleBirthProbe(botId, 90000);
 
     // Missed-message recovery: only when THIS ready follows a known
     // disconnect inside this process (never on a fresh first link — the

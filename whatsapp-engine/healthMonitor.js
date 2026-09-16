@@ -31,6 +31,13 @@ let firestoreRef = null;
 const watchers = new Map();        // botId -> interval handle
 const lastIncomingAt = new Map();  // botId -> epoch ms (set by botManager on every message)
 const lastProbeOkAt = new Map();   // botId -> epoch ms of last successful server round-trip
+const probeFailStreak = new Map(); // botId -> consecutive probe failures
+
+// getChats() throws a bogus minified "r" error even on sessions that
+// receive messages fine (verified 2026-09-16/17 logs) — a single probe
+// failure must NEVER heal directly. Only a sustained streak with zero
+// incoming traffic may.
+const PROBE_HEAL_THRESHOLD = parseInt(process.env.HEALTH_PROBE_HEAL_THRESHOLD || '6', 10);
 
 function install(botManager, firestore) {
   botManagerRef = botManager;
@@ -65,6 +72,16 @@ function stopAll() {
 // cheapest and most honest proof of life; it resets the probe countdown.
 function markIncoming(botId) {
   lastIncomingAt.set(botId, Date.now());
+  probeFailStreak.delete(botId);
+}
+
+// A fresh ready IS a successful server handshake (auth round-tripped
+// seconds ago) — it anchors the silence window so a newborn session is
+// never probed instantly (the 03:13 heal-storm bug: empty maps anchored
+// at epoch 0 and the first tick probed 28s after ready).
+function markReady(botId) {
+  lastProbeOkAt.set(botId, Date.now());
+  probeFailStreak.delete(botId);
 }
 
 async function tick(botId) {
@@ -124,8 +141,10 @@ async function tick(botId) {
   }
 }
 
-// Forces a real server round-trip (getChats). A hang or throw means the
-// channel is dead even though the page swears CONNECTED — heal.
+// Forces a real server round-trip (getChats). A hang means the channel
+// is dead for sure; a THROW is only weak evidence (known bogus "r" error
+// on healthy sessions) — throws accumulate a streak and heal only after
+// PROBE_HEAL_THRESHOLD consecutive failures with no incoming traffic.
 async function probeNow(botId, reason = 'manual') {
   const bm = botManagerRef;
   if (!bm) return false;
@@ -141,12 +160,34 @@ async function probeNow(botId, reason = 'manual') {
     ]);
     if (!Array.isArray(chats)) throw new Error('probe returned non-array');
     lastProbeOkAt.set(botId, Date.now());
+    probeFailStreak.delete(botId);
     console.log(`[Health] 💓 Liveness OK for bot ${botId} (${chats.length} chats) — ${reason}`);
     return true;
   } catch (e) {
-    console.warn(`[Health] ⚠️ Liveness probe FAILED for bot ${botId} (${reason}): ${e.message} — healing.`);
+    // Full diagnostics: name + message (the notorious "r" carries no info)
+    const streak = (probeFailStreak.get(botId) || 0) + 1;
+    const hung = /hung|timeout/i.test(String(e.message || ''));
+    const diagnostic = `${e?.name || 'Error'}: ${e?.message || '(no message)'} | ${(e?.stack || '').split('\n')[1]?.trim().slice(0, 90) || ''}`;
+
+    // A HUNG probe is unambiguous channel death — heal immediately.
+    if (hung) {
+      console.warn(`[Health] ⚠️ Liveness probe HUNG for bot ${botId} (${reason}) — healing now.`);
+      probeFailStreak.delete(botId);
+      bm.markUnhealthy(botId);
+      await bm.healBot(botId, `liveness probe hung (${reason})`);
+      return false;
+    }
+
+    // A thrown probe is weak evidence — require a sustained streak.
+    probeFailStreak.set(botId, streak);
+    if (streak < PROBE_HEAL_THRESHOLD) {
+      console.warn(`[Health] Liveness probe threw for bot ${botId} (${reason}), streak ${streak}/${PROBE_HEAL_THRESHOLD} — ${diagnostic}`);
+      return false;
+    }
+    console.warn(`[Health] ⚠️ Liveness probe FAILED ${streak}x for bot ${botId} (${reason}) — healing. Last error: ${diagnostic}`);
+    probeFailStreak.delete(botId);
     bm.markUnhealthy(botId);
-    await bm.healBot(botId, `liveness probe failed (${reason}): ${e.message}`);
+    await bm.healBot(botId, `liveness probe failed ${streak}x (${reason})`);
     return false;
   }
 }
@@ -167,6 +208,7 @@ function scheduleBirthProbe(botId, delayMs = 45000) {
 function forget(botId) {
   lastIncomingAt.delete(botId);
   lastProbeOkAt.delete(botId);
+  probeFailStreak.delete(botId);
   const key = `birth:${botId}`;
   if (watchers.has(key)) {
     clearTimeout(watchers.get(key));
@@ -180,6 +222,7 @@ module.exports = {
   stopWatch,
   stopAll,
   markIncoming,
+  markReady,
   probeNow,
   scheduleBirthProbe,
   forget,

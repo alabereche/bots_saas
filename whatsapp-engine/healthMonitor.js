@@ -165,11 +165,10 @@ async function probeNow(botId, reason = 'manual') {
     return true;
   } catch (e) {
     // Full diagnostics: name + message (the notorious "r" carries no info)
-    const streak = (probeFailStreak.get(botId) || 0) + 1;
-    const hung = /hung|timeout/i.test(String(e.message || ''));
     const diagnostic = `${e?.name || 'Error'}: ${e?.message || '(no message)'} | ${(e?.stack || '').split('\n')[1]?.trim().slice(0, 90) || ''}`;
 
     // A HUNG probe is unambiguous channel death — heal immediately.
+    const hung = /hung|timeout/i.test(String(e.message || ''));
     if (hung) {
       console.warn(`[Health] ⚠️ Liveness probe HUNG for bot ${botId} (${reason}) — healing now.`);
       probeFailStreak.delete(botId);
@@ -178,7 +177,18 @@ async function probeNow(botId, reason = 'manual') {
       return false;
     }
 
-    // A thrown probe is weak evidence — require a sustained streak.
+    // The minified "r" (name===message==="r", from ExecutionContext
+    // #evaluate) is thrown by getChats on EVERY session on this WhatsApp
+    // build — healthy and dead alike. It is noise: log once, never count.
+    const msg = String(e?.message || '');
+    if (msg.length <= 3 && String(e?.name || '').length <= 3) {
+      lastProbeOkAt.set(botId, Date.now()); // treat as "probe ran, page answered"
+      console.log(`[Health] Liveness probe hit the known bogus "${msg}" error for bot ${botId} (${reason}) — page responsive, ignored.`);
+      return false;
+    }
+
+    // Any OTHER throw is weak evidence — require a sustained streak.
+    const streak = (probeFailStreak.get(botId) || 0) + 1;
     probeFailStreak.set(botId, streak);
     if (streak < PROBE_HEAL_THRESHOLD) {
       console.warn(`[Health] Liveness probe threw for bot ${botId} (${reason}), streak ${streak}/${PROBE_HEAL_THRESHOLD} — ${diagnostic}`);

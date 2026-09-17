@@ -46,6 +46,18 @@ function installedVersion() {
   }
 }
 
+// The dependency is pinned EXACTLY (no ^ ~ range) by owner decree —
+// 1.34.7 ships a message-getter regression, so upstream "newer" must
+// never be suggested until the pin is lifted deliberately
+function isPinnedExact() {
+  try {
+    const spec = require('../package.json').dependencies['whatsapp-web.js'] || '';
+    return /^[0-9]/.test(spec.trim());
+  } catch {
+    return false;
+  }
+}
+
 // Query the npm registry directly (no npm CLI, no login, fast)
 function fetchLatestVersion() {
   return new Promise((resolve, reject) => {
@@ -67,6 +79,9 @@ function fetchLatestVersion() {
 
 async function checkForUpdate() {
   const installed = installedVersion();
+  if (isPinnedExact()) {
+    return { installed, latest: null, updateAvailable: false, pinned: true };
+  }
   let latest = null;
   try {
     latest = await fetchLatestVersion();

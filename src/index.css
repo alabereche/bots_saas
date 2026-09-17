@@ -1547,7 +1547,10 @@ h1, h2, h3, h4, h5, h6 {
 .chat-layout {
   display: grid;
   grid-template-columns: 280px 1fr;
-  height: 600px;
+  /* dynamic: fill the viewport below the fixed page chrome (~240px) —
+     a fixed 600px left a dead gap on tall desktop screens */
+  height: calc(100vh - 240px);
+  min-height: 620px;
   background: var(--bg-card);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-default);

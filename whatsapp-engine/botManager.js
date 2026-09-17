@@ -139,7 +139,10 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
     // so a transient GitHub failure falls back to the cached copy).
     webVersionCache: {
       type: 'remote',
-      remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1047806989-alpha.html',
+      // overridable per-deployment: WA_WEB_VERSION_URL in .env swaps the
+      // WA-Web build without code edits (walk the wa-version archive)
+      remotePath: process.env.WA_WEB_VERSION_URL ||
+        'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1047806989-alpha.html',
     },
   };
 

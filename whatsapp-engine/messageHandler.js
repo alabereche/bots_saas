@@ -512,13 +512,44 @@ async function handleMessage(msg, config) {
         await new Promise(r => setTimeout(r, 250));
       }
 
+      // Per-media safety net: a single failed image send must never poison
+      // the whole showcase (1.34.7 page-getter regression on @lid chats
+      // throws on media sends) — failed images degrade to a text line with
+      // the product name + price instead of killing the reply.
+      const sendMediaSafely = async (media, opts) => {
+        try {
+          await msg.client.sendMessage(userId, media, opts);
+          return true;
+        } catch (mediaErr) {
+          const m = String(mediaErr?.message || '');
+          console.warn(`[Handler] Media send failed (${m.slice(0, 80)}) — degrading gracefully.`);
+          try {
+            const fallbackText = opts?.caption
+              ? String(opts.caption).replace(/\n+/g, ' · ')
+              : '🛍️ منتج متوفر لدينا — أرسل «التفاصيل» لمعرفة المزيد';
+            await msg.client.sendMessage(userId, fallbackText);
+          } catch { /* even text failed — nothing more we can do here */ }
+          return false;
+        }
+      };
+
       if (resolved.length > 0 && msg.client) {
         if (useReplyOnFirst) {
           // Single product / gallery: AI pitch as the first image caption
-          await msg.client.sendMessage(userId, resolved[0].media, { caption: reply });
+          try {
+            await msg.client.sendMessage(userId, resolved[0].media, { caption: reply });
+          } catch (mediaErr) {
+            const m = String(mediaErr?.message || '');
+            console.warn(`[Handler] Media send failed (${m.slice(0, 80)}) — falling back to text.`);
+            await msg.client.sendMessage(userId, `${reply}\n\n• ${String(resolved[0].product?.name || '').trim()}`.trim());
+          }
           for (let i = 1; i < resolved.length; i++) {
             await new Promise(r => setTimeout(r, 400));
-            await msg.client.sendMessage(userId, resolved[i].media);
+            try {
+              await msg.client.sendMessage(userId, resolved[i].media);
+            } catch (mediaErr) {
+              console.warn(`[Handler] Media send failed (${String(mediaErr?.message || '').slice(0, 60)}) — skipping image.`);
+            }
           }
         } else {
           // Multi-product showcase: images ARE the list. The AI's text must
@@ -549,7 +580,15 @@ async function handleMessage(msg, config) {
               ? `• ${r.product.name || 'منتج'}${hasDisc ? ` - كان ${r.product.oldPrice} ${cur}` : ''}${np ? ` - الآن: ${r.product.price} ${cur}` : ''}${hasDisc ? ` (خصم ${discPct}%)` : ''}`
               : '';
             await new Promise(r2 => setTimeout(r2, 400));
-            await msg.client.sendMessage(userId, r.media, cap ? { caption: cap } : undefined);
+            try {
+              await msg.client.sendMessage(userId, r.media, cap ? { caption: cap } : undefined);
+            } catch (mediaErr) {
+              // Image failed — never lose the product: send its text card
+              const info = `${r.product?.name || 'منتج'}${np ? ` — ${r.product.price} ${cur}` : ''}`;
+              try {
+                await msg.client.sendMessage(userId, `🛍️ ${info}`);
+              } catch { /* channel fully down — next message retries */ }
+            }
           }
         }
       } else {

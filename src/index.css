@@ -6544,3 +6544,41 @@ html, body {
 .tabs-nav-btn--right { right: 8px; }
 [data-theme=light] .tabs-nav-btn { background: #ffffff; border-color: rgba(15, 23, 42, 0.18); color: #1f2937; }
 [data-theme=light] .tabs-nav-btn:hover { background: #f1f3f2; }
+
+/* ═══ Chat thread video wallpaper (owner-supplied loop) ═══
+   The video sits at the very back of the thread container; the messages
+   area becomes transparent so the video shows ONLY there — header and
+   input bar keep their solid card surfaces and naturally mask it. A dark
+   scrim keeps bubbles readable; light theme dims the video further. */
+.chat-thread-container { position: relative; }
+
+.chat-video-wallpaper {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.chat-video-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: rgba(2, 5, 4, 0.52);
+}
+
+.chat-thread-header,
+.chat-input-area { position: relative; z-index: 2; }
+
+.chat-messages-area {
+  position: relative;
+  z-index: 1;
+  background: transparent !important;
+  background-image: none !important;
+}
+
+[data-theme=light] .chat-video-wallpaper { opacity: 0.35; }
+[data-theme=light] .chat-video-scrim { background: rgba(255, 255, 255, 0.45); }

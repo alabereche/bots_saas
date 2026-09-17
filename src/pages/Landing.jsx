@@ -298,11 +298,7 @@ export default function Landing() {
       </section>
 
       {/* ═══ Scene 3 — four quiet cards ═══ */}
-      <section className="lp2-section lp2-section-video" id="features">
-        <video className="lp2-section-video" autoPlay loop muted playsInline preload="metadata" aria-hidden="true">
-          <source src="/vd-bg-web.mp4" type="video/mp4" />
-        </video>
-        <div className="lp2-section-video-scrim" aria-hidden="true" />
+      <section className="lp2-section" id="features">
         <div className="lp2-features-head">
           <WordsPullUp text="مصمّم ليبيع نيابة عنك." className="lp2-features-title is-cream" as="h2" />
           <WordsPullUp text="خفيف عليك. ثقيل على المبيعات." className="lp2-features-title is-dim" delay={0.2} />

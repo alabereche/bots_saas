@@ -131,10 +131,15 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
       defaultViewport: { width: 1280, height: 800 },
       timeout: 90000,
     },
-    // Local cache: the remote wppconnect archive 404s for the pinned web
-    // version, which made every boot fall back to a fragile live-page load
+    // Remote web-version: THE fix for the Sept-17 outage. WhatsApp drifts
+    // its web build continuously; the library's bundled/local copy ages
+    // and sessions hang at "authenticated, ready never fires". This pulls
+    // the CURRENT compatible WA-Web build from the wppconnect community
+    // archive at every launch (wa-web.js caches it locally after success,
+    // so a transient GitHub failure falls back to the cached copy).
     webVersionCache: {
-      type: 'local',
+      type: 'remote',
+      remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1047806989-alpha.html',
     },
   };
 

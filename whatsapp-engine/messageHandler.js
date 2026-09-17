@@ -517,11 +517,20 @@ async function handleMessage(msg, config) {
       // throws on media sends) — failed images degrade to a text line with
       // the product name + price instead of killing the reply.
       const sendMediaSafely = async (media, opts) => {
+        // msg.reply FIRST — the message's own chat reference is the path
+        // proven working on this session; sendMessage to the raw @lid id
+        // is the fallback (it throws the page getter error on 1.34.7)
+        try {
+          await msg.reply(media, opts);
+          return true;
+        } catch (replyErr) {
+          console.warn(`[Handler] Media msg.reply failed (${String(replyErr?.message || '').slice(0, 60)}) — trying sendMessage.`);
+        }
         try {
           await msg.client.sendMessage(userId, media, opts);
           return true;
-        } catch (mediaErr) {
-          const m = String(mediaErr?.message || '');
+        } catch (sendErr) {
+          const m = String(sendErr?.message || '');
           console.warn(`[Handler] Media send failed (${m.slice(0, 80)}) — degrading gracefully.`);
           try {
             const fallbackText = opts?.caption

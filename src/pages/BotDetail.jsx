@@ -2007,15 +2007,25 @@ function BotCapabilitiesManager({ bot, onUpdateBot }) {
   const [saving, setSaving] = useState(false);
   const toast = useToast();
   const features = sanitizeBotFeatures(bot?.features || {});
+  // abandonedRecovery has a LEGACY twin flag (abandonedRecoveryEnabled)
+  // written by the settings card — effective state = either being true,
+  // so the grid badge can never contradict the settings form again
+  const effectiveFeatures = {
+    ...features,
+    abandonedRecovery: features.abandonedRecovery === true || bot?.abandonedRecoveryEnabled === true,
+  };
 
   const toggleFeature = async (key) => {
     setSaving(true);
     try {
       const updated = sanitizeBotFeatures({
-        ...features,
-        [key]: !features[key],
+        ...effectiveFeatures,
+        [key]: !effectiveFeatures[key],
       });
-      await onUpdateBot({ features: updated });
+      // keep the legacy twin flag in lockstep for abandonedRecovery
+      const update = { features: updated };
+      if (key === 'abandonedRecovery') update.abandonedRecoveryEnabled = !!updated.abandonedRecovery;
+      await onUpdateBot(update);
       toast.success('تم تحديث قدرات البوت بنجاح');
     } catch (e) {
       toast.error('فشل تحديث القدرات: ' + e.message);
@@ -2117,8 +2127,8 @@ function BotCapabilitiesManager({ bot, onUpdateBot }) {
 
       <div className="capabilities-grid">
         {capabilities.map(cap => {
-          const isActive = !!features[cap.key];
-          const isReqMissing = cap.req && !features[cap.req];
+          const isActive = !!effectiveFeatures[cap.key];
+          const isReqMissing = cap.req && !effectiveFeatures[cap.req];
 
           return (
             <div 
@@ -2199,14 +2209,14 @@ function AbandonedRecoveryCard({ bot, onUpdateBot }) {
   const [saving, setSaving] = useState(false);
   const toast = useToast();
 
-  const payload = () => ({
-    abandonedRecoveryEnabled: enabled,
+  const payload = (overrideEnabled) => ({
+    abandonedRecoveryEnabled: overrideEnabled !== undefined ? overrideEnabled : enabled,
     abandonedRecoveryDelayHours: Number(delayHours),
     abandonedRecoveryWindowHours: Number(windowHours),
     abandonedRecoveryMessage: message,
     features: sanitizeBotFeatures({
       ...(bot?.features || {}),
-      abandonedRecovery: enabled,
+      abandonedRecovery: overrideEnabled !== undefined ? overrideEnabled : enabled,
     }),
   });
 
@@ -2215,10 +2225,10 @@ function AbandonedRecoveryCard({ bot, onUpdateBot }) {
     setEnabled(nextState);
     setSaving(true);
     try {
-      await onUpdateBot({
-        ...payload(),
-        abandonedRecoveryEnabled: nextState,
-      });
+      // write BOTH flags with the SAME value — the grid badge reads
+      // features.abandonedRecovery while this card reads the top-level
+      // twin; writing only one is what created the contradiction
+      await onUpdateBot(payload(nextState));
       toast.success(nextState ? 'تم تفعيل نظام استرجاع الزبائن المتروكين' : 'تم تعطيل نظام استرجاع الزبائن');
     } catch (e) {
       toast.error('فشل حفظ الإعدادات: ' + e.message);

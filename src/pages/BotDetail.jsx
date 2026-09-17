@@ -908,6 +908,12 @@ export default function BotDetail() {
 
           {/* Main Chat Thread (Left) */}
           <div className="chat-thread-container">
+            {/* Ambient video wallpaper — visible ONLY through the messages
+                area (header & input keep their solid surfaces above it) */}
+            <video className="chat-video-wallpaper" autoPlay loop muted playsInline preload="auto" aria-hidden="true">
+              <source src="/vd-bg-web.mp4" type="video/mp4" />
+            </video>
+            <div className="chat-video-scrim" aria-hidden="true" />
             {!selectedUserId ? (
               <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-tertiary)', padding: '2rem' }}>
                 <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ opacity: 0.35, marginBottom: '0.75rem' }}>

@@ -443,10 +443,12 @@ async function getConversationHistory(botId, customerId, limitCount = 10) {
   }
 }
 
-async function findAbandonedLeads(botId, delayHours = 2) {
+async function findAbandonedLeads(botId, delayHours = 2, windowHours = 6) {
   try {
     const cutoffDate = new Date(Date.now() - delayHours * 3600 * 1000).toISOString();
     const maxLookbackDate = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
+    const windowMs = windowHours * 3600 * 1000;
+    const now = Date.now();
 
     // 1. Fetch recent conversations for this bot (in-memory date filter avoids composite index requirement)
     const convSnap = await db.collection('conversations')
@@ -483,7 +485,7 @@ async function findAbandonedLeads(botId, delayHours = 2) {
       .where('botId', '==', botId)
       .limit(100)
       .get();
-    
+
     const customersWithOrders = new Set();
     orderSnap.docs.forEach(d => {
       const o = d.data();
@@ -493,32 +495,47 @@ async function findAbandonedLeads(botId, delayHours = 2) {
       }
     });
 
-    // 3. Fetch past reminders in the last 48h
+    // 3. Fetch past reminders in the last 48h — WITH per-customer history:
+    //    max TWO reminders per silence-cycle, spaced by the merchant's
+    //    window setting; a customer reply resets the cycle entirely.
     const reminderSnap = await db.collection('abandoned_reminders')
       .where('botId', '==', botId)
       .limit(100)
       .get();
-    
-    const remindedCustomers = new Set();
+
+    const remindersByCustomer = new Map(); // cid -> [remindedAt...]
     reminderSnap.docs.forEach(d => {
       const r = d.data();
       if (r.remindedAt && r.remindedAt >= maxLookbackDate) {
-        if (r.customerId) remindedCustomers.add(String(r.customerId));
+        const cid = String(r.customerId);
+        if (!remindersByCustomer.has(cid)) remindersByCustomer.set(cid, []);
+        remindersByCustomer.get(cid).push(r.remindedAt);
       }
     });
 
     const eligible = [];
     for (const cid of Object.keys(threads)) {
       const t = threads[cid];
-      // Criteria:
-      // - Customer sent at least 1 message
-      // - Last message older than cutoffDate
-      // - No order placed
-      // - No reminder sent yet
+      // Reminder policy (owner decree): MAX TWO reminders per silence-cycle.
+      // - cycle starts at the customer's last message
+      // - reminder #1 when silent >= delayHours
+      // - reminder #2 only after `windowHours` past reminder #1
+      // - after two ignored reminders: STOP until the customer replies
+      //   (any new message resets the cycle)
+      // Plus: never remind a customer with a recent order, and never
+      // while a human takeover is active (takeover is checked by the cron).
+      const remDocs = (remindersByCustomer.get(cid) || [])
+        .filter(rAt => rAt >= t.lastMessageAt)
+        .sort();
+      const count = remDocs.length;
+      const lastReminderAt = count ? remDocs[count - 1] : null;
+      const waitingGap = count > 0 && now - lastReminderAt < windowMs;
+
       if (
         t.lastMessageAt <= cutoffDate &&
         !customersWithOrders.has(cid) &&
-        !remindedCustomers.has(cid) &&
+        count < 2 &&
+        !waitingGap &&
         t.messages.length >= 1
       ) {
         eligible.push(t);

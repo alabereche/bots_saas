@@ -2194,9 +2194,21 @@ function InfoRow({ label, value }) {
 function AbandonedRecoveryCard({ bot, onUpdateBot }) {
   const [enabled, setEnabled] = useState(bot?.features?.abandonedRecovery === true || bot?.abandonedRecoveryEnabled === true);
   const [delayHours, setDelayHours] = useState(bot?.abandonedRecoveryDelayHours || 2);
+  const [windowHours, setWindowHours] = useState(bot?.abandonedRecoveryWindowHours || 6);
   const [message, setMessage] = useState(bot?.abandonedRecoveryMessage || '');
   const [saving, setSaving] = useState(false);
   const toast = useToast();
+
+  const payload = () => ({
+    abandonedRecoveryEnabled: enabled,
+    abandonedRecoveryDelayHours: Number(delayHours),
+    abandonedRecoveryWindowHours: Number(windowHours),
+    abandonedRecoveryMessage: message,
+    features: sanitizeBotFeatures({
+      ...(bot?.features || {}),
+      abandonedRecovery: enabled,
+    }),
+  });
 
   const handleToggle = async () => {
     const nextState = !enabled;
@@ -2204,13 +2216,8 @@ function AbandonedRecoveryCard({ bot, onUpdateBot }) {
     setSaving(true);
     try {
       await onUpdateBot({
+        ...payload(),
         abandonedRecoveryEnabled: nextState,
-        abandonedRecoveryDelayHours: Number(delayHours),
-        abandonedRecoveryMessage: message,
-        features: sanitizeBotFeatures({
-          ...(bot?.features || {}),
-          abandonedRecovery: nextState,
-        }),
       });
       toast.success(nextState ? 'تم تفعيل نظام استرجاع الزبائن المتروكين' : 'تم تعطيل نظام استرجاع الزبائن');
     } catch (e) {
@@ -2225,15 +2232,7 @@ function AbandonedRecoveryCard({ bot, onUpdateBot }) {
     e?.preventDefault();
     setSaving(true);
     try {
-      await onUpdateBot({
-        abandonedRecoveryEnabled: enabled,
-        abandonedRecoveryDelayHours: Number(delayHours),
-        abandonedRecoveryMessage: message,
-        features: sanitizeBotFeatures({
-          ...(bot?.features || {}),
-          abandonedRecovery: enabled,
-        }),
-      });
+      await onUpdateBot(payload());
       toast.success('تم حفظ إعدادات الاسترجاع بنجاح');
     } catch (e) {
       toast.error('فشل الحفظ: ' + e.message);
@@ -2264,7 +2263,7 @@ function AbandonedRecoveryCard({ bot, onUpdateBot }) {
       </div>
 
       <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1rem', lineHeight: 1.5 }}>
-        عندما يبدأ الزبون محادثة ولا يكمل طلبه أو حجزه، يقوم النظام تلقائياً بإرسال رسالة تذكيرية واحدة لطيفة بعد مهلة تحددها لإعادة تنشيط الزبون.
+        عندما يبدأ الزبون محادثة ولا يكمل طلبه أو حجزه، يقوم النظام تلقائياً بإرسال رسالة تذكيرية واحدة لطيفة بعد مهلة تحددها لإعادة تنشيط الزبون، ثم تذكير أخير بعد فترة الانتظار — وإن لم يستجب يتوقف الاحترام لصحة اسمه.
       </p>
 
       {enabled && (
@@ -2282,6 +2281,20 @@ function AbandonedRecoveryCard({ bot, onUpdateBot }) {
               <option value="6">بعد 6 ساعات</option>
               <option value="12">بعد 12 ساعة</option>
               <option value="24">بعد 24 ساعة (يوم كامل)</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">فترة الانتظار قبل التذكير الثاني والأخير</label>
+            <select
+              className="form-select"
+              value={windowHours}
+              onChange={(e) => setWindowHours(Number(e.target.value))}
+            >
+              <option value="2">بعد ساعتين من التذكير الأول</option>
+              <option value="6">بعد 6 ساعات (موصى به)</option>
+              <option value="12">بعد 12 ساعة</option>
+              <option value="24">بعد 24 ساعة</option>
             </select>
           </div>
 

@@ -682,13 +682,22 @@ app.use((err, req, res, next) => {
 // ─── Abandoned Lead Recovery Background Worker ─────────────────
 async function runAbandonedRecoveryCron() {
   try {
+    // Quiet hours: never nag customers at night (default 22:00 -> 08:00
+    // server time; tunable via ABANDONED_QUIET_START / _END). Reminders
+    // that fall inside the window are simply delayed to the next tick.
+    const h = new Date().getHours();
+    const qStart = parseInt(process.env.ABANDONED_QUIET_START ?? '22', 10);
+    const qEnd = parseInt(process.env.ABANDONED_QUIET_END ?? '8', 10);
+    if (qStart !== qEnd && (h >= qStart || h < qEnd)) return;
+
     const bots = await firestore.getActiveBots();
     for (const bot of bots) {
       const isRecoveryEnabled = bot.features?.abandonedRecovery === true || bot.abandonedRecoveryEnabled === true;
       if (!isRecoveryEnabled) continue;
 
       const delayHours = Number(bot.abandonedRecoveryDelayHours) || 2;
-      const leads = await firestore.findAbandonedLeads(bot.id, delayHours);
+      const windowHours = Number(bot.abandonedRecoveryWindowHours) || 6;
+      const leads = await firestore.findAbandonedLeads(bot.id, delayHours, windowHours);
       if (!leads || leads.length === 0) continue;
 
       const state = getBotState(bot.id);

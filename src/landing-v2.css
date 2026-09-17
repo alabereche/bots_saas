@@ -483,3 +483,26 @@
   flex-direction: column;
   align-items: center;
 }
+
+/* ═══ Scene-3 video wallpaper: the brain loop lives in the black void
+   of the features section — cards and titles float above it. The scrim
+   keeps it cinematic-dark so cream titles stay readable. ═══ */
+.lp2-section-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+  pointer-events: none;
+}
+.lp2-section-video-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(ellipse 75% 70% at 50% 45%, rgba(5, 5, 5, 0.55) 0%, rgba(5, 5, 5, 0.78) 100%);
+}
+.lp2-section#features { position: relative; overflow: hidden; }
+.lp2-section#features > .lp2-features-head,
+.lp2-section#features > .lp2-cards { position: relative; z-index: 2; }

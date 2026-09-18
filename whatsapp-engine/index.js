@@ -30,6 +30,7 @@ const {
   getAllBotStatuses,
   healBot,
   clearMerchantStop,
+  isCreating,
 } = require('./botManager');
 const firestore = require('./firestore');
 const { admin, db } = require('./firestore');
@@ -233,13 +234,22 @@ app.post('/api/whatsapp/create', async (req, res) => {
       return res.status(503).json({ error: 'المحرك ممتلئ حالياً — يرجى المحاولة لاحقاً' });
     }
 
+    // Mode switch (QR -> phone pairing) while a link is already pending
+    // would need a second Chromium on the same token dir — refused; the
+    // merchant finishes or cancels the current attempt first.
+    if (cleanPhone && isCreating(botId)) {
+      return res.status(409).json({ error: 'يوجد ربط قيد المحاولة الآن — انتظر ظهور الرمز أو ألغِ المحاولة أولاً' });
+    }
+
     // Fire-and-forget: wpp.create() BLOCKS until the QR is scanned (auto-close
     // disabled), so awaiting it here would hold the HTTP request for minutes
     // and die at the tunnel ceiling. The dashboard polls /qr instead — the QR
     // arrives via the catchQR callback while this request is already answered.
     clearMerchantStop(botId);
     createWhatsAppBot(botId, config, cleanPhone, !!cleanPhone).catch(err => {
-      console.error(`[API] Background create failed for bot ${botId}:`, err.message);
+      if (err.code !== 'CREATE_IN_FLIGHT') {
+        console.error(`[API] Background create failed for bot ${botId}:`, err.message);
+      }
     });
 
     res.json({
@@ -294,6 +304,9 @@ app.post('/api/whatsapp/:id/restart', async (req, res) => {
   const botId = req.params.id;
   const config = await requireBotAccess(res, req.uid, botId);
   if (!config) return;
+  if (isCreating(botId)) {
+    return res.status(409).json({ error: 'يوجد ربط قيد المحاولة الآن — انتظر قليلاً أو ألغِ المحاولة أولاً' });
+  }
   try {
     // purge=false: a restart keeps the saved token — only an explicit
     // unlink/stop purges the session.

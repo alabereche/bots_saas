@@ -7,6 +7,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const { execFile } = require('child_process');
 const wpp = require('@wppconnect-team/wppconnect');
 const QRCode = require('qrcode');
 const firestore = require('./firestore');
@@ -61,15 +62,30 @@ function armQrWaitTimeout(botId, config) {
     console.log(`[BotManager] QR wait timeout (${Math.round(QR_WAIT_TIMEOUT_MS / 60000)}min) for "${config.botName}" — releasing browser.`);
     merchantStopped.add(botId);
     try {
-      await Promise.race([
-        st.client?.close(),
-        new Promise(r => setTimeout(r, 5000)),
-      ]);
+      if (st.client) {
+        await Promise.race([
+          st.client.close(),
+          new Promise(r => setTimeout(r, 5000)),
+        ]);
+      } else {
+        // In-flight wpp.create(): the browser isn't exposed yet — the only
+        // lever is killing the Chromium holding this bot's token dir.
+        await killPendingBrowser(botId);
+      }
     } catch { /* best effort */ }
     if (activeBots.get(botId) === st) activeBots.delete(botId);
     firestore.updateBotStatus(botId, 'disconnected').catch(() => {});
   }, QR_WAIT_TIMEOUT_MS);
   qrWaitTimers.set(botId, t);
+}
+
+// Kills any Chromium holding this bot's token userDataDir. Needed because a
+// create still awaiting its first QR never exposes a client object to close.
+function killPendingBrowser(botId) {
+  return new Promise((resolve) => {
+    if (process.platform === 'win32') return resolve();
+    execFile('pkill', ['-f', `whatsapp-engine/tokens/${botId}`], () => resolve());
+  });
 }
 
 function cleanSession(botId) {
@@ -85,7 +101,36 @@ function cleanSession(botId) {
 }
 
 // ─── Create a WhatsApp Bot (WPPConnect) ────────────────────────
+// Join-or-refuse gate: two concurrent creates on one bot would launch TWO
+// Chromiums on the same token dir ("browser is already running") and the
+// loser's failure loop orphans the winner's QR state — the dashboard then
+// polls an object nobody writes to (spinner forever). A plain re-open JOINS
+// the pending session; a mode switch/forced relink is refused politely.
+const pendingCreates = new Map();
+
+function isCreating(botId) {
+  return pendingCreates.has(botId);
+}
+
 async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = false) {
+  const pending = pendingCreates.get(botId);
+  if (pending) {
+    if (!phoneNumber && !forceNew) {
+      console.log(`[BotManager] Create already in flight for "${config.botName}" — joining the pending session.`);
+      return pending;
+    }
+    const err = new Error('create already in flight');
+    err.code = 'CREATE_IN_FLIGHT';
+    throw err;
+  }
+  const p = createWhatsAppBotInner(botId, config, phoneNumber, forceNew).finally(() => {
+    pendingCreates.delete(botId);
+  });
+  pendingCreates.set(botId, p);
+  return p;
+}
+
+async function createWhatsAppBotInner(botId, config, phoneNumber = null, forceNew = false) {
   clearQrWaitTimeout(botId);
   if (activeBots.has(botId)) {
     const existing = activeBots.get(botId);
@@ -288,6 +333,11 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
     // Transient init failures (browser crash, page closed) must self-heal —
     // a retry regenerates the QR so the dashboard picks it up automatically.
     if (!merchantStopped.has(botId)) {
+      if (/already running/i.test(err.message || '')) {
+        // A zombie Chromium holds the token dir (crashed create, rapid
+        // double-click era) — free it or every retry hits the same wall.
+        await killPendingBrowser(botId);
+      }
       scheduleAutoRestart(botId, config);
     }
     throw err;
@@ -299,6 +349,9 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
 // ─── Unified disconnect flow (socket states + statusFind) ─────
 function handleDisconnect(botId, config, reason = 'unknown') {
   if (merchantStopped.has(botId)) return;
+  // An in-flight create owns its own recovery — touching the map here would
+  // orphan the very state object its catchQR/statusFind are writing into.
+  if (pendingCreates.has(botId)) return;
   const botState = activeBots.get(botId);
   if (!botState || botState.status === 'reconnecting') return;
 
@@ -349,6 +402,11 @@ async function stopWhatsAppBot(botId, purgeSession = true) {
     } catch (e) {
       console.warn('[BotManager] Close notice:', e.message);
     }
+  } else if (pendingCreates.has(botId)) {
+    // Stop during an in-flight link: no client exists yet — kill the
+    // Chromium holding the token dir so the pending create rejects and
+    // nothing keeps waiting for a scan the merchant cancelled.
+    await killPendingBrowser(botId);
   }
 
   if (purgeSession) {

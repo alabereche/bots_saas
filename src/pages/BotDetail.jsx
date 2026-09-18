@@ -2199,6 +2199,7 @@ function AbandonedRecoveryCard({ bot, onUpdateBot }) {
   const [enabled, setEnabled] = useState(bot?.features?.abandonedRecovery === true || bot?.abandonedRecoveryEnabled === true);
   const [delayHours, setDelayHours] = useState(bot?.abandonedRecoveryDelayHours || 2);
   const [windowHours, setWindowHours] = useState(bot?.abandonedRecoveryWindowHours || 6);
+  const [maxCount, setMaxCount] = useState(bot?.abandonedRecoveryMaxCount || 2);
   const [message, setMessage] = useState(bot?.abandonedRecoveryMessage || '');
   const [saving, setSaving] = useState(false);
   const toast = useToast();
@@ -2207,6 +2208,7 @@ function AbandonedRecoveryCard({ bot, onUpdateBot }) {
     abandonedRecoveryEnabled: overrideEnabled !== undefined ? overrideEnabled : enabled,
     abandonedRecoveryDelayHours: Number(delayHours),
     abandonedRecoveryWindowHours: Number(windowHours),
+    abandonedRecoveryMaxCount: Number(maxCount),
     abandonedRecoveryMessage: message,
     features: sanitizeBotFeatures({
       ...(bot?.features || {}),
@@ -2267,7 +2269,7 @@ function AbandonedRecoveryCard({ bot, onUpdateBot }) {
       </div>
 
       <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1rem', lineHeight: 1.5 }}>
-        عندما يبدأ الزبون محادثة ولا يكمل طلبه أو حجزه، يقوم النظام تلقائياً بإرسال رسالة تذكيرية واحدة لطيفة بعد مهلة تحددها لإعادة تنشيط الزبون، ثم تذكير أخير بعد فترة الانتظار — وإن لم يستجب يتوقف الاحترام لصحة اسمه.
+        عندما يبدأ الزبون محادثة ولا يكمل طلبه أو حجزه، يرسل النظام تلقائياً تذكيراً لطيفاً بعد المهلة التي تحددها، ويعيد التذكير بعدد ومسافة تحددها أنت — وإن لم يستجب الزبون يتوقف الاحترام لصحة اسمه. رد الزبون الواحدة تعيد الدورة من الصفر.
       </p>
 
       {enabled && (
@@ -2289,13 +2291,26 @@ function AbandonedRecoveryCard({ bot, onUpdateBot }) {
           </div>
 
           <div className="form-group">
-            <label className="form-label">فترة الانتظار قبل التذكير الثاني والأخير</label>
+            <label className="form-label">عدد التذكيرات قبل التوقف نهائياً</label>
+            <select
+              className="form-select"
+              value={maxCount}
+              onChange={(e) => setMaxCount(Number(e.target.value))}
+            >
+              <option value="1">تذكير واحد فقط</option>
+              <option value="2">تذكيران (موصى به)</option>
+              <option value="3">ثلاثة تذكيرات كحد أقصى</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">فترة الانتظار بين التذكيرات</label>
             <select
               className="form-select"
               value={windowHours}
               onChange={(e) => setWindowHours(Number(e.target.value))}
             >
-              <option value="2">بعد ساعتين من التذكير الأول</option>
+              <option value="2">بعد ساعتين من التذكير السابق</option>
               <option value="6">بعد 6 ساعات (موصى به)</option>
               <option value="12">بعد 12 ساعة</option>
               <option value="24">بعد 24 ساعة</option>

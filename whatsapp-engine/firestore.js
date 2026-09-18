@@ -443,7 +443,7 @@ async function getConversationHistory(botId, customerId, limitCount = 10) {
   }
 }
 
-async function findAbandonedLeads(botId, delayHours = 2, windowHours = 6) {
+async function findAbandonedLeads(botId, delayHours = 2, windowHours = 6, maxReminders = 2) {
   try {
     const cutoffDate = new Date(Date.now() - delayHours * 3600 * 1000).toISOString();
     const maxLookbackDate = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
@@ -458,7 +458,12 @@ async function findAbandonedLeads(botId, delayHours = 2, windowHours = 6) {
 
     if (convSnap.empty) return [];
 
-    // Group by customer and filter by date
+    // Group by customer. THE SILENCE CLOCK IS THE CUSTOMER'S OWN LAST
+    // MESSAGE (role === 'user'): bot replies — including the reminders
+    // themselves — live in this same collection under the same
+    // telegramUserId, and letting them set the clock made every reminder
+    // reset its own silence timer (the hourly re-reminder loop) while the
+    // reminder count restarted from zero each cycle.
     const threads = {};
     convSnap.docs.forEach(d => {
       const data = d.data();
@@ -471,12 +476,16 @@ async function findAbandonedLeads(botId, delayHours = 2, windowHours = 6) {
           userName: data.userName || 'زبون',
           platform: data.platform || 'whatsapp',
           lastMessageAt: data.createdAt,
+          lastCustomerMessageAt: data.role === 'user' ? data.createdAt : null,
           messages: [],
         };
       }
       threads[cid].messages.push(data);
       if (data.createdAt > threads[cid].lastMessageAt) {
         threads[cid].lastMessageAt = data.createdAt;
+      }
+      if (data.role === 'user' && data.createdAt > (threads[cid].lastCustomerMessageAt || '')) {
+        threads[cid].lastCustomerMessageAt = data.createdAt;
       }
     });
 
@@ -496,45 +505,61 @@ async function findAbandonedLeads(botId, delayHours = 2, windowHours = 6) {
     });
 
     // 3. Fetch past reminders in the last 48h — WITH per-customer history:
-    //    max TWO reminders per silence-cycle, spaced by the merchant's
+    //    max `maxReminders` per silence-cycle, spaced by the merchant's
     //    window setting; a customer reply resets the cycle entirely.
+    //    limit is high + the collection is pruned below, so the arbitrary
+    //    slice can never hide the fresh docs from the count.
     const reminderSnap = await db.collection('abandoned_reminders')
       .where('botId', '==', botId)
-      .limit(100)
+      .limit(300)
       .get();
 
     const remindersByCustomer = new Map(); // cid -> [remindedAt...]
+    const staleReminderRefs = [];
     reminderSnap.docs.forEach(d => {
       const r = d.data();
-      if (r.remindedAt && r.remindedAt >= maxLookbackDate) {
-        const cid = String(r.customerId);
-        if (!remindersByCustomer.has(cid)) remindersByCustomer.set(cid, []);
-        remindersByCustomer.get(cid).push(r.remindedAt);
+      if (!r.remindedAt || r.remindedAt < maxLookbackDate) {
+        // Older than the 48h lookback — dead weight that would eventually
+        // crowd the window; collected for the prune below.
+        staleReminderRefs.push(d.ref);
+        return;
       }
+      const cid = String(r.customerId);
+      if (!remindersByCustomer.has(cid)) remindersByCustomer.set(cid, []);
+      remindersByCustomer.get(cid).push(r.remindedAt);
     });
+    // Prune is best-effort and never blocks eligibility: the count above
+    // already ignores stale docs.
+    if (staleReminderRefs.length > 0) {
+      const batch = db.batch();
+      staleReminderRefs.slice(0, 400).forEach(ref => batch.delete(ref));
+      batch.commit().catch(() => {});
+    }
 
     const eligible = [];
     for (const cid of Object.keys(threads)) {
       const t = threads[cid];
-      // Reminder policy (owner decree): MAX TWO reminders per silence-cycle.
-      // - cycle starts at the customer's last message
-      // - reminder #1 when silent >= delayHours
-      // - reminder #2 only after `windowHours` past reminder #1
-      // - after two ignored reminders: STOP until the customer replies
-      //   (any new message resets the cycle)
+      // Reminder policy (owner decree): a bounded number of reminders per
+      // silence-cycle (merchant-chosen 1/2/3, default 2).
+      // - cycle starts at the customer's last OWN message
+      // - reminder #1 when the customer has been silent >= delayHours
+      // - reminder #N+1 only after `windowHours` past reminder #N
+      // - after all reminders were ignored: STOP until the customer
+      //   replies (any new customer message resets the cycle)
       // Plus: never remind a customer with a recent order, and never
       // while a human takeover is active (takeover is checked by the cron).
+      const anchor = t.lastCustomerMessageAt || '';
       const remDocs = (remindersByCustomer.get(cid) || [])
-        .filter(rAt => rAt >= t.lastMessageAt)
+        .filter(rAt => anchor && rAt >= anchor)
         .sort();
       const count = remDocs.length;
       const lastReminderAt = count ? remDocs[count - 1] : null;
       const waitingGap = count > 0 && now - lastReminderAt < windowMs;
 
       if (
-        t.lastMessageAt <= cutoffDate &&
+        anchor && anchor <= cutoffDate &&
         !customersWithOrders.has(cid) &&
-        count < 2 &&
+        count < maxReminders &&
         !waitingGap &&
         t.messages.length >= 1
       ) {

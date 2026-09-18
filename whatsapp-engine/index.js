@@ -732,7 +732,9 @@ async function runAbandonedRecoveryCron() {
 
       const delayHours = Number(bot.abandonedRecoveryDelayHours) || 2;
       const windowHours = Number(bot.abandonedRecoveryWindowHours) || 6;
-      const leads = await firestore.findAbandonedLeads(bot.id, delayHours, windowHours);
+      // Merchant-chosen cap: how many reminders before stopping (1/2/3).
+      const maxReminders = Math.min(Math.max(Number(bot.abandonedRecoveryMaxCount) || 2, 1), 3);
+      const leads = await firestore.findAbandonedLeads(bot.id, delayHours, windowHours, maxReminders);
       if (!leads || leads.length === 0) continue;
 
       const state = getBotState(bot.id);

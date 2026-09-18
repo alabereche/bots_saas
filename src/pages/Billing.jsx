@@ -88,29 +88,59 @@ export default function Billing() {
   const [planData, setPlanData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activationMsg, setActivationMsg] = useState('');
-  const [actUid, setActUid] = useState('');
+  const [activationOk, setActivationOk] = useState(false);
+  const [actUser, setActUser] = useState(null);      // { uid, email, displayName, plan }
+  const [userQuery, setUserQuery] = useState('');
+  const [usersList, setUsersList] = useState([]);
   const [actPlan, setActPlan] = useState('pro');
   const [actMonths, setActMonths] = useState('1');
   const [activating, setActivating] = useState(false);
+  const [copiedUid, setCopiedUid] = useState(false);
+
+  const loadPlan = async () => {
+    try {
+      const res = await fetch(`${ENGINE_URL}/api/billing/plan`, { headers: await engineHeaders(false) });
+      if (res.ok) setPlanData(await res.json());
+    } catch { /* engine unreachable — page still renders statically */ }
+  };
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const res = await fetch(`${ENGINE_URL}/api/billing/plan`, { headers: await engineHeaders(false) });
-        if (res.ok) {
-          const data = await res.json();
-          if (!cancelled) setPlanData(data);
-        }
-      } catch { /* engine unreachable — page still renders statically */ }
+      await loadPlan();
       if (!cancelled) setLoading(false);
     })();
     return () => { cancelled = true; };
   }, []);
 
+  // Owner's directory for the activation panel
+  useEffect(() => {
+    if (!planData?.isAdmin) return;
+    (async () => {
+      try {
+        const res = await fetch(`${ENGINE_URL}/api/billing/users`, { headers: await engineHeaders(false) });
+        if (res.ok) setUsersList((await res.json()).users || []);
+      } catch { /* list optional */ }
+    })();
+  }, [planData?.isAdmin]);
+
   const plan = planData?.plan || 'free';
   const limits = planData?.limits || null;
   const totalToday = (planData?.usage || []).reduce((s, u) => s + (u.messagesToday || 0), 0);
+
+  const filteredUsers = userQuery.trim()
+    ? usersList.filter(u =>
+        (u.email || '').toLowerCase().includes(userQuery.toLowerCase()) ||
+        (u.displayName || '').includes(userQuery))
+    : usersList.slice(0, 8);
+
+  const copyUid = async () => {
+    try {
+      await navigator.clipboard.writeText(planData?.uid || '');
+      setCopiedUid(true);
+      setTimeout(() => setCopiedUid(false), 1600);
+    } catch { /* clipboard denied */ }
+  };
 
   const subscribe = () => {
     const email = auth.currentUser?.email || '';
@@ -127,20 +157,28 @@ export default function Billing() {
   };
 
   const activate = async () => {
-    if (!actUid.trim()) {
-      setActivationMsg('أدخل uid المستخدم أولاً');
+    if (!actUser?.uid) {
+      setActivationMsg('اختر مستخدماً من القائمة أولاً');
+      setActivationOk(false);
       return;
     }
     setActivating(true);
     setActivationMsg('');
+    setActivationOk(false);
     try {
       const res = await fetch(`${ENGINE_URL}/api/billing/activate`, {
         method: 'POST',
         headers: await engineHeaders(),
-        body: JSON.stringify({ uid: actUid.trim(), plan: actPlan, months: actPlan === 'pro' ? Number(actMonths) || 0 : 0 }),
+        body: JSON.stringify({ uid: actUser.uid, plan: actPlan, months: actPlan === 'pro' ? Number(actMonths) || 0 : 0 }),
       });
       const data = await res.json().catch(() => ({}));
-      setActivationMsg(res.ok ? `تم: ${actUid.trim()} أصبح على ${actPlan}` : (data.error || 'فشل التفعيل'));
+      if (res.ok) {
+        setActivationOk(true);
+        setActivationMsg(`تم: ${actUser.email || actUser.uid} أصبح على باقة ${actPlan === 'pro' ? 'الاحترافية' : 'المجانية'}`);
+        await loadPlan(); // live refresh — the badges move immediately
+      } else {
+        setActivationMsg(data.error || 'فشل التفعيل');
+      }
     } catch (e) {
       setActivationMsg('تعذر الاتصال بالمحرك: ' + e.message);
     } finally {
@@ -253,17 +291,76 @@ export default function Billing() {
       {/* Owner-only manual activation */}
       {planData?.isAdmin && (
         <div className="card" style={{ padding: '1.4rem', marginTop: '2rem', borderColor: 'rgba(16, 185, 129, 0.35)' }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 0.9rem' }}>
-            تفعيل يدوي — للمالك فقط
-          </h3>
-          <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
-            <input
-              className="form-input"
-              placeholder="uid المستخدم"
-              value={actUid}
-              onChange={e => setActUid(e.target.value)}
-              style={{ flex: '1 1 260px', direction: 'ltr', fontSize: '0.85rem' }}
-            />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.9rem' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+              تفعيل يدوي — للمالك فقط
+            </h3>
+            <button
+              type="button"
+              onClick={copyUid}
+              title="نسخ معرفك الشخصي"
+              style={{
+                background: 'var(--bg-cell)', border: '1px solid var(--border-default)',
+                borderRadius: 'var(--radius-full)', color: 'var(--text-secondary)',
+                fontSize: '0.72rem', padding: '4px 12px', cursor: 'pointer', direction: 'ltr',
+              }}
+            >
+              {copiedUid ? 'تم النسخ' : `uid: ${(planData?.uid || '').slice(0, 12)}...`}
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+            <div style={{ flex: '1 1 300px', position: 'relative' }}>
+              <input
+                className="form-input"
+                placeholder="ابحث بإيميل أو اسم التاجر..."
+                value={userQuery}
+                onChange={e => { setUserQuery(e.target.value); setActUser(null); }}
+                style={{ width: '100%' }}
+              />
+              {userQuery.trim() && !actUser && (
+                <div style={{
+                  position: 'absolute', top: 'calc(100% + 4px)', right: 0, left: 0,
+                  background: 'var(--bg-cell)', border: '1px solid var(--border-default)',
+                  borderRadius: 'var(--radius-md, 10px)', zIndex: 20,
+                  maxHeight: '220px', overflowY: 'auto',
+                  boxShadow: '0 14px 40px -12px rgba(0,0,0,0.5)',
+                }}>
+                  {filteredUsers.length === 0 && (
+                    <div style={{ padding: '0.6rem 0.9rem', fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
+                      لا نتائج مطابقة
+                    </div>
+                  )}
+                  {filteredUsers.map(u => (
+                    <button
+                      key={u.uid}
+                      type="button"
+                      onClick={() => { setActUser(u); setUserQuery(u.email || u.displayName || u.uid); }}
+                      style={{
+                        display: 'block', width: '100%', textAlign: 'right',
+                        padding: '0.55rem 0.9rem', background: 'transparent', border: 'none',
+                        borderBottom: '1px solid var(--border-subtle)', cursor: 'pointer',
+                        color: 'var(--text-primary)', fontSize: '0.85rem',
+                      }}
+                    >
+                      <span style={{ fontWeight: 700 }}>{u.email || u.uid}</span>
+                      {u.displayName && <span style={{ color: 'var(--text-secondary)' }}> — {u.displayName}</span>}
+                      <span style={{
+                        marginRight: '8px', fontSize: '0.7rem', fontWeight: 800,
+                        color: u.plan === 'pro' ? 'var(--color-primary-light)' : 'var(--text-secondary)',
+                      }}>
+                        {u.plan === 'pro' ? 'احترافية' : 'مجانية'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {actUser && (
+                <p style={{ margin: '0.4rem 0 0', fontSize: '0.78rem', color: 'var(--color-primary-light)', direction: 'ltr', textAlign: 'left' }}>
+                  {actUser.email || actUser.uid}
+                </p>
+              )}
+            </div>
             <select className="form-select" value={actPlan} onChange={e => setActPlan(e.target.value)} style={{ width: 'auto' }}>
               <option value="pro">احترافية</option>
               <option value="free">مجانية (إلغاء)</option>
@@ -277,12 +374,18 @@ export default function Billing() {
                 <option value="0">بلا انتهاء</option>
               </select>
             )}
-            <button className="btn btn-primary" onClick={activate} disabled={activating}>
+            <button className="btn btn-primary" onClick={activate} disabled={activating || !actUser}>
               {activating ? 'جارٍ...' : 'تفعيل'}
             </button>
           </div>
           {activationMsg && (
-            <p style={{ margin: '0.7rem 0 0', fontSize: '0.84rem', color: activationMsg.startsWith('تم') ? 'var(--color-primary-light)' : '#ef4444' }}>
+            <p style={{
+              margin: '0.8rem 0 0', fontSize: '0.86rem', fontWeight: activationOk ? 800 : 400,
+              color: activationOk ? 'var(--color-primary-light)' : '#ef4444',
+              background: activationOk ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+              border: `1px solid ${activationOk ? 'rgba(16, 185, 129, 0.35)' : 'rgba(239, 68, 68, 0.35)'}`,
+              borderRadius: 'var(--radius-md, 10px)', padding: '0.55rem 0.9rem',
+            }}>
               {activationMsg}
             </p>
           )}

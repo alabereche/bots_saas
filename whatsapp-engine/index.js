@@ -741,6 +741,7 @@ app.get('/api/billing/plan', async (req, res) => {
       }
     } catch { /* profile optional */ }
     res.json({
+      uid: req.uid,
       plan,
       limits,
       planExpiresAt: profile?.planExpiresAt || null,
@@ -750,6 +751,32 @@ app.get('/api/billing/plan', async (req, res) => {
   } catch (err) {
     console.error('[Billing] Plan status error:', err.message);
     res.status(500).json({ error: 'تعذر جلب حالة الاشتراك' });
+  }
+});
+
+// GET /api/billing/users — owner-only directory for the activation panel:
+// pick a merchant BY EMAIL instead of hand-copying uids (a bot id pasted
+// by mistake once created a ghost user doc — this kills that class).
+app.get('/api/billing/users', async (req, res) => {
+  if (!requireSuperAdmin(req, res)) return;
+  try {
+    const snap = await db.collection('users').limit(500).get();
+    const users = snap.docs
+      .map(d => {
+        const u = d.data();
+        return {
+          uid: d.id,
+          email: u.email || '',
+          displayName: u.displayName || '',
+          plan: u.plan === 'pro' ? 'pro' : 'free',
+          planExpiresAt: u.planExpiresAt || null,
+        };
+      })
+      .sort((a, b) => String(a.email).localeCompare(String(b.email)));
+    res.json({ users });
+  } catch (err) {
+    console.error('[Billing] Users list error:', err.message);
+    res.status(500).json({ error: 'تعذر جلب قائمة المستخدمين' });
   }
 });
 

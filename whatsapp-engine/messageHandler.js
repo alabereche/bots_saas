@@ -1,12 +1,12 @@
 // ═══════════════════════════════════════════════════════════════
-// BotForge WhatsApp Engine — Message Handler
+// BotForge WhatsApp Engine — Message Handler (WPPConnect)
 // Processes incoming WhatsApp messages via Gemini AI
 // with universal order/booking extraction and customer confirmation.
 // The customer's message is logged BEFORE the AI call so it is
 // never lost, and AI-derived order data is validated before saving.
+// Transport layer speaks WPPConnect (client from msg.client).
 // ═══════════════════════════════════════════════════════════════
 
-const { MessageMedia } = require('whatsapp-web.js');
 const { askOpenRouter } = require('./openrouter');
 const firestore = require('./firestore');
 const { isTakeoverActive } = require('./takeover');
@@ -164,14 +164,14 @@ function extractProductMedia(rawReply, productsList = []) {
   return { cleanReply, mediaItems, useReplyOnFirst };
 }
 
-// Helper: send plain text reply
+// Helper: send plain text reply (WPPConnect transport)
 async function sendTextReply(msg, userId, text) {
-  await msg.reply(text).catch(async (replyErr) => {
-    console.warn('[Handler] msg.reply failed, trying sendMessage:', replyErr.message);
-    if (msg.client && typeof msg.client.sendMessage === 'function') {
-      await msg.client.sendMessage(userId, text);
-    }
-  });
+  try {
+    await msg.client.sendText(userId, text);
+  } catch (sendErr) {
+    console.warn('[Handler] sendText failed, trying reply:', sendErr.message);
+    await msg.client.sendText(userId, text).catch(() => {});
+  }
 }
 
 // AI output is untrusted input: whitelist the fields we accept and
@@ -191,9 +191,7 @@ function sanitizeOrder(orderData) {
   return sanitized;
 }
 
-const path = require('path');
-const fs = require('fs');
-
+// ─── Product Media Resolution (WPPConnect: base64 string) ────
 async function resolveWhatsAppMedia(mediaUrl) {
   try {
     if (!mediaUrl || typeof mediaUrl !== 'string') return null;
@@ -202,11 +200,7 @@ async function resolveWhatsAppMedia(mediaUrl) {
     if (mediaUrl.startsWith('data:')) {
       const parts = mediaUrl.split(',');
       if (parts.length === 2) {
-        const header = parts[0];
-        const base64Data = parts[1];
-        const mimeMatch = header.match(/:(.*?);/);
-        const mimetype = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-        return new MessageMedia(mimetype, base64Data, 'product.jpg');
+        return { base64: parts[1], filename: 'product.jpg' };
       }
     }
 
@@ -214,11 +208,19 @@ async function resolveWhatsAppMedia(mediaUrl) {
       const filename = path.basename(new URL(mediaUrl).pathname);
       const localPath = path.resolve(__dirname, 'uploads', filename);
       if (fs.existsSync(localPath)) {
-        return MessageMedia.fromFilePath(localPath);
+        return { base64: fs.readFileSync(localPath).toString('base64'), filename };
+      }
+      // Remote URL: fetch and convert
+      const res = await fetch(mediaUrl, { signal: AbortSignal.timeout(10000) });
+      if (res.ok) {
+        const buf = Buffer.from(await res.arrayBuffer());
+        return { base64: buf.toString('base64'), filename: filename || 'product.jpg' };
       }
     }
-  } catch (e) {}
-  return await MessageMedia.fromUrl(mediaUrl, { unsafeMime: true }).catch(() => null);
+  } catch (e) {
+    console.warn('[Handler] Media resolve failed:', e.message);
+  }
+  return null;
 }
 
 const crypto = require('crypto');
@@ -269,79 +271,26 @@ function decryptWhatsAppMedia(encryptedBuffer, rawMediaKey, mediaType = 'audio')
   return Buffer.concat([decipher.update(encData), decipher.final()]);
 }
 
-// ─── Multi-Strategy WhatsApp Audio Extractor ─────────────────
+// ─── Multi-Strategy WhatsApp Audio Extractor (WPPConnect) ─────
 async function extractWhatsAppAudio(msg, maxRetries = 4, delayMs = 500) {
   if (!msg) return null;
 
-  // 1. Primary: Direct Node.js CDN Fetch + HKDF-AES Decrypt (100% Reliable, 0% Puppeteer Dependency)
-  try {
-    let directPath = msg._data?.directPath || msg.directPath;
-    let mediaKey = msg._data?.mediaKey || msg.mediaKey;
-    let mimetype = msg._data?.mimetype || msg.mimetype || 'audio/ogg';
-
-    if ((!directPath || !mediaKey) && msg.client && msg.client.pupPage) {
-      const meta = await msg.client.pupPage.evaluate((msgId) => {
-        try {
-          const m = window.Store.Msg.get(msgId) || (window.Store.Msg.getMessagesById && window.Store.Msg.getMessagesById([msgId])?.messages?.[0]);
-          if (!m) return null;
-          return {
-            directPath: m.directPath || m.mediaData?.directPath,
-            mediaKey: m.mediaKey || m.mediaData?.mediaKey,
-            mimetype: m.mimetype || m.mediaData?.mimetype,
-            clientUrl: m.clientUrl || m.mediaData?.clientUrl,
-          };
-        } catch {
-          return null;
-        }
-      }, msg.id._serialized);
-
-      if (meta) {
-        directPath = directPath || meta.directPath || meta.clientUrl;
-        mediaKey = mediaKey || meta.mediaKey;
-        mimetype = mimetype || meta.mimetype;
-      }
-    }
-
-    if (directPath && mediaKey) {
-      const cdnUrl = directPath.startsWith('http') ? directPath : `https://mmg.whatsapp.net${directPath}`;
-      const cdnRes = await fetch(cdnUrl, {
-        signal: AbortSignal.timeout(12000),
-        headers: {
-          'User-Agent': 'WhatsApp/2.24.6.77 i',
-          'Origin': 'https://web.whatsapp.com',
-          'Referer': 'https://web.whatsapp.com/',
-        },
-      });
-
-      if (cdnRes.ok) {
-        const encBuffer = Buffer.from(await cdnRes.arrayBuffer());
-        const decrypted = decryptWhatsAppMedia(encBuffer, mediaKey, 'audio');
-        if (decrypted && decrypted.length > 0) {
-          console.log(`[Handler] ⚡ Voice note decrypted directly in Node.js via HKDF-AES (${Math.round(decrypted.length / 1024)}KB)`);
-          return {
-            data: decrypted.toString('base64'),
-            mimeType: (mimetype || 'audio/ogg').split(';')[0].trim(),
-          };
-        }
-      }
-    }
-  } catch (nodeCryptoErr) {
-    console.warn('[Handler] Direct Node.js decrypt notice:', nodeCryptoErr.message);
-  }
-
-  // 2. Secondary fallback: WWebJS downloadMedia with retry
+  // WPPConnect: decryptFile handles the CDN download + decryption natively
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const stdMedia = await msg.downloadMedia();
-      if (stdMedia && stdMedia.data && typeof stdMedia.data === 'string' && stdMedia.data.length > 0) {
-        console.log(`[Handler] ✅ Voice note extracted via WWebJS on attempt ${attempt}`);
+      const buffer = await msg.client.decryptFile(msg._raw || msg);
+      if (buffer && buffer.length > 0) {
+        console.log(`[Handler] Voice note decrypted via WPPConnect on attempt ${attempt} (${Math.round(buffer.length / 1024)}KB)`);
         return {
-          data: stdMedia.data,
-          mimeType: (stdMedia.mimetype || 'audio/ogg').split(';')[0].trim(),
+          data: buffer.toString('base64'),
+          mimeType: (msg.mimetype || 'audio/ogg').split(';')[0].trim(),
         };
       }
-    } catch (err) {}
-
+    } catch (err) {
+      if (attempt === maxRetries) {
+        console.warn(`[Handler] WPPConnect decryptFile failed after ${maxRetries} attempts:`, err.message);
+      }
+    }
     if (attempt < maxRetries) {
       await new Promise(r => setTimeout(r, delayMs));
     }
@@ -370,10 +319,10 @@ async function handleMessage(msg, config) {
       return;
     }
 
-    // Check if message is a voice note / audio
+    // Check if message is a voice note / audio (WPPConnect: type 'ptt'/'audio' or audio mimetype)
     const isAudio = msg.type === 'ptt' ||
                     msg.type === 'audio' ||
-                    (msg.hasMedia && (msg.type === 'ptt' || msg.type === 'audio' || (msg._data?.mimetype && msg._data.mimetype.includes('audio'))));
+                    msg.type === 'sticker' === false && !!(msg.mimetype && msg.mimetype.includes('audio'));
     const userMessage = (msg.body || '').trim();
 
     // Skip empty or non-text messages unless it is an audio/voice note
@@ -382,17 +331,14 @@ async function handleMessage(msg, config) {
     }
 
     userId = msg.from;
-    userName = msg._data?.notifyName || msg.notifyName || 'زبون واتساب';
+    userName = msg._data?.notifyName || msg.notifyName || msg.userName || 'زبون واتساب';
 
     // Fetch customer avatar URL if available (cached in memory)
     if (avatarCache.has(userId)) {
       userAvatar = avatarCache.get(userId);
     } else if (msg.client) {
       try {
-        const contact = await msg.getContact();
-        userAvatar = (contact && typeof contact.getProfilePicUrl === 'function')
-          ? await contact.getProfilePicUrl().catch(() => null)
-          : null;
+        userAvatar = await msg.client.getProfilePicFromServer(userId).catch(() => null);
         avatarCache.set(userId, userAvatar || null);
       } catch {
         avatarCache.set(userId, null);
@@ -513,30 +459,20 @@ async function handleMessage(msg, config) {
       }
 
       // Per-media safety net: a single failed image send must never poison
-      // the whole showcase (1.34.7 page-getter regression on @lid chats
-      // throws on media sends) — failed images degrade to a text line with
+      // the whole showcase — failed images degrade to a text line with
       // the product name + price instead of killing the reply.
-      const sendMediaSafely = async (media, opts) => {
-        // msg.reply FIRST — the message's own chat reference is the path
-        // proven working on this session; sendMessage to the raw @lid id
-        // is the fallback (it throws the page getter error on 1.34.7)
+      const sendImageSafely = async (media, caption) => {
         try {
-          await msg.reply(media, opts);
-          return true;
-        } catch (replyErr) {
-          console.warn(`[Handler] Media msg.reply failed (${String(replyErr?.message || '').slice(0, 60)}) — trying sendMessage.`);
-        }
-        try {
-          await msg.client.sendMessage(userId, media, opts);
+          await msg.client.sendImage(userId, `data:image/jpeg;base64,${media.base64}`, media.filename || 'product.jpg', caption || '');
           return true;
         } catch (sendErr) {
           const m = String(sendErr?.message || '');
-          console.warn(`[Handler] Media send failed (${m.slice(0, 80)}) — degrading gracefully.`);
+          console.warn(`[Handler] Image send failed (${m.slice(0, 80)}) — degrading gracefully.`);
           try {
-            const fallbackText = opts?.caption
-              ? String(opts.caption).replace(/\n+/g, ' · ')
+            const fallbackText = caption
+              ? String(caption).replace(/\n+/g, ' · ')
               : '🛍️ منتج متوفر لدينا — أرسل «التفاصيل» لمعرفة المزيد';
-            await msg.client.sendMessage(userId, fallbackText);
+            await msg.client.sendText(userId, fallbackText);
           } catch { /* even text failed — nothing more we can do here */ }
           return false;
         }
@@ -545,20 +481,10 @@ async function handleMessage(msg, config) {
       if (resolved.length > 0 && msg.client) {
         if (useReplyOnFirst) {
           // Single product / gallery: AI pitch as the first image caption
-          try {
-            await msg.client.sendMessage(userId, resolved[0].media, { caption: reply });
-          } catch (mediaErr) {
-            const m = String(mediaErr?.message || '');
-            console.warn(`[Handler] Media send failed (${m.slice(0, 80)}) — falling back to text.`);
-            await msg.client.sendMessage(userId, `${reply}\n\n• ${String(resolved[0].product?.name || '').trim()}`.trim());
-          }
+          await sendImageSafely(resolved[0].media, reply);
           for (let i = 1; i < resolved.length; i++) {
             await new Promise(r => setTimeout(r, 400));
-            try {
-              await msg.client.sendMessage(userId, resolved[i].media);
-            } catch (mediaErr) {
-              console.warn(`[Handler] Media send failed (${String(mediaErr?.message || '').slice(0, 60)}) — skipping image.`);
-            }
+            await sendImageSafely(resolved[i].media, null);
           }
         } else {
           // Multi-product showcase: images ARE the list. The AI's text must
@@ -578,7 +504,7 @@ async function handleMessage(msg, config) {
               .replace(/\n{2,}/g, '\n')
               .trim();
           }
-          if (pitch) await msg.client.sendMessage(userId, pitch);
+          if (pitch) await msg.client.sendText(userId, pitch);
           for (const r of resolved) {
             const cur = liveConfig.currency || 'دج';
             const op = r.product ? parseFloat(r.product.oldPrice) : NaN;
@@ -589,15 +515,7 @@ async function handleMessage(msg, config) {
               ? `• ${r.product.name || 'منتج'}${hasDisc ? ` - كان ${r.product.oldPrice} ${cur}` : ''}${np ? ` - الآن: ${r.product.price} ${cur}` : ''}${hasDisc ? ` (خصم ${discPct}%)` : ''}`
               : '';
             await new Promise(r2 => setTimeout(r2, 400));
-            try {
-              await msg.client.sendMessage(userId, r.media, cap ? { caption: cap } : undefined);
-            } catch (mediaErr) {
-              // Image failed — never lose the product: send its text card
-              const info = `${r.product?.name || 'منتج'}${np ? ` — ${r.product.price} ${cur}` : ''}`;
-              try {
-                await msg.client.sendMessage(userId, `🛍️ ${info}`);
-              } catch { /* channel fully down — next message retries */ }
-            }
+            await sendImageSafely(r.media, cap || null);
           }
         }
       } else {
@@ -800,7 +718,7 @@ async function handleMessage(msg, config) {
     console.error(`[Handler] Error for WhatsApp bot "${config?.botName}":`, err.message);
     if (userId) {
       try {
-        await msg.reply('عذراً، حدث خطأ مؤقت في المعالجة. يرجى إعادة إرسال رسالتك بعد قليل.');
+        await msg.client.sendText(userId, 'عذراً، حدث خطأ مؤقت في المعالجة. يرجى إعادة إرسال رسالتك بعد قليل.');
       } catch {}
     }
   }

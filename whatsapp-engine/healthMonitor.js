@@ -100,19 +100,12 @@ async function tick(botId) {
 
   if (state.status !== 'connected' || !state.client) return;
 
-  // Authenticated-but-not-ready grace: history sync may legitimately take
-  // a couple of minutes. Past the cap without 'ready', the client is a
-  // zombie (this exact hung state left a relink unguarded once).
-  if (!state.readySeen && state.authenticatedAt) {
-    if (Date.now() - state.authenticatedAt < READY_LATE_CAP_MS) return;
-    console.warn(`[Health] ⚠️ Bot ${botId} authenticated >${Math.round(READY_LATE_CAP_MS / 1000)}s without ready — treating as zombie.`);
-    return bm.healBot(botId, 'authenticated but ready never fired');
-  }
-
+  // WPPConnect: no ready-late trap (status IS the connection state) — but
+  // keep a cheap direct state check with a timeout guard.
   let raw = null;
   try {
     raw = await Promise.race([
-      state.client.getState(),
+      Promise.resolve(state.client.getConnectionState ? state.client.getConnectionState() : 'CONNECTED'),
       new Promise((_, reject) =>
         setTimeout(() => reject(new Error(`state check hung >${STATE_CHECK_TIMEOUT_MS}ms`)), STATE_CHECK_TIMEOUT_MS)
       ),

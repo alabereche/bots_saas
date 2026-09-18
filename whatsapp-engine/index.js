@@ -339,7 +339,7 @@ app.post('/api/reply', async (req, res) => {
       if (state.status !== 'connected') {
         return res.status(409).json({ error: `واتساب غير متصل حالياً (الحالة: ${state.status})` });
       }
-      await state.client.sendMessage(String(telegramUserId), String(message).slice(0, 1000));
+      await state.client.sendText(String(telegramUserId), String(message).slice(0, 1000));
     }
 
     await firestore.logOwnerMessage({
@@ -517,7 +517,7 @@ app.post('/api/orders/:id/delivery-status', async (req, res) => {
         }
 
         console.log(`[API] 📢 Dispatching WhatsApp delivery notification for order ${orderId} to ${targetId}...`);
-        await state.client.sendMessage(targetId, notifMsg);
+        await state.client.sendText(targetId, notifMsg);
         notificationSent = true;
         console.log(`[API] ✅ WhatsApp notification sent successfully to ${targetId}`);
 
@@ -712,7 +712,7 @@ async function runAbandonedRecoveryCron() {
           `مرحباً بك ${lead.userName || 'أخي الكريم'}، لاحظنا أنك كنت مهتماً بخدماتنا واستفسرت سابقاً. هل ما زلت بحاجة لأي استفسار أو ترغب في إتمام طلبك؟ نحن في خدمتك دائماً.`;
 
         try {
-          await state.client.sendMessage(String(lead.customerId), reminderMsg);
+          await state.client.sendText(String(lead.customerId), reminderMsg);
 
           await firestore.logBotMessage({
             botId: bot.id,

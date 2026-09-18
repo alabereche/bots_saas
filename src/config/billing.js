@@ -6,9 +6,9 @@
 
 export const BILLING_CONTACT = {
   // International format, digits only — wa.me link
-  whatsappNumber: '213000000000',
+  whatsappNumber: '213556674963',
   // Without @
-  telegramUsername: 'BotForgeSupport',
+  telegramUsername: 'Dev_pythree',
 };
 
 export const PRICING = {

@@ -193,30 +193,48 @@ function sanitizeOrder(orderData) {
   return sanitized;
 }
 
-// ─── Product Media Resolution (WPPConnect: base64 string) ────
+// ─── Product Media Resolution (WPPConnect: data URL with true mime) ───
+// WPPConnect's sendImageFromBase64 validates the data: prefix and rejects
+// anything whose mimetype is not image/* — so the mime we declare must be
+// the mime the bytes actually are.
+const LOCAL_IMAGE_MIMES = {
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+};
+
+function localFileDataUrl(localPath) {
+  const mime = LOCAL_IMAGE_MIMES[path.extname(localPath).toLowerCase()] || 'image/jpeg';
+  return `data:${mime};base64,${fs.readFileSync(localPath).toString('base64')}`;
+}
+
 async function resolveWhatsAppMedia(mediaUrl) {
   try {
     if (!mediaUrl || typeof mediaUrl !== 'string') return null;
 
-    // Direct support for compressed base64 data URLs
+    // Catalog images stored as data URLs — pass through untouched so the
+    // original mimetype survives.
     if (mediaUrl.startsWith('data:')) {
-      const parts = mediaUrl.split(',');
-      if (parts.length === 2) {
-        return { base64: parts[1], filename: 'product.jpg' };
-      }
+      const mime = (mediaUrl.match(/^data:([^;,]+)/) || [])[1] || '';
+      if (!mime.startsWith('image/')) return null;
+      return { dataUrl: mediaUrl, filename: 'product.jpg' };
     }
 
     if (mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://')) {
-      const filename = path.basename(new URL(mediaUrl).pathname);
+      const filename = path.basename(new URL(mediaUrl).pathname) || 'product.jpg';
       const localPath = path.resolve(__dirname, 'uploads', filename);
       if (fs.existsSync(localPath)) {
-        return { base64: fs.readFileSync(localPath).toString('base64'), filename };
+        return { dataUrl: localFileDataUrl(localPath), filename };
       }
-      // Remote URL: fetch and convert
+      // Remote URL: fetch and wrap with the server-declared content type
       const res = await fetch(mediaUrl, { signal: AbortSignal.timeout(10000) });
       if (res.ok) {
         const buf = Buffer.from(await res.arrayBuffer());
-        return { base64: buf.toString('base64'), filename: filename || 'product.jpg' };
+        const ct = (res.headers.get('content-type') || 'image/jpeg').split(';')[0].trim();
+        const mime = ct.startsWith('image/') ? ct : 'image/jpeg';
+        return { dataUrl: `data:${mime};base64,${buf.toString('base64')}`, filename };
       }
     }
   } catch (e) {
@@ -470,13 +488,16 @@ async function handleMessage(msg, config) {
       // Per-media safety net: a single failed image send must never poison
       // the whole showcase — failed images degrade to a text line with
       // the product name + price instead of killing the reply.
+      // NOTE: sendImageFromBase64, NOT sendImage — sendImage only accepts
+      // http URLs or local paths and THROWS on data URLs.
       const sendImageSafely = async (media, caption) => {
         try {
-          await msg.client.sendImage(userId, `data:image/jpeg;base64,${media.base64}`, media.filename || 'product.jpg', caption || '');
+          await msg.client.sendImageFromBase64(userId, media.dataUrl, media.filename || 'product.jpg', caption || '');
           return true;
         } catch (sendErr) {
-          const m = String(sendErr?.message || '');
-          console.warn(`[Handler] Image send failed (${m.slice(0, 80)}) — degrading gracefully.`);
+          // WPPConnect throws plain objects ({erro, text}) — .message is undefined
+          const m = String(sendErr?.message || sendErr?.text || (typeof sendErr === 'object' ? JSON.stringify(sendErr) : sendErr) || '');
+          console.warn(`[Handler] Image send failed (${m.slice(0, 120)}) — degrading gracefully.`);
           try {
             const fallbackText = caption
               ? String(caption).replace(/\n+/g, ' · ')

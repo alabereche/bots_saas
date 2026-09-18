@@ -238,6 +238,16 @@ app.post('/api/whatsapp/create', async (req, res) => {
     // Plan enforcement — WA bot slots per plan. Re-linking the SAME bot
     // never counts against the cap (it is excluded below).
     const limits = await billing.getLimits(config.userId);
+
+    // Channel lock: free plans run ONE channel per bot — a bot that
+    // already speaks Telegram (token + enabled) cannot gain WhatsApp.
+    if (limits.channelsPerBot === 1 && config.telegramToken && config.telegramEnabled !== false) {
+      return res.status(403).json({
+        code: 'PLAN_LIMIT',
+        error: 'هذا البوت يعمل على تيليغرام بالفعل — إضافة واتساب على نفس البوت متاحة في الباقة الاحترافية.',
+      });
+    }
+
     try {
       const owned = await firestore.getBotsByOwner(config.userId);
       const linked = (owned || []).filter(b =>

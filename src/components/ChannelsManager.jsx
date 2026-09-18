@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, Fragment } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
 import { auth } from '../services/firebase';
 import { COUNTRIES, getCountryByCode } from '../data/countries';
@@ -14,6 +15,7 @@ async function engineHeaders(json = true) {
 
 export default function ChannelsManager({ bot, onUpdateBot }) {
   const toast = useToast();
+  const navigate = useNavigate();
   
   // WhatsApp States
   const [waStatus, setWaStatus] = useState(bot?.whatsappStatus || 'not_initialized');
@@ -39,6 +41,20 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
   // Auto-following the engine's actual mode (QR vs phone code) stops as soon
   // as the user manually picks a tab — never fight them afterwards.
   const userPickedTabRef = useRef(false);
+
+  // Plan-aware channel gating (free = one channel per bot)
+  const [planLimits, setPlanLimits] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${WHATSAPP_ENGINE_URL}/api/billing/plan`, { headers: await engineHeaders(false) });
+        if (res.ok && !cancelled) setPlanLimits((await res.json()).limits || null);
+      } catch { /* gating stays server-side even if this fails */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
   
   // Phone inputs for pairing
   const initialCountry = getCountryByCode(bot?.country || 'DZ');
@@ -405,6 +421,11 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
 
   // Adds a channel to an existing bot — no re-creation, nothing lost
   const handleAddChannel = async (ch) => {
+    if (planLimits && planLimits.channelsPerBot === 1 && enabledChannels.length >= 1) {
+      toast.warning('القناة الثانية متاحة في الباقة الاحترافية — رقّ من صفحة الاشتراكات');
+      navigate('/billing');
+      return;
+    }
     try {
       const patch = { enabledChannels: [...enabledChannels, ch] };
       if (ch === 'whatsapp') { patch.whatsappEnabled = true; patch.whatsappStatus = 'not_initialized'; }
@@ -417,6 +438,9 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
   };
 
   const connectedCount = [isWaConnected, isTgConnected].filter(Boolean).length;
+  // Free plans run ONE channel per bot — the second channel card shows the
+  // lock with an upgrade path (the engines refuse it server-side too).
+  const channelLocked = !!(planLimits && planLimits.channelsPerBot === 1 && enabledChannels.length >= 1);
   const selectedCountry = getCountryByCode(selectedCountryCode);
   const waLinking = waStatus === 'waiting_scan' || waStatus === 'initializing';
   const ttlPercent = pairingTtlSeconds ? Math.max(0, Math.min(100, ((timeLeft || 0) / pairingTtlSeconds) * 100)) : 100;
@@ -577,8 +601,8 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
           const isWa = ch === 'whatsapp';
           return (
             <div key={ch} style={{
-              background: 'rgba(255, 255, 255, 0.015)',
-              border: '1.5px dashed rgba(255, 255, 255, 0.18)',
+              background: channelLocked ? 'rgba(16, 185, 129, 0.04)' : 'rgba(255, 255, 255, 0.015)',
+              border: channelLocked ? '1.5px dashed rgba(16, 185, 129, 0.45)' : '1.5px dashed rgba(255, 255, 255, 0.18)',
               borderRadius: '20px',
               padding: '1.5rem',
               display: 'flex',
@@ -598,12 +622,24 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
                 </div>
                 <div style={{ fontWeight: 800, fontSize: '1.02rem', color: 'var(--text-primary)', marginBottom: '4px' }}>
-                  إضافة قناة {isWa ? 'واتساب' : 'تيليغرام'} لهذا البوت
+                  {channelLocked ? 'قناة ' + (isWa ? 'واتساب' : 'تيليغرام') + ' — مقفلة' : 'إضافة قناة ' + (isWa ? 'واتساب' : 'تيليغرام') + ' لهذا البوت'}
                 </div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
-                  نمِّ بوتك: أضف هذه القناة في أي وقت — نفس العقل الذكي نفسه، بدون إعادة إنشاء وبدون فقدان محادثاتك وطلبياتك.
+                  {channelLocked
+                    ? 'باقتك تعمل بقناة واحدة لكل بوت. القناة الثانية تفتح مع الباقة الاحترافية — نفس البوت، العقل نفسه، بلا فقدان أي شيء.'
+                    : 'نمِّ بوتك: أضف هذه القناة في أي وقت — نفس العقل الذكي نفسه، بدون إعادة إنشاء وبدون فقدان محادثاتك وطلبياتك.'}
                 </div>
               </div>
+              {channelLocked ? (
+                <button
+                  className="btn btn-primary"
+                  onClick={() => navigate('/billing')}
+                  style={{ width: '100%', padding: '0.75rem', fontWeight: 800, gap: '8px' }}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+                  افتحها مع الاحترافية
+                </button>
+              ) : (
               <button
                 className="btn btn-secondary"
                 onClick={() => handleAddChannel(ch)}
@@ -612,6 +648,7 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
                 إضافة القناة
               </button>
+              )}
             </div>
           );
         })}

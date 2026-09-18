@@ -27,6 +27,7 @@ import { validateWebhookUrl } from './ssrf-guard.js';
 import { parseGeminiKeys, runKeyPool } from './gemini-pool.js';
 import { encrypt, decrypt } from './encryption.js';
 import { syncToGoogleSheets } from './sheetsSync.js';
+import { initBilling, getLimits, checkAndCountMessage, markLimitNotified, wasLimitNotified } from './billing.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -115,6 +116,10 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 const FieldValue = admin.firestore.FieldValue;
+initBilling(db, FieldValue);
+
+// Plan-gate notices are sent once per bot (never nag in a loop)
+const planGateNotified = new Set();
 
 // Active running bot instances: botId -> { bot, config }
 const activeBots = new Map();
@@ -565,11 +570,11 @@ function extractAndSaveOrder(botId, ownerUserId, customerId, customerName, rawRe
         price: validatedPrice,
         notes: str(orderData?.notes),
         orderSummary: cleanReply.slice(-500),
-      }, config?.orderMergeMode || 'merge').then((saved) => {
+      }, config?.orderMergeMode || 'merge').then(async (saved) => {
         if (!saved) return;
 
-        // Sync to Google Sheets
-        if (config) {
+        // Sync to Google Sheets — Pro capability (plan-checked)
+        if (config && (await getLimits(config.userId)).sheets) {
           syncToGoogleSheets(config, {
             event: 'new_order',
             isUpdate: !!saved.isUpdate,
@@ -640,11 +645,11 @@ function extractAndSaveLead(botId, ownerUserId, customerId, customerName, rawRep
         budget: lead.budget,
         leadStatus: lead.leadStatus,
         notes: lead.notes,
-      }).then((savedLead) => {
+      }).then(async (savedLead) => {
         if (!savedLead) return;
 
-        // Sync Lead to Google Sheets
-        if (config) {
+        // Sync Lead to Google Sheets — Pro capability (plan-checked)
+        if (config && (await getLimits(config.userId)).sheets) {
           syncToGoogleSheets(config, {
             event: 'new_lead',
             leadId: savedLead.id,
@@ -819,6 +824,24 @@ async function askAI(config, userId, userMessage, audioData = null) {
   const model = config.aiModel || 'gemini-3.5-flash-lite';
   const customKey = config.customApiKey || config.geminiApiKey || config.apiKey;
   const keys = customKey ? [customKey] : GEMINI_API_KEYS;
+
+  // ─── Plan enforcement: daily AI-message meter (counted right before
+  // the AI call — the tracking fast-path never burns quota) ───────────
+  const bill = await checkAndCountMessage(config);
+  if (!bill.allowed) {
+    if (!wasLimitNotified(config.id)) {
+      markLimitNotified(config.id);
+      db.collection('notifications').add({
+        userId: config.userId,
+        botId: config.id,
+        type: 'system',
+        title: 'بلغ البوت حدّ رسائل اليوم',
+        body: `توقف الرد التلقائي حتى نهاية اليوم بعد ${bill.limits.dailyMessages} رسالة. رقّ باقتك من صفحة الاشتراكات.`,
+      }).catch(() => {});
+    }
+    console.log(`[Billing] Daily cap reached for TG bot ${config.id} (${bill.limits.dailyMessages})`);
+    return `وصلتَ حدّ الرسائل اليومي لباقتك الحالية (${bill.limits.dailyMessages} رسالة). سأعود لخدمتك غداً — أو رقّ حسابك من لوحة التحكم في صفحة الاشتراكات.`;
+  }
 
   let reply;
   try {
@@ -1087,8 +1110,8 @@ async function startBot(config) {
               budget: '',
               leadStatus: 'hot',
               notes: userMessage.slice(0, 300),
-            }).then((savedLead) => {
-              if (savedLead && currentConfig) {
+            }).then(async (savedLead) => {
+              if (savedLead && currentConfig && (await getLimits(currentConfig.userId)).sheets) {
                 syncToGoogleSheets(currentConfig, {
                   event: 'new_lead',
                   leadId: savedLead.id,
@@ -1227,6 +1250,57 @@ async function stopBot(botId) {
 
 // ─── Realtime Firestore Sync ──────────────────────────────────
 
+// Plan gates for starting a TG bot: (1) TG slots per plan — counted from
+// THIS engine's running bots of the same owner; (2) the one-channel lock —
+// a free bot already linked on WhatsApp stays one-channel. Denials log
+// once and notify the owner once (never a loop).
+async function planGateTgStart(config) {
+  try {
+    const limits = await getLimits(config.userId);
+
+    if (limits.channelsPerBot === 1 &&
+        (config.whatsappStatus === 'connected' || config.whatsappNumber)) {
+      const key = 'chan:' + config.id;
+      if (!planGateNotified.has(key)) {
+        planGateNotified.add(key);
+        console.warn(`[Billing] TG start denied for ${config.id} — one-channel lock (free plan), WA already linked.`);
+        db.collection('notifications').add({
+          userId: config.userId,
+          botId: config.id,
+          type: 'system',
+          title: 'القناة الثانية متاحة في الباقة الاحترافية',
+          body: 'بوتك مرتبط على واتساب — إضافة تيليغرام على نفس البوت تتطلب الباقة الاحترافية.',
+        }).catch(() => {});
+      }
+      return false;
+    }
+
+    let sameOwnerRunning = 0;
+    for (const [, entry] of activeBots) {
+      if (entry.config?.userId === config.userId && entry.config?.id !== config.id) sameOwnerRunning++;
+    }
+    if (sameOwnerRunning >= limits.maxTGBots) {
+      const key = 'slots:' + config.userId;
+      if (!planGateNotified.has(key)) {
+        planGateNotified.add(key);
+        console.warn(`[Billing] TG start denied for ${config.id} — TG slots cap (${limits.maxTGBots}) reached for owner.`);
+        db.collection('notifications').add({
+          userId: config.userId,
+          botId: config.id,
+          type: 'system',
+          title: 'بلغت حدّ بوتات التيليغرام',
+          body: `باقتك تسمح بـ ${limits.maxTGBots} بوتات تيليغرام. رقّ حسابك من صفحة الاشتراكات لمزيد من البوتات.`,
+        }).catch(() => {});
+      }
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.warn('[Billing] TG gate error (allowing start):', e.message);
+    return true; // fail-open for availability; WA engine + rules still guard the plan field
+  }
+}
+
 function listenToBots() {
   console.log('[Engine] Subscribing to Firestore "bots" collection (Telegram sync) in realtime...');
 
@@ -1241,7 +1315,10 @@ function listenToBots() {
         currentBotIds.add(config.id);
         const isRunning = activeBots.has(config.id);
         if (config.isActive && !isRunning) {
-          startBot(config);
+          // Plan gates BEFORE launch: TG slots per plan + the one-channel
+          // lock (a bot already speaking on WhatsApp cannot gain Telegram
+          // on the free plan). Async, non-blocking for the snapshot loop.
+          planGateTgStart(config).then((allowed) => { if (allowed) startBot(config); });
         } else if (!config.isActive && isRunning) {
           stopBot(config.id);
         } else if (config.isActive && isRunning) {
@@ -1425,6 +1502,11 @@ app.post('/api/sheets/test-sync', async (req, res) => {
   }
   const botConfig = await requireBotAccess(res, req.uid, botId);
   if (!botConfig) return;
+  // Google Sheets is a Pro capability — enforced here, not in the UI
+  const sheetLimits = await getLimits(botConfig.userId);
+  if (!sheetLimits.sheets) {
+    return res.status(403).json({ code: 'PLAN_LIMIT', error: 'مزامنة Google Sheets متاحة في الباقة الاحترافية — رقّ حسابك من صفحة الاشتراكات.' });
+  }
   if (webhookUrl) {
     const ssrfError = validateWebhookUrl(webhookUrl);
     if (ssrfError) return res.status(400).json({ error: ssrfError });

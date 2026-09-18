@@ -38,6 +38,7 @@ const { setTakeover, getTakeoverMap } = require('./takeover');
 const trackingHelper = require('./tracking-helper');
 const ssrfGuard = require('./ssrf-guard');
 const selfUpdate = require('./selfUpdate');
+const billing = require('./billing');
 
 // Engine self-update is gated to the platform owner's uid ONLY — this
 // endpoint runs npm install and restarts the process, so it must never
@@ -232,6 +233,23 @@ app.post('/api/whatsapp/create', async (req, res) => {
   try {
     if (!getBotState(botId) && getAllBotStatuses().length >= MAX_CONCURRENT_BOTS) {
       return res.status(503).json({ error: 'المحرك ممتلئ حالياً — يرجى المحاولة لاحقاً' });
+    }
+
+    // Plan enforcement — WA bot slots per plan. Re-linking the SAME bot
+    // never counts against the cap (it is excluded below).
+    const limits = await billing.getLimits(config.userId);
+    try {
+      const owned = await firestore.getBotsByOwner(config.userId);
+      const linked = (owned || []).filter(b =>
+        b.id !== botId && (b.whatsappStatus === 'connected' || b.whatsappStatus === 'reconnecting'));
+      if (linked.length >= limits.maxWABots) {
+        return res.status(403).json({
+          error: `وصلت الحد الأقصى لبوتات واتساب في باقتك (${limits.maxWABots}). رقّ حسابك من صفحة الاشتراكات.`,
+          code: 'PLAN_LIMIT',
+        });
+      }
+    } catch (e) {
+      console.warn('[Billing] Bot-count check skipped:', e.message);
     }
 
     // Mode switch (QR -> phone pairing) while a link is already pending
@@ -449,6 +467,11 @@ app.post('/api/sheets/test-sync', async (req, res) => {
   }
   const bot = await requireBotAccess(res, req.uid, botId);
   if (!bot) return;
+  // Google Sheets sync is a Pro capability — enforced here, not in the UI
+  const sheetLimits = await billing.getLimits(bot.userId);
+  if (!sheetLimits.sheets) {
+    return res.status(403).json({ code: 'PLAN_LIMIT', error: 'مزامنة Google Sheets متاحة في الباقة الاحترافية — رقّ حسابك من صفحة الاشتراكات.' });
+  }
   if (webhookUrl) {
     const ssrfError = ssrfGuard.validateWebhookUrl(webhookUrl);
     if (ssrfError) return res.status(400).json({ error: ssrfError });
@@ -701,6 +724,65 @@ app.get('/health', (req, res) => {
 });
 
 
+// ─── Billing & Plans ─────────────────────────────────────────
+// GET /api/billing/plan — the caller's own plan, limits and today's usage.
+// isAdmin lets the dashboard show the manual-activation panel to the
+// platform owner ONLY (uid matched against SUPER_ADMIN_UID).
+app.get('/api/billing/plan', async (req, res) => {
+  try {
+    const plan = await billing.resolvePlan(req.uid);
+    const limits = billing.PLAN_LIMITS[plan];
+    const usage = await billing.getDailyUsageForUser(req.uid);
+    let profile = null;
+    try {
+      const snap = await db.collection('users').doc(req.uid).get();
+      if (snap.exists) {
+        profile = { planExpiresAt: snap.data().planExpiresAt || null };
+      }
+    } catch { /* profile optional */ }
+    res.json({
+      plan,
+      limits,
+      planExpiresAt: profile?.planExpiresAt || null,
+      usage,
+      isAdmin: SUPER_ADMIN_UID && req.uid === SUPER_ADMIN_UID,
+    });
+  } catch (err) {
+    console.error('[Billing] Plan status error:', err.message);
+    res.status(500).json({ error: 'تعذر جلب حالة الاشتراك' });
+  }
+});
+
+// POST /api/billing/activate — MANUAL activation (Phase 1): the owner
+// collects payment in his own WhatsApp/Telegram chat, then flips the
+// merchant's plan here. SUPER_ADMIN_UID-gated; the Admin SDK write is
+// the ONLY path that can change a plan (client writes are denied by rules).
+app.post('/api/billing/activate', async (req, res) => {
+  if (!requireSuperAdmin(req, res)) return;
+  const { uid, plan, months } = req.body || {};
+  if (!uid || typeof uid !== 'string') {
+    return res.status(400).json({ error: 'uid المستخدم مطلوب' });
+  }
+  if (!['free', 'pro'].includes(plan)) {
+    return res.status(400).json({ error: 'الخطة غير معروفة (free أو pro فقط)' });
+  }
+  try {
+    await billing.setPlan(uid, plan, Number(months) || 0);
+    if (plan === 'pro') {
+      await firestore.createNotification({
+        userId: uid,
+        type: 'system',
+        title: 'تم تفعيل الباقة الاحترافية',
+        body: 'أصبح حسابك احترافياً: ميزات أكثر وحدود أعلى. شكراً لثقتك بمنصتنا.',
+      }).catch(() => {});
+    }
+    res.json({ success: true, plan });
+  } catch (err) {
+    console.error('[Billing] Activate error:', err.message);
+    res.status(500).json({ error: 'تعذر تحديث الخطة' });
+  }
+});
+
 // Global Error Handler
 app.use((err, req, res, next) => {
   console.error('[Server] Unhandled error:', err.message);
@@ -732,8 +814,13 @@ async function runAbandonedRecoveryCron() {
 
       const delayHours = Number(bot.abandonedRecoveryDelayHours) || 2;
       const windowHours = Number(bot.abandonedRecoveryWindowHours) || 6;
-      // Merchant-chosen cap: how many reminders before stopping (1/2/3).
-      const maxReminders = Math.min(Math.max(Number(bot.abandonedRecoveryMaxCount) || 2, 1), 3);
+      // Merchant-chosen cap (1/2/3), CLAMPED by the plan: free plans can
+      // never exceed 1 reminder no matter what the bot doc carries.
+      const planLimits = await billing.getLimits(bot.userId);
+      const maxReminders = Math.min(
+        Math.min(Math.max(Number(bot.abandonedRecoveryMaxCount) || 2, 1), 3),
+        planLimits.maxReminders
+      );
       const leads = await firestore.findAbandonedLeads(bot.id, delayHours, windowHours, maxReminders);
       if (!leads || leads.length === 0) continue;
 

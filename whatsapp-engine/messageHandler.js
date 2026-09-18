@@ -13,6 +13,7 @@ const { isTakeoverActive } = require('./takeover');
 const trackingHelper = require('./tracking-helper');
 const { syncToGoogleSheets } = require('./sheetsSync');
 const { createBoundedCache } = require('./boundedCache');
+const billing = require('./billing');
 const path = require('path');
 const fs = require('fs');
 
@@ -421,6 +422,13 @@ async function handleMessage(msg, config) {
       }
     } catch (e) {}
 
+    // Plan enforcement: catalog size — the prompt only ever sees the
+    // first N products the plan allows, no matter what the doc carries.
+    const planLimits = (await billing.getLimits(liveConfig.userId));
+    if (Array.isArray(liveConfig.products) && liveConfig.products.length > planLimits.maxProducts) {
+      liveConfig = { ...liveConfig, products: liveConfig.products.slice(0, planLimits.maxProducts) };
+    }
+
     // ─── Fast-Path Tracking Engine (0 LLM Calls) ────────────────
     const trackingEnabled = liveConfig.features
       ? liveConfig.features.orderTracking !== false && liveConfig.features.orders !== false
@@ -461,6 +469,27 @@ async function handleMessage(msg, config) {
     };
 
     // Get AI response from Gemini (with audioData if available)
+    // ─── Plan enforcement: daily AI-message meter ────────────────
+    // Counted HERE, immediately before the AI call — the tracking
+    // fast-path above stays free (0 LLM calls) and never burns quota.
+    const bill = await billing.checkAndCountMessage(liveConfig);
+    if (!bill.allowed) {
+      if (!billing.wasLimitNotified(liveConfig.id)) {
+        billing.markLimitNotified(liveConfig.id);
+        await sendTextReply(msg, userId,
+          `وصلتَ حدّ الرسائل اليومي لباقتك الحالية (${bill.limits.dailyMessages} رسالة). سأعود لخدمتك غداً — أو رقّ حسابك من لوحة التحكم في صفحة الاشتراكات.`);
+        firestore.createNotification({
+          userId: liveConfig.userId,
+          botId: liveConfig.id,
+          type: 'system',
+          title: 'بلغ البوت حدّ رسائل اليوم',
+          body: `توقف الرد التلقائي حتى نهاية اليوم بعد ${bill.limits.dailyMessages} رسالة. رقّ باقتك من صفحة الاشتراكات لمتابعة الرد بلا انقطاع.`,
+        }).catch(() => {});
+      }
+      console.log(`[Billing] Daily message cap reached for bot ${liveConfig.id} (${bill.limits.dailyMessages}) — AI reply skipped.`);
+      return;
+    }
+
     const rawReply = await askOpenRouter(aiConfig, userId, userMessage, audioData);
 
     // Extract order if present
@@ -587,7 +616,8 @@ async function handleMessage(msg, config) {
         if (!saved) return;
 
         // Sync to Google Sheets / Webhook
-        syncToGoogleSheets(liveConfig, {
+        // Google Sheets is a Pro capability (plan-checked server-side)
+        if (bill.limits.sheets) syncToGoogleSheets(liveConfig, {
           event: 'new_order',
           isUpdate: !!saved.isUpdate,
           orderId: saved.id,
@@ -651,7 +681,7 @@ async function handleMessage(msg, config) {
         if (!savedLead) return;
 
         // Sync Lead to Google Sheets / Webhook
-        syncToGoogleSheets(liveConfig, {
+        if (bill.limits.sheets) syncToGoogleSheets(liveConfig, {
           event: 'new_lead',
           leadId: savedLead.id,
           customerName: lead.name || userName,
@@ -713,7 +743,7 @@ async function handleMessage(msg, config) {
         }).then(async (savedLead) => {
           if (!savedLead) return;
 
-          syncToGoogleSheets(liveConfig, {
+          if (bill.limits.sheets) syncToGoogleSheets(liveConfig, {
             event: 'new_lead',
             leadId: savedLead.id,
             customerName: userName || 'عميل محتمل',

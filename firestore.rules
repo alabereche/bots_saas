@@ -97,5 +97,14 @@ service cloud.firestore {
       allow update: if isDataOwner() && keepsIdentityData();
       allow delete: if isDataOwner();
     }
+
+    // ─── Daily plan usage (billing/usage counter) ─────────────────
+    // Written ONLY by the engines via the Admin SDK — a client can never
+    // reset or inflate its own daily message quota. Docs carry the
+    // owner's userId so he can read his own usage.
+    match /usage/{docId} {
+      allow read: if isDataOwner();
+      allow write: if false;
+    }
   }
 }

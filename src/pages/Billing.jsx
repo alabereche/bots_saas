@@ -361,18 +361,42 @@ export default function Billing() {
                 </p>
               )}
             </div>
-            <select className="form-select" value={actPlan} onChange={e => setActPlan(e.target.value)} style={{ width: 'auto' }}>
-              <option value="pro">احترافية</option>
-              <option value="free">مجانية (إلغاء)</option>
-            </select>
+            <div style={{ display: 'flex', gap: '0', borderRadius: 'var(--radius-md, 10px)', border: '1px solid var(--border-default)', overflow: 'hidden' }}>
+              {[['pro', 'احترافية'], ['free', 'مجانية']].map(([val, label]) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setActPlan(val)}
+                  style={{
+                    padding: '0.55rem 1rem', fontSize: '0.84rem', fontWeight: 700,
+                    border: 'none', cursor: 'pointer',
+                    background: actPlan === val ? 'var(--color-primary)' : 'var(--bg-cell)',
+                    color: actPlan === val ? '#05130d' : 'var(--text-secondary)',
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             {actPlan === 'pro' && (
-              <select className="form-select" value={actMonths} onChange={e => setActMonths(e.target.value)} style={{ width: 'auto' }}>
-                <option value="1">شهر</option>
-                <option value="3">3 أشهر</option>
-                <option value="6">6 أشهر</option>
-                <option value="12">سنة</option>
-                <option value="0">بلا انتهاء</option>
-              </select>
+              <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                {[['1', 'شهر'], ['3', '3 أشهر'], ['6', '6 أشهر'], ['12', 'سنة'], ['0', 'بلا انتهاء']].map(([val, label]) => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setActMonths(val)}
+                    style={{
+                      padding: '0.5rem 0.85rem', fontSize: '0.8rem', fontWeight: 700,
+                      borderRadius: 'var(--radius-full)', cursor: 'pointer',
+                      border: actMonths === val ? '1px solid var(--color-primary)' : '1px solid var(--border-default)',
+                      background: actMonths === val ? 'rgba(16, 185, 129, 0.14)' : 'var(--bg-cell)',
+                      color: actMonths === val ? 'var(--color-primary-light)' : 'var(--text-secondary)',
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             )}
             <button className="btn btn-primary" onClick={activate} disabled={activating || !actUser}>
               {activating ? 'جارٍ...' : 'تفعيل'}

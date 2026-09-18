@@ -22,9 +22,11 @@ const READY_LATE_CAP_MS = parseInt(process.env.HEALTH_READY_CAP_MS || '240000', 
 const LIVENESS_AFTER_SILENCE_MS = parseInt(process.env.HEALTH_LIVENESS_MINUTES || '60', 10) * 60 * 1000;
 const PROBE_TIMEOUT_MS = parseInt(process.env.HEALTH_PROBE_TIMEOUT_MS || '25000', 10);
 
-// States that mean the session is genuinely alive. SYNCING/STREAMING are
-// healthy-but-busy (long chat history sync); OPENING persistently is not.
-const LIVE_STATES = ['CONNECTED', 'SYNCING', 'STREAMING'];
+// States that mean the session is genuinely alive — WPPConnect SocketState
+// values (getConnectionState). PAIRING is the normal sync phase right after
+// the phone links; a truly unpaired session never has status 'connected'
+// (statusFind/onStateChange flip it to reconnecting first).
+const LIVE_STATES = ['CONNECTED', 'PAIRING'];
 
 let botManagerRef = null;
 let firestoreRef = null;
@@ -146,7 +148,8 @@ async function probeNow(botId, reason = 'manual') {
 
   try {
     const chats = await Promise.race([
-      state.client.getChats(),
+      // WPPConnect: getAllChats is the server round-trip (no getChats here)
+      (state.client.getAllChats ? state.client.getAllChats() : state.client.getChats()),
       new Promise((_, reject) =>
         setTimeout(() => reject(new Error(`liveness probe hung >${PROBE_TIMEOUT_MS}ms`)), PROBE_TIMEOUT_MS)
       ),

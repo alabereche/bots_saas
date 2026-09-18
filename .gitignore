@@ -33,3 +33,6 @@ whatsapp-engine/sessions/
 
 .vercel
 scratch/
+whatsapp-engine/tokens
+whatsapp-engine/sessions
+whatsapp-engine/.wwebjs_cache

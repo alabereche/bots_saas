@@ -40,7 +40,7 @@ function alreadyNotified(installed, latest) {
 
 function installedVersion() {
   try {
-    return require('whatsapp-web.js/package.json').version;
+    return require('@wppconnect-team/wppconnect/package.json').version;
   } catch {
     return null;
   }
@@ -51,7 +51,7 @@ function installedVersion() {
 // never be suggested until the pin is lifted deliberately
 function isPinnedExact() {
   try {
-    const spec = require('../package.json').dependencies['whatsapp-web.js'] || '';
+    const spec = require('./package.json').dependencies['@wppconnect-team/wppconnect'] || '';
     return /^[0-9]/.test(spec.trim());
   } catch {
     return false;
@@ -61,7 +61,7 @@ function isPinnedExact() {
 // Query the npm registry directly (no npm CLI, no login, fast)
 function fetchLatestVersion() {
   return new Promise((resolve, reject) => {
-    const req = https.get('https://registry.npmjs.org/whatsapp-web.js/latest', { timeout: 15000 }, (res) => {
+    const req = https.get('https://registry.npmjs.org/@wppconnect-team%2Fwppconnect/latest', { timeout: 15000 }, (res) => {
       let body = '';
       res.on('data', (chunk) => { body += chunk; });
       res.on('end', () => {
@@ -97,7 +97,7 @@ async function checkForUpdate() {
   return { installed, latest, updateAvailable };
 }
 
-// Runs `npm install whatsapp-web.js@latest` inside the engine dir, then
+// Runs `npm install @wppconnect-team/wppconnect@latest` inside the engine dir, then
 // exits so PM2 revives the engine on the fresh node_modules. Resolves
 // BEFORE the exit so the HTTP caller gets his answer first.
 async function performUpdate() {
@@ -111,7 +111,7 @@ async function performUpdate() {
   }
 
   await new Promise((resolve, reject) => {
-    execFile('npm', ['install', `whatsapp-web.js@${latest}`, '--no-audit', '--no-fund'], {
+    execFile('npm', ['install', `@wppconnect-team/wppconnect@${latest}`, '--no-audit', '--no-fund'], {
       cwd: ENGINE_DIR,
       timeout: NPM_TIMEOUT_MS,
       windowsHide: true,
@@ -120,7 +120,7 @@ async function performUpdate() {
         console.error('[SelfUpdate] npm install failed:', (stderr || err.message || '').slice(0, 300));
         reject(new Error('فشل تثبيت التحديث — راجع سجلات المحرك'));
       } else {
-        console.log(`[SelfUpdate] ✅ whatsapp-web.js upgraded to ${latest} — restarting engine via PM2`);
+        console.log(`[SelfUpdate] ✅ wppconnect upgraded to ${latest} — restarting engine via PM2`);
         resolve();
       }
     });

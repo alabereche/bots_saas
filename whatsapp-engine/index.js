@@ -29,6 +29,7 @@ const {
   restoreBotsOnStartup,
   getAllBotStatuses,
   healBot,
+  clearMerchantStop,
 } = require('./botManager');
 const firestore = require('./firestore');
 const { admin, db } = require('./firestore');
@@ -232,11 +233,18 @@ app.post('/api/whatsapp/create', async (req, res) => {
       return res.status(503).json({ error: 'المحرك ممتلئ حالياً — يرجى المحاولة لاحقاً' });
     }
 
-    const state = await createWhatsAppBot(botId, config, cleanPhone, !!cleanPhone);
+    // Fire-and-forget: wpp.create() BLOCKS until the QR is scanned (auto-close
+    // disabled), so awaiting it here would hold the HTTP request for minutes
+    // and die at the tunnel ceiling. The dashboard polls /qr instead — the QR
+    // arrives via the catchQR callback while this request is already answered.
+    clearMerchantStop(botId);
+    createWhatsAppBot(botId, config, cleanPhone, !!cleanPhone).catch(err => {
+      console.error(`[API] Background create failed for bot ${botId}:`, err.message);
+    });
 
     res.json({
       success: true,
-      status: state.status,
+      status: 'initializing',
       message: cleanPhone ? 'جاري توليد كود الربط السريع لهاتفك' : 'جاري تهيئة البوت، انتظر ظهور QR Code',
     });
   } catch (err) {
@@ -287,11 +295,18 @@ app.post('/api/whatsapp/:id/restart', async (req, res) => {
   const config = await requireBotAccess(res, req.uid, botId);
   if (!config) return;
   try {
-    await stopWhatsAppBot(botId);
-    const state = await createWhatsAppBot(botId, config);
+    // purge=false: a restart keeps the saved token — only an explicit
+    // unlink/stop purges the session.
+    await stopWhatsAppBot(botId, false);
+    // Fire-and-forget: same reasoning as /create — create() blocks until
+    // the QR is scanned when the token is missing or stale.
+    clearMerchantStop(botId);
+    createWhatsAppBot(botId, config).catch(err => {
+      console.error(`[API] Background restart failed for bot ${botId}:`, err.message);
+    });
     res.json({
       success: true,
-      status: state.status,
+      status: 'initializing',
       message: 'جاري إعادة تهيئة البوت',
     });
   } catch (err) {

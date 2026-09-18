@@ -13,6 +13,8 @@ const { isTakeoverActive } = require('./takeover');
 const trackingHelper = require('./tracking-helper');
 const { syncToGoogleSheets } = require('./sheetsSync');
 const { createBoundedCache } = require('./boundedCache');
+const path = require('path');
+const fs = require('fs');
 
 // ─── Robust JSON Parser (handles markdown codeblocks, whitespace, trailing commas) ───
 function parseRobustJson(raw) {
@@ -322,7 +324,7 @@ async function handleMessage(msg, config) {
     // Check if message is a voice note / audio (WPPConnect: type 'ptt'/'audio' or audio mimetype)
     const isAudio = msg.type === 'ptt' ||
                     msg.type === 'audio' ||
-                    msg.type === 'sticker' === false && !!(msg.mimetype && msg.mimetype.includes('audio'));
+                    !!(msg.mimetype && String(msg.mimetype).includes('audio'));
     const userMessage = (msg.body || '').trim();
 
     // Skip empty or non-text messages unless it is an audio/voice note
@@ -333,12 +335,19 @@ async function handleMessage(msg, config) {
     userId = msg.from;
     userName = msg._data?.notifyName || msg.notifyName || msg.userName || 'زبون واتساب';
 
-    // Fetch customer avatar URL if available (cached in memory)
+    // Fetch customer avatar URL if available (cached in memory).
+    // getProfilePicFromServer returns an OBJECT (img/imgFull/eurl) — keep the URL string.
     if (avatarCache.has(userId)) {
       userAvatar = avatarCache.get(userId);
     } else if (msg.client) {
       try {
-        userAvatar = await msg.client.getProfilePicFromServer(userId).catch(() => null);
+        const pic = await Promise.race([
+          msg.client.getProfilePicFromServer(userId),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('avatar timeout')), 8000)),
+        ]).catch(() => null);
+        userAvatar = (pic && typeof pic === 'object')
+          ? (pic.img || pic.imgFull || pic.eurl || null)
+          : (typeof pic === 'string' ? pic : null);
         avatarCache.set(userId, userAvatar || null);
       } catch {
         avatarCache.set(userId, null);
@@ -381,7 +390,7 @@ async function handleMessage(msg, config) {
 
     // If audio download failed completely and no text exists
     if (isAudio && !userMessage && !audioData) {
-      await sendTextReply(msg, userId, 'عذراً، لم أتمكن من تشغيل التسجيل الصوتي. هل يمكنك إعادة إرساله أو كتابة استفسارك؟ 🙏');
+      await sendTextReply(msg, userId, 'عذراً، لم أتمكن من تشغيل التسجيل الصوتي. هل يمكنك إعادة إرساله أو كتابة استفسارك؟');
       return;
     }
 
@@ -471,7 +480,7 @@ async function handleMessage(msg, config) {
           try {
             const fallbackText = caption
               ? String(caption).replace(/\n+/g, ' · ')
-              : '🛍️ منتج متوفر لدينا — أرسل «التفاصيل» لمعرفة المزيد';
+              : 'منتج متوفر لدينا — أرسل «التفاصيل» لمعرفة المزيد';
             await msg.client.sendText(userId, fallbackText);
           } catch { /* even text failed — nothing more we can do here */ }
           return false;
@@ -585,10 +594,10 @@ async function handleMessage(msg, config) {
           meta: { orderId: saved.id, trackingCode: saved.trackingCode },
         }).catch(() => {});
 
-        // WhatsApp self-message to the merchant
+        // WhatsApp self-message to the merchant (WPPConnect: getWid + sendText)
         try {
-          const selfJid = msg.client.info.wid._serialized;
-          await msg.client.sendMessage(selfJid,
+          const selfJid = await msg.client.getWid();
+          await msg.client.sendText(selfJid,
             `*طلبية جديدة!* #${saved.trackingCode}\n\n` +
             `الزبون: ${userName}\n` +
             `المنتج: ${order.product || '—'}` +
@@ -647,10 +656,10 @@ async function handleMessage(msg, config) {
           meta: { leadId: savedLead.id },
         }).catch(() => {});
 
-        // WhatsApp self-message to the merchant
+        // WhatsApp self-message to the merchant (WPPConnect: getWid + sendText)
         try {
-          const selfJid = msg.client.info.wid._serialized;
-          await msg.client.sendMessage(selfJid,
+          const selfJid = await msg.client.getWid();
+          await msg.client.sendText(selfJid,
             `*عميل محتمل جديد (Lead)!*\n\n` +
             `الاسم: ${lead.name || userName}\n` +
             (lead.phone ? `الهاتف: ${lead.phone}\n` : '') +

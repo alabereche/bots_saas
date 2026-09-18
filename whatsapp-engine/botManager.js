@@ -28,6 +28,50 @@ const lastDisconnectAt = new Map();
 const lastHealthyAt = new Map();
 const RESTART_DELAYS = [10000, 30000, 60000, 120000, 300000];
 
+// Bots the merchant deliberately stopped — self-healing must respect this
+const merchantStopped = new Set();
+
+function clearMerchantStop(botId) {
+  merchantStopped.delete(botId);
+}
+
+// ─── Unattended QR-wait reaper ────────────────────────────────
+// autoClose is disabled (it killed QR sessions mid-scan), so an abandoned
+// link would keep a Chromium page open indefinitely (~250MB each). Our own
+// reaper releases the browser when nobody scans within the window. It also
+// marks the bot merchant-stopped so the create-rejection does NOT schedule
+// a restart churn loop.
+const QR_WAIT_TIMEOUT_MS = parseInt(process.env.QR_WAIT_TIMEOUT_MINUTES || '10', 10) * 60 * 1000;
+const qrWaitTimers = new Map();
+
+function clearQrWaitTimeout(botId) {
+  const t = qrWaitTimers.get(botId);
+  if (t) {
+    clearTimeout(t);
+    qrWaitTimers.delete(botId);
+  }
+}
+
+function armQrWaitTimeout(botId, config) {
+  clearQrWaitTimeout(botId);
+  const t = setTimeout(async () => {
+    qrWaitTimers.delete(botId);
+    const st = activeBots.get(botId);
+    if (!st || st.status === 'connected') return;
+    console.log(`[BotManager] QR wait timeout (${Math.round(QR_WAIT_TIMEOUT_MS / 60000)}min) for "${config.botName}" — releasing browser.`);
+    merchantStopped.add(botId);
+    try {
+      await Promise.race([
+        st.client?.close(),
+        new Promise(r => setTimeout(r, 5000)),
+      ]);
+    } catch { /* best effort */ }
+    if (activeBots.get(botId) === st) activeBots.delete(botId);
+    firestore.updateBotStatus(botId, 'disconnected').catch(() => {});
+  }, QR_WAIT_TIMEOUT_MS);
+  qrWaitTimers.set(botId, t);
+}
+
 function cleanSession(botId) {
   try {
     const tokenDir = path.join(TOKENS_DIR, botId);
@@ -42,6 +86,7 @@ function cleanSession(botId) {
 
 // ─── Create a WhatsApp Bot (WPPConnect) ────────────────────────
 async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = false) {
+  clearQrWaitTimeout(botId);
   if (activeBots.has(botId)) {
     const existing = activeBots.get(botId);
     if (existing.status === 'connected' && !phoneNumber && !forceNew) {
@@ -75,6 +120,12 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
     const createOpts = {
       session: botId,
       folderNameToken: path.join(TOKENS_DIR, botId),
+      // Auto-close MUST be fully disabled: the 60s default (autoClose) and
+      // the 3min device-sync cap (deviceSyncTimeout) both kill the session
+      // before the merchant can scan the QR ("Auto Close Called").
+      autoClose: 0,
+      deviceSyncTimeout: 0,
+      logQR: false, // QR reaches the dashboard via catchQR — no ASCII floods in pm2 logs
       puppeteerOptions: {
         headless: true,
         args: [
@@ -93,8 +144,74 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
           '--window-size=1280,800',
         ],
       },
-      // Phone pairing: register by number + code instead of QR
-      ...(phoneNumber ? { phonePairing: { phoneNumber: String(phoneNumber) } } : {}),
+      // Phone pairing: top-level phoneNumber option + catchLinkCode callback
+      // (the 2.x API — NOT the invalid phonePairing object form)
+      ...(phoneNumber ? { phoneNumber: String(phoneNumber) } : {}),
+
+      // QR events fire DURING create() — before the promise resolves —
+      // so they must be captured here, not via listeners on the client.
+      catchQR: (base64Image, _asciiQr, attempt, urlCode) => {
+        console.log(`[BotManager] QR generated for "${config.botName}" (attempt ${attempt})`);
+        botState.qrCode = urlCode || botState.qrCode;
+        // base64Image is canvas.toDataURL() — directly renderable; fall back
+        // to encoding the urlCode ourselves if the canvas scrape failed.
+        if (typeof base64Image === 'string' && base64Image.startsWith('data:')) {
+          botState.qrDataUrl = base64Image;
+        } else if (urlCode) {
+          QRCode.toDataURL(urlCode, { width: 300, margin: 2 })
+            .then(url => { botState.qrDataUrl = url; })
+            .catch(() => {});
+        }
+        botState.status = 'waiting_scan';
+        armQrWaitTimeout(botId, config);
+      },
+
+      // Pairing code events also fire during create()
+      catchLinkCode: (code) => {
+        console.log(`[BotManager] Pairing code for "${config.botName}": ${code}`);
+        botState.pairingCode = code;
+        botState.pairingCodeExpiresAt = Date.now() + 180000;
+        botState.status = 'waiting_scan';
+        armQrWaitTimeout(botId, config);
+      },
+
+      // Authoritative lifecycle signals (the only "connected" truth)
+      statusFind: (status) => {
+        console.log(`[BotManager] WPPConnect status "${config.botName}": ${status}`);
+        if (status === 'inChat') {
+          botState.status = 'connected';
+          botState.qrCode = null;
+          botState.qrDataUrl = null;
+          botState.pairingCode = null;
+          botState.hadDisconnectNotice = false;
+          merchantStopped.delete(botId);
+          reconnectAttempts.delete(botId);
+          lastHealthyAt.set(botId, Date.now());
+          healthMonitor.markReady(botId);
+          healthMonitor.startWatch(botId);
+          // A revived session can be born paralyzed — probe it shortly
+          // after birth (the 9-hour silent-death autopsy lesson)
+          healthMonitor.scheduleBirthProbe(botId);
+          clearQrWaitTimeout(botId);
+          // Phone number is fetched after create() resolves (see below) —
+          // `client` is still uninitialized while statusFind fires.
+          firestore.updateBotStatus(botId, 'connected', {
+            whatsappConnectedAt: new Date().toISOString(),
+          }).catch(() => {});
+        } else if (status === 'qrReadSuccess') {
+          botState.status = 'syncing';
+        } else if (status === 'notLogged') {
+          if (botState.status !== 'connected') botState.status = 'waiting_scan';
+        } else if (status === 'isLogged') {
+          // Token restored — no scan needed; stay 'initializing' until inChat.
+        } else if (status === 'disconnectedMobile' || status === 'serverClose' || status === 'browserClose') {
+          handleDisconnect(botId, config, `statusFind: ${status}`);
+        }
+        // qrReadError / qrReadFail / autocloseCalled / phoneNotConnected:
+        // create() rejects on its own for the fatal ones — the catch below
+        // schedules the retry.
+      },
+
       log: (level, message) => {
         if (level === 'error') console.error(`[WPPConnect] ${message}`);
       },
@@ -103,22 +220,35 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
     const client = await wpp.create(createOpts);
     botState.client = client;
 
-    // ─── QR event (fresh links) ───
-    client.onQRCode?.((qrData) => {
-      console.log(`[BotManager] QR generated for "${config.botName}"`);
-      botState.qrCode = qrData;
-      QRCode.toDataURL(qrData, { width: 300, margin: 2 })
-        .then(url => { botState.qrDataUrl = url; })
-        .catch(() => {});
-      botState.status = 'waiting_scan';
-    });
+    // Connected via statusFind('inChat') during create — enrich the bot
+    // document with the linked phone number now that the client is live.
+    if (botState.status === 'connected') {
+      Promise.race([
+        client.getHostDevice(),
+        new Promise(r => setTimeout(r, 8000)),
+      ]).then(hd => {
+        const phoneNum = String(hd?.wid?.user || hd?.phone_number || '').replace(/\D/g, '');
+        if (phoneNum) {
+          firestore.updateBotStatus(botId, 'connected', {
+            whatsappNumber: phoneNum,
+            phoneNumber: phoneNum,
+          }).catch(() => {});
+        }
+      }).catch(() => {});
+    }
 
-    // ─── Phone pairing code event ───
-    client.onPairingCode?.((code) => {
-      console.log(`[BotManager] Pairing code for "${config.botName}": ${code}`);
-      botState.pairingCode = code;
-      botState.pairingCodeExpiresAt = Date.now() + 180000;
-      botState.status = 'waiting_scan';
+    // ─── Live connection-state changes (post-login) ───
+    client.onStateChange?.((state) => {
+      if (state === 'CONNECTED') {
+        healthMonitor.markReady(botId);
+        healthMonitor.startWatch(botId);
+      } else if (state === 'UNPAIRED' || state === 'UNPAIRED_IDLE') {
+        handleDisconnect(botId, config, `socket state: ${state}`);
+      } else if (state === 'CONFLICT' || state === 'TIMEOUT') {
+        console.warn(`[BotManager] Socket "${state}" for "${config.botName}" — healing.`);
+        const entry = activeBots.get(botId);
+        if (entry) healBot(botId, `socket state: ${state}`);
+      }
     });
 
     // ─── Incoming messages ───
@@ -150,63 +280,52 @@ async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = f
       });
     });
 
-    // ─── Status events (connected / disconnected) ───
-    client.onStatus?.((status) => {
-      console.log(`[BotManager] WPPConnect status "${config.botName}": ${status}`);
-      if (status === 'CONNECTED' || status === 'authenticated') {
-        botState.status = 'connected';
-        botState.qrCode = null;
-        botState.qrDataUrl = null;
-        botState.pairingCode = null;
-        healthMonitor.markReady(botId);
-        healthMonitor.startWatch(botId);
-        reconnectAttempts.delete(botId);
-        lastHealthyAt.set(botId, Date.now());
-
-        const phoneNum = client.getWideUserId?.() || '';
-        firestore.updateBotStatus(botId, 'connected', {
-          whatsappConnectedAt: new Date().toISOString(),
-          ...(phoneNum ? { whatsappNumber: phoneNum, phoneNumber: phoneNum } : {}),
-        }).catch(() => {});
-      }
-    });
-
-    if (client.onDisconnected) {
-      client.onDisconnected(async () => {
-        console.log(`[BotManager] Bot "${config.botName}" disconnected.`);
-        botState.status = 'reconnecting';
-        healthMonitor.stopWatch(botId);
-        lastDisconnectAt.set(botId, Date.now());
-        firestore.updateBotStatus(botId, 'reconnecting').catch(() => {});
-        if (config.userId && config.notificationsEnabled !== false) {
-          botState.hadDisconnectNotice = true;
-          firestore.createNotification({
-            userId: config.userId,
-            botId,
-            type: 'system',
-            title: 'انقطع اتصال واتساب — الإنقاذ التلقائي جارٍ',
-            body: `البوت "${config.botName}" فقد الاتصال. المحرك يعيد الاتصال تلقائياً بالجلسة المحفوظة — لا حاجة لأي خطوة منك.`,
-          }).catch(() => {});
-        }
-        if (activeBots.get(botId) === botState) activeBots.delete(botId);
-        scheduleAutoRestart(botId, config);
-      });
-    }
-
   } catch (err) {
     console.error(`[BotManager] WPPConnect init error for "${config.botName}":`, err.message);
     botState.status = 'error';
     firestore.updateBotStatus(botId, 'error').catch(() => {});
     if (activeBots.get(botId) === botState) activeBots.delete(botId);
+    // Transient init failures (browser crash, page closed) must self-heal —
+    // a retry regenerates the QR so the dashboard picks it up automatically.
+    if (!merchantStopped.has(botId)) {
+      scheduleAutoRestart(botId, config);
+    }
     throw err;
   }
 
   return botState;
 }
 
+// ─── Unified disconnect flow (socket states + statusFind) ─────
+function handleDisconnect(botId, config, reason = 'unknown') {
+  if (merchantStopped.has(botId)) return;
+  const botState = activeBots.get(botId);
+  if (!botState || botState.status === 'reconnecting') return;
+
+  console.log(`[BotManager] Bot "${config?.botName || botId}" disconnected (${reason}).`);
+  botState.status = 'reconnecting';
+  healthMonitor.stopWatch(botId);
+  lastDisconnectAt.set(botId, Date.now());
+  firestore.updateBotStatus(botId, 'reconnecting').catch(() => {});
+  if (config?.userId && config.notificationsEnabled !== false && !botState.hadDisconnectNotice) {
+    botState.hadDisconnectNotice = true;
+    firestore.createNotification({
+      userId: config.userId,
+      botId,
+      type: 'system',
+      title: 'انقطع اتصال واتساب — الإنقاذ التلقائي جارٍ',
+      body: `البوت "${config.botName}" فقد الاتصال. المحرك يعيد الاتصال تلقائياً بالجلسة المحفوظة — لا حاجة لأي خطوة منك.`,
+    }).catch(() => {});
+  }
+  if (activeBots.get(botId) === botState) activeBots.delete(botId);
+  scheduleAutoRestart(botId, config);
+}
+
 // ─── Stop Bot & Purge Session ─────────────────────────────────
 async function stopWhatsAppBot(botId, purgeSession = true) {
   // Merchant stop wins over every self-healing path
+  merchantStopped.add(botId);
+  clearQrWaitTimeout(botId);
   const pendingTimer = reconnectTimers.get(botId);
   if (pendingTimer) {
     clearTimeout(pendingTimer);
@@ -265,11 +384,17 @@ async function restoreBotsOnStartup() {
       return hasToken && (b.whatsappStatus === 'connected' || b.status === 'connected');
     });
     console.log(`[BotManager] Found ${whatsappBots.length} WhatsApp bot(s) to restore.`);
-    for (const bot of whatsappBots) {
-      await createWhatsAppBot(bot.id, bot).catch(err =>
-        console.error(`[BotManager] Restore failed for "${bot.botName}":`, err.message)
-      );
-    }
+    // Fire-and-forget with a stagger: wpp.create() BLOCKS until inChat, and
+    // an expired token can sit in QR-wait indefinitely — awaiting inside the
+    // loop would stall every bot after the first stale one. 5s between boots
+    // keeps the Chromium startup spike off the RAM ceiling.
+    whatsappBots.forEach((bot, i) => {
+      setTimeout(() => {
+        createWhatsAppBot(bot.id, bot).catch(err =>
+          console.error(`[BotManager] Restore failed for "${bot.botName}":`, err.message)
+        );
+      }, i * 5000);
+    });
   } catch (err) {
     console.error('[BotManager] Restore failed:', err.message);
   }
@@ -295,6 +420,7 @@ async function healBot(botId, reason = 'unhealthy') {
   console.warn(`[BotManager] Healing bot "${entry.config?.botName || botId}" — ${reason}`);
   lastDisconnectAt.set(botId, Date.now());
   reconnectTimers.delete(botId);
+  clearQrWaitTimeout(botId);
   try {
     await Promise.race([
       entry.client?.close(),
@@ -356,6 +482,7 @@ module.exports = {
   healBot,
   markHealthy,
   markUnhealthy,
+  clearMerchantStop,
 };
 
 // Wire the health monitor (injected to avoid a require cycle)

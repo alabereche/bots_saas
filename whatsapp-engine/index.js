@@ -708,6 +708,13 @@ app.use((err, req, res, next) => {
 });
 
 // ─── Abandoned Lead Recovery Background Worker ─────────────────
+// Undeliverable-target suppression: a broken JID ("No LID for user")
+// fails here every 10 minutes forever. After 3 consecutive failures for
+// the same bot+customer the target is silenced (logged once); a later
+// successful send clears the count.
+const REMINDER_FAILURE_LIMIT = parseInt(process.env.REMINDER_FAILURE_LIMIT || '3', 10);
+const reminderFailureCounts = new Map(); // "botId:customerId" -> consecutive failures
+
 async function runAbandonedRecoveryCron() {
   try {
     // Quiet hours: never nag customers at night (default 22:00 -> 08:00
@@ -736,6 +743,9 @@ async function runAbandonedRecoveryCron() {
         const { isTakeoverActive } = require('./takeover');
         if (isTakeoverActive(bot.id, lead.customerId)) continue;
 
+        const rKey = `${bot.id}:${lead.customerId}`;
+        if ((reminderFailureCounts.get(rKey) || 0) >= REMINDER_FAILURE_LIMIT) continue;
+
         const reminderMsg = bot.abandonedRecoveryMessage ||
           `مرحباً بك ${lead.userName || 'أخي الكريم'}، لاحظنا أنك كنت مهتماً بخدماتنا واستفسرت سابقاً. هل ما زلت بحاجة لأي استفسار أو ترغب في إتمام طلبك؟ نحن في خدمتك دائماً.`;
 
@@ -752,10 +762,17 @@ async function runAbandonedRecoveryCron() {
           });
 
           await firestore.recordAbandonedReminder(bot.id, lead.customerId);
+          reminderFailureCounts.delete(rKey);
           console.log(`[Recovery] Sent abandoned reminder to ${lead.customerId} for bot ${bot.id}`);
         } catch (sendErr) {
           maybeHealClient(bot.id, sendErr);
-          console.warn(`[Recovery] Failed to send reminder to ${lead.customerId}:`, sendErr.message);
+          const fails = (reminderFailureCounts.get(rKey) || 0) + 1;
+          reminderFailureCounts.set(rKey, fails);
+          if (fails >= REMINDER_FAILURE_LIMIT) {
+            console.warn(`[Recovery] Target ${lead.customerId} failed ${fails}x consecutively — suppressing its reminders (${sendErr.message}).`);
+          } else {
+            console.warn(`[Recovery] Failed to send reminder to ${lead.customerId}:`, sendErr.message);
+          }
         }
       }
     }
@@ -840,4 +857,52 @@ app.listen(PORT, '0.0.0.0', () => {
   }
   setTimeout(runUpdateCheck, 90 * 1000);
   setInterval(runUpdateCheck, 24 * 60 * 60 * 1000);
+
+  // ─── Deleted-bot reaper: the dashboard's bot-delete removes only the
+  // Firestore doc — without this watch the live session kept replying
+  // until the next restart. Any engine bot missing from the bots
+  // collection was deleted: stop it and purge its session immediately.
+  try {
+    db.collection('bots').onSnapshot((snap) => {
+      const live = new Set(snap.docs.map(d => d.id));
+      for (const s of getAllBotStatuses()) {
+        if (!live.has(s.id)) {
+          console.log(`[BotManager] Bot ${s.id} was deleted from the dashboard — stopping its live session.`);
+          stopWhatsAppBot(s.id, true).catch(err =>
+            console.error('[BotManager] Delete-stop failed:', err.message));
+        }
+      }
+    }, (err) => console.warn('[BotManager] Deletion watch unavailable:', err.message));
+  } catch (err) {
+    console.warn('[BotManager] Deletion watch failed to start:', err.message);
+  }
+
+  // ─── Disk guard: the silent killer alarm. A full disk corrupts Chromium
+  // session writes and looks exactly like a library bug (the week-long
+  // outage ran on a 98% disk). Alarm the owner at the threshold — rising
+  // edge only, so the bell gets ONE notification per crossing.
+  const DISK_ALERT_PERCENT = parseInt(process.env.DISK_ALERT_PERCENT || '90', 10);
+  let diskAlertAbove = false;
+  async function runDiskCheck() {
+    if (!SUPER_ADMIN_UID) return;
+    try {
+      const s = await fs.promises.statfs(__dirname);
+      const pct = Math.round((1 - s.bavail / s.blocks) * 100);
+      const above = pct >= DISK_ALERT_PERCENT;
+      if (above && !diskAlertAbove) {
+        await firestore.createNotification({
+          userId: SUPER_ADMIN_UID,
+          type: 'system',
+          title: 'مساحة القرص منخفضة',
+          body: `القرص ممتلئ بنسبة ${pct}% — نظف المساحة قريباً: سجلات pm2 وكاش npm وكاش كروميوم القديم أولويات التنظيف. الامتلاء الكامل يفسد جلسات واتساب المحفوظة.`,
+        }).catch(() => {});
+        console.warn(`[DiskGuard] ⚠️ Disk at ${pct}% — owner notified.`);
+      }
+      diskAlertAbove = above;
+    } catch (err) {
+      console.warn('[DiskGuard] Check failed:', err.message);
+    }
+  }
+  setTimeout(runDiskCheck, 2 * 60 * 1000);
+  setInterval(runDiskCheck, 3 * 60 * 60 * 1000);
 });

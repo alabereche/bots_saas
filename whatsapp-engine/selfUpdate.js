@@ -2,7 +2,7 @@
 // BotForge WhatsApp Engine — Self-Update Module
 //
 // THE root cause of WhatsApp breakages: WhatsApp Web's protocol drifts
-// ahead of the installed whatsapp-web.js copy — auth keeps working but
+// ahead of the installed @wppconnect-team/wppconnect copy — auth keeps working but
 // sync hangs and message events die. This module closes the loop:
 //
 //   checkForUpdate()  — installed vs latest on the npm registry

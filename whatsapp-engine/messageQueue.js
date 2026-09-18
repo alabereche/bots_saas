@@ -26,7 +26,7 @@ const queues = new Map(); // `${botId}:${from}` -> { items, timer, firstAt }
  * Buffer a customer message; the processor receives the burst once the
  * customer pauses (or immediately for media / max-wait).
  * @param {string} botId
- * @param {object} msg      raw whatsapp-web.js message
+ * @param {object} msg      raw engine message (WPPConnect-normalized)
  * @param {(items: object[], botId: string) => Promise<void>} processBatch
  */
 function enqueueCustomerMessage(botId, msg, processBatch) {

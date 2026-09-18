@@ -411,7 +411,7 @@ app.get('/api/takeover/:botId', async (req, res) => {
 
 // ─── Engine Self-Update (super admin only) ────────────────────
 
-// GET /api/engine/check-update — installed vs latest whatsapp-web.js
+// GET /api/engine/check-update — installed vs latest @wppconnect-team/wppconnect
 app.get('/api/engine/check-update', async (req, res) => {
   if (!requireSuperAdmin(req, res)) return;
   try {

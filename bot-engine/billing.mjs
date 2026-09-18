@@ -16,7 +16,7 @@ export function initBilling(db, FieldValue) {
 export const PLAN_LIMITS = {
   free: {
     maxWABots: 1,
-    maxTGBots: 3,
+    maxTGBots: 1,
     channelsPerBot: 1,
     dailyMessages: 50,
     maxProducts: 10,
@@ -28,7 +28,7 @@ export const PLAN_LIMITS = {
   },
   pro: {
     maxWABots: 5,
-    maxTGBots: 10,
+    maxTGBots: 8,
     channelsPerBot: 2,
     dailyMessages: 500,
     maxProducts: 500,

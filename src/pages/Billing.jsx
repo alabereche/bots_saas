@@ -12,7 +12,7 @@ async function engineHeaders(json = true) {
 }
 
 const FEATURE_ROWS = [
-  { key: 'bots', free: '1 واتساب + 3 تلغرام', pro: '5 واتساب + 10 تلغرام' },
+  { key: 'bots', free: 'بوت واحد — واتساب أو تلغرام', pro: '5 واتساب + 8 تلغرام' },
   { key: 'channels', free: 'قناة واحدة لكل بوت', pro: 'واتساب وتلغرام معاً' },
   { key: 'dailyMessages', free: '50 رسالة يومياً', pro: '500 رسالة يومياً' },
   { key: 'products', free: '10 منتجات في الكتالوج', pro: '500 منتج' },
@@ -207,7 +207,7 @@ export default function Billing() {
               رسائل اليوم عبر بوتاتك
             </span>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
-              {totalToday} / {limits.dailyMessages}
+              {totalToday} من {limits.dailyMessages}
             </span>
           </div>
           <div style={{ height: '8px', borderRadius: 'var(--radius-full)', background: 'var(--bg-cell)', border: '1px solid var(--border-subtle)', overflow: 'hidden' }}>

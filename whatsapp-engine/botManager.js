@@ -441,8 +441,25 @@ async function restoreBotsOnStartup() {
       const hasToken = fs.existsSync(path.join(TOKENS_DIR, b.id));
       return hasToken && (b.whatsappStatus === 'connected' || b.status === 'connected');
     });
-    console.log(`[BotManager] Found ${whatsappBots.length} WhatsApp bot(s) to restore.`);
-    // Fire-and-forget with a stagger: wpp.create() BLOCKS until inChat, and
+    // Orphan sweep BEFORE restoring: the dashboard's bot-delete removes only
+    // the Firestore doc — it never tells the engine — so every deleted bot
+    // left a full Chromium profile here forever (~50-200MB each, and they
+    // pile up across create/delete cycles). Any folder without a live bot
+    // is dead weight: sweep it at every boot.
+    const activeIds = new Set(bots.map(b => b.id));
+    const tokenEntries = fs.existsSync(TOKENS_DIR) ? fs.readdirSync(TOKENS_DIR) : [];
+    let swept = 0;
+    for (const entry of tokenEntries) {
+      if (!activeIds.has(entry)) {
+        fs.rmSync(path.join(TOKENS_DIR, entry), { recursive: true, force: true });
+        swept++;
+      }
+    }
+    if (swept > 0) {
+      console.log(`[BotManager] 🧹 Swept ${swept} orphaned token folder(s) (bots deleted from the dashboard).`);
+    }
+
+    console.log(`[BotManager] Found ${whatsappBots.length} WhatsApp bot(s) to restore.`);    // Fire-and-forget with a stagger: wpp.create() BLOCKS until inChat, and
     // an expired token can sit in QR-wait indefinitely — awaiting inside the
     // loop would stall every bot after the first stale one. 5s between boots
     // keeps the Chromium startup spike off the RAM ceiling.

@@ -558,6 +558,7 @@ module.exports = {
   markHealthy,
   markUnhealthy,
   clearMerchantStop,
+  isCreating,
 };
 
 // Wire the health monitor (injected to avoid a require cycle)

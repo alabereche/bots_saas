@@ -434,6 +434,11 @@ function getQRCode(botId) {
   };
 }
 
+
+function whatsappBotsWillRestore(bots) {
+  return bots.some((b) => fs.existsSync(path.join(TOKENS_DIR, b.id)) && process.platform !== 'win32');
+}
+
 async function restoreBotsOnStartup() {
   try {
     const bots = await firestore.getActiveBots();
@@ -464,6 +469,19 @@ async function restoreBotsOnStartup() {
     // dead one produces a QR through the normal catchQR flow. Deliberate
     // unlink purges the dir (not restored — correct), and paused
     // ('disabled') bots are excluded upstream by getActiveBots.
+
+    // BOOT-TIME ORPHAN PURGE: pm2 restart does not always reap the engine's
+    // Chromium children — a surviving one holds the token dir and poisons
+    // every restore attempt with the browser-lock ladder (the «Waiting
+    // failed» + «already running» exhaustion). At boot, ANY Chromium using
+    // our token dirs is an orphan by definition: clear them ALL before the
+    // first create, and give the OS a beat to release the locks.
+    if (whatsappBotsWillRestore(bots) && process.platform !== 'win32') {
+      console.log('[BotManager] 🧹 Boot sweep: clearing any orphan Chromium holding token dirs...');
+      await new Promise((resolve) => execFile('pkill', ['-f', 'whatsapp-engine/tokens'], () => resolve()));
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+
     const whatsappBots = bots.filter(b => fs.existsSync(path.join(TOKENS_DIR, b.id)));
     console.log(`[BotManager] Found ${whatsappBots.length} WhatsApp bot(s) to restore (by token presence).`);
     // Fire-and-forget with a stagger: wpp.create() BLOCKS until inChat, and

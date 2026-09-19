@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { uploadProductImage, deleteProductImage } from '../services/firebase';
 import { useToast } from '../context/ToastContext';
 

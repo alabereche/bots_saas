@@ -456,14 +456,19 @@ export async function updateOrderDelivery(botId, orderId, platform = 'whatsapp',
       if (!res.ok) {
         throw new Error(data.error || 'تعذر إرسال الإشعار من محرك البوت');
       }
+      // Tell the caller the truth: the engine may have skipped the
+      // notification (bot not connected / customer id missing)
       if (data.notificationSent === false && !data.alreadyProcessed) {
-        console.warn('[Firebase Service] Notification was not sent (bot may not be connected)');
+        console.warn('[Firebase Service] Notification was NOT dispatched (bot may not be connected)');
+        return { ok: true, notificationSent: false };
       }
+      return { ok: true, notificationSent: true };
     } catch (err) {
       console.warn('[Firebase Service] Delivery notification dispatch warning:', err.message);
       throw err;
     }
   }
+  return { ok: true, notificationSent: false };
 }
 
 // Delete single order

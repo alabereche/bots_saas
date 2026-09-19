@@ -1111,7 +1111,7 @@ export default function BotDetail() {
                     key={order.id}
                     order={order}
                     bot={bot}
-                    onUpdateDelivery={(orderId, payload) => updateOrderDelivery(bot.id, orderId, bot.platform || 'whatsapp', payload)}
+                    onUpdateDelivery={(orderId, payload) => updateOrderDelivery(bot.id, orderId, order.platform || bot.platform || 'whatsapp', payload)}
                   />
                 ))}
                 {visibleOrders.length === 0 && (
@@ -1636,16 +1636,23 @@ function OrderDeliveryItem({ order, bot, onUpdateDelivery }) {
     if (key === status || busyStatus) return;
     setBusyStatus(key);
     try {
-      await onUpdateDelivery(order.id, {
+      const result = await onUpdateDelivery(order.id, {
         deliveryStatus: key,
         provider,
         trackingNumber,
         notifyCustomer: notify && !!order.customerId,
         note: `الحالة: ${voice[key].label}`,
       });
-      toast.success(notify && order.customerId
-        ? `تم التحديث إلى «${voice[key].label}» وأُرسل إشعار للزبون`
-        : `تم التحديث إلى «${voice[key].label}»`);
+      // The engine tells the truth: a skipped dispatch (bot offline, no
+      // customer id) must never be announced as a success
+      const dispatched = !(notify && order.customerId) || result?.notificationSent !== false;
+      if (!dispatched) {
+        toast.warning(`حُدّثت الحالة إلى «${voice[key].label}» لكن لم يُرسل الإشعار — تأكد أن البوت متصل ثم أعد الضغط`);
+      } else {
+        toast.success(notify && order.customerId
+          ? `تم التحديث إلى «${voice[key].label}» وأُرسل إشعار للزبون`
+          : `تم التحديث إلى «${voice[key].label}»`);
+      }
     } catch (e) {
       toast.error('فشل تحديث الحالة: ' + e.message);
     } finally {

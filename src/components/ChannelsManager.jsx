@@ -478,6 +478,15 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
         {/* 1. WhatsApp Card — shown only if enabled for this bot */}
         {enabledChannels.includes('whatsapp') && (
         <div className={`channel-card channel-card--whatsapp ${isWaConnected ? 'is-connected' : ''}`} style={{ background: 'rgba(17, 17, 16, 0.72)', border: isWaConnected ? '1px solid rgba(37, 211, 102, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '20px', padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        {bot?.telegramGateDenied && (
+          <div style={{
+            background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.35)',
+            borderRadius: '12px', padding: '0.6rem 0.9rem', marginBottom: '0.8rem',
+            fontSize: '0.82rem', color: '#f87171', fontWeight: 700,
+          }}>
+            لم يشغّل المحرك تيليغرام: {bot.telegramGateDenied} — أزل ربط واتساب أو رقّ باقتك.
+          </div>
+        )}
           <div>
             <div className="channel-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <div className="channel-card-brand" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

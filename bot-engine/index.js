@@ -1272,6 +1272,12 @@ async function planGateTgStart(config) {
           body: 'بوتك مرتبط على واتساب — إضافة تيليغرام على نفس البوت تتطلب الباقة الاحترافية.',
         }).catch(() => {});
       }
+      // Announce the denial on the bot doc so the dashboard can tell the
+      // truth (token saved != bot running)
+      db.collection('bots').doc(config.id).set(
+        { telegramGateDenied: 'القناة الثانية متاحة في الباقة الاحترافية' },
+        { merge: true }
+      ).catch(() => {});
       return false;
     }
 
@@ -1293,7 +1299,15 @@ async function planGateTgStart(config) {
         }).catch(() => {});
       }
       return false;
+      db.collection('bots').doc(config.id).set(
+        { telegramGateDenied: 'بلغت حدّ بوتات التيليغرام في باقتك' },
+        { merge: true }
+      ).catch(() => {});
     }
+    db.collection('bots').doc(config.id).set(
+      { telegramGateDenied: null },
+      { merge: true }
+    ).catch(() => {});
     return true;
   } catch (e) {
     console.warn('[Billing] TG gate error (allowing start):', e.message);

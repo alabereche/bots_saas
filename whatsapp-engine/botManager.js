@@ -73,6 +73,7 @@ function armQrWaitTimeout(botId, config) {
         await killPendingBrowser(botId);
       }
     } catch { /* best effort */ }
+    clearStaleLocks(botId);
     if (activeBots.get(botId) === st) activeBots.delete(botId);
     firestore.updateBotStatus(botId, 'disconnected').catch(() => {});
   }, QR_WAIT_TIMEOUT_MS);

@@ -437,10 +437,6 @@ function getQRCode(botId) {
 async function restoreBotsOnStartup() {
   try {
     const bots = await firestore.getActiveBots();
-    const whatsappBots = bots.filter(b => {
-      const hasToken = fs.existsSync(path.join(TOKENS_DIR, b.id));
-      return hasToken && (b.whatsappStatus === 'connected' || b.status === 'connected');
-    });
     // Orphan sweep BEFORE restoring: the dashboard's bot-delete removes only
     // the Firestore doc — it never tells the engine — so every deleted bot
     // left a full Chromium profile here forever (~50-200MB each, and they
@@ -459,7 +455,18 @@ async function restoreBotsOnStartup() {
       console.log(`[BotManager] 🧹 Swept ${swept} orphaned token folder(s) (bots deleted from the dashboard).`);
     }
 
-    console.log(`[BotManager] Found ${whatsappBots.length} WhatsApp bot(s) to restore.`);    // Fire-and-forget with a stagger: wpp.create() BLOCKS until inChat, and
+    // Restore by TOKEN PRESENCE, not by the stored status label. The label
+    // ('error'/'disconnected') gets written by transient failures (browser
+    // lock ladders, the unattended-QR reaper, crash recovery) — trusting it
+    // made every engine restart abandon bots whose tokens were perfectly
+    // valid, which read to the owner as "every update breaks the linking".
+    // The token dir is the truth: a valid token reconnects in seconds; a
+    // dead one produces a QR through the normal catchQR flow. Deliberate
+    // unlink purges the dir (not restored — correct), and paused
+    // ('disabled') bots are excluded upstream by getActiveBots.
+    const whatsappBots = bots.filter(b => fs.existsSync(path.join(TOKENS_DIR, b.id)));
+    console.log(`[BotManager] Found ${whatsappBots.length} WhatsApp bot(s) to restore (by token presence).`);
+    // Fire-and-forget with a stagger: wpp.create() BLOCKS until inChat, and
     // an expired token can sit in QR-wait indefinitely — awaiting inside the
     // loop would stall every bot after the first stale one. 5s between boots
     // keeps the Chromium startup spike off the RAM ceiling.

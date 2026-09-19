@@ -101,26 +101,6 @@ function cleanSession(botId) {
   }
 }
 
-// ─── Deterministic WA-Web build ───────────────────────────────
-// The library default pattern (2.3000.10305x) matches NOTHING in the
-// installed wa-version archive, so every boot fell back to the LIVE
-// latest web.whatsapp.com — heavy, and its wapi.js injection flapped
-// past the 30s window under load. Pinning the newest build that actually
-// exists in the local archive makes the page deterministic and offline:
-// same bytes every boot, served from disk.
-function resolveWhatsappVersion() {
-  try {
-    const htmlDir = path.join(__dirname, 'node_modules', '@wppconnect', 'wa-version', 'html');
-    const files = fs.readdirSync(htmlDir).filter((f) => f.endsWith('.html'));
-    if (files.length === 0) return undefined;
-    const stable = files.filter((f) => !f.includes('alpha'));
-    const chosen = (stable.length ? stable : files).sort().pop();
-    return chosen.replace('.html', '');
-  } catch {
-    return undefined; // library default
-  }
-}
-
 // ─── Create a WhatsApp Bot (WPPConnect) ────────────────────────
 // Join-or-refuse gate: two concurrent creates on one bot would launch TWO
 // Chromiums on the same token dir ("browser is already running") and the
@@ -191,7 +171,6 @@ async function createWhatsAppBotInner(botId, config, phoneNumber = null, forceNe
       // before the merchant can scan the QR ("Auto Close Called").
       autoClose: 0,
       deviceSyncTimeout: 0,
-      whatsappVersion: resolveWhatsappVersion(),
       logQR: false, // QR reaches the dashboard via catchQR — no ASCII floods in pm2 logs
       puppeteerOptions: {
         headless: true,

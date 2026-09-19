@@ -440,7 +440,12 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
   const connectedCount = [isWaConnected, isTgConnected].filter(Boolean).length;
   // Free plans run ONE channel per bot — the second channel card shows the
   // lock with an upgrade path (the engines refuse it server-side too).
-  const channelLocked = !!(planLimits && planLimits.channelsPerBot === 1 && enabledChannels.length >= 1);
+  const oneChannelPlan = !!(planLimits && planLimits.channelsPerBot === 1);
+  const channelLocked = !!(oneChannelPlan && enabledChannels.length >= 1);
+  // HARD lock: with a channel linked, the OTHER channel's actions are
+  // disabled until it is disconnected — upgrade to run both.
+  const tgCardLocked = oneChannelPlan && isWaConnected;
+  const waCardLocked = oneChannelPlan && isTgConnected;
   const selectedCountry = getCountryByCode(selectedCountryCode);
   const waLinking = waStatus === 'waiting_scan' || waStatus === 'initializing';
   const ttlPercent = pairingTtlSeconds ? Math.max(0, Math.min(100, ((timeLeft || 0) / pairingTtlSeconds) * 100)) : 100;
@@ -478,15 +483,6 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
         {/* 1. WhatsApp Card — shown only if enabled for this bot */}
         {enabledChannels.includes('whatsapp') && (
         <div className={`channel-card channel-card--whatsapp ${isWaConnected ? 'is-connected' : ''}`} style={{ background: 'rgba(17, 17, 16, 0.72)', border: isWaConnected ? '1px solid rgba(37, 211, 102, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '20px', padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-        {bot?.telegramGateDenied && (
-          <div style={{
-            background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.35)',
-            borderRadius: '12px', padding: '0.6rem 0.9rem', marginBottom: '0.8rem',
-            fontSize: '0.82rem', color: '#f87171', fontWeight: 700,
-          }}>
-            لم يشغّل المحرك تيليغرام: {bot.telegramGateDenied} — أزل ربط واتساب أو رقّ باقتك.
-          </div>
-        )}
           <div>
             <div className="channel-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <div className="channel-card-brand" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -544,6 +540,15 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
                   فصل
                 </button>
               </>
+            ) : waCardLocked ? (
+              <button
+                className="btn btn-primary"
+                onClick={() => navigate('/billing')}
+                style={{ width: '100%', padding: '0.75rem', fontWeight: 800, gap: '8px', border: '1px solid rgba(16, 185, 129, 0.45)', background: 'rgba(16, 185, 129, 0.1)', color: 'var(--color-primary-light)' }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+                مقفلة — افصل تيليغرام أو رقّ للقناتين
+              </button>
             ) : (
               <button className="btn btn-primary" onClick={() => setShowWaModal(true)} style={{ width: '100%', background: 'linear-gradient(135deg, #25d366 0%, #128c7e 100%)', borderColor: 'transparent', padding: '0.75rem', fontWeight: 800, color: 'var(--text-on-fill)', gap: '8px' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
@@ -573,8 +578,8 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
               </div>
 
               <span className={`channel-status-pill ${isTgConnected ? 'channel-status-pill--online' : 'channel-status-pill--offline'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <span className={`channel-dot ${isTgConnected ? 'channel-dot--online' : 'channel-dot--offline'}`} />
-                <span>{isTgConnected ? 'متصل' : 'غير متصل'}</span>
+                <span className={`channel-dot ${tgCardLocked ? 'channel-dot--reconnecting' : isTgConnected ? 'channel-dot--online' : 'channel-dot--offline'}`} />
+                <span>{tgCardLocked ? 'مقفلة — باقة القناة الواحدة' : isTgConnected ? 'متصل' : 'غير متصل'}</span>
               </span>
             </div>
 
@@ -585,8 +590,31 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
             </p>
           </div>
 
+          {tgCardLocked && (
+            <div style={{
+              background: 'rgba(16, 185, 129, 0.07)', border: '1px solid rgba(16, 185, 129, 0.4)',
+              borderRadius: '12px', padding: '0.7rem 0.9rem', marginBottom: '0.8rem',
+              fontSize: '0.82rem', color: 'var(--color-primary-light)', fontWeight: 700, lineHeight: 1.6,
+            }}>
+              بوتك مرتبط على واتساب — لتشغيل تيليغرام على نفس البوت افصل واتساب أولاً، أو رقّ إلى الباقة الاحترافية لتشغيل القناتين معاً.
+            </div>
+          )}
           <div style={{ display: 'flex', gap: '8px', paddingTop: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
-            {isTgConnected ? (
+            {tgCardLocked ? (
+              <>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => navigate('/billing')}
+                  style={{ flex: 1.4, padding: '0.65rem', fontWeight: 800, gap: '8px' }}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+                  ترقية للقناتين
+                </button>
+                <button className="btn btn-secondary btn-sm" onClick={handleTgDisconnect} style={{ flex: 1, color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.25)' }}>
+                  فصل
+                </button>
+              </>
+            ) : isTgConnected ? (
               <>
                 <button className="btn btn-secondary btn-sm" onClick={() => setShowTgModal(true)} style={{ flex: 1, padding: '0.65rem' }}>
                   تعديل الـ Token

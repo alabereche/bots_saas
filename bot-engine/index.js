@@ -1339,6 +1339,13 @@ function listenToBots() {
           // Update config reference
           const entry = activeBots.get(config.id);
           if (entry) entry.config = config;
+          // Stale denial cleanup: a running bot proves its gate passed —
+          // an old telegramGateDenied (written pre-upgrade) must not haunt
+          if (config.telegramGateDenied) {
+            db.collection('bots').doc(config.id)
+              .set({ telegramGateDenied: null }, { merge: true })
+              .catch(() => {});
+          }
         }
       }
     });

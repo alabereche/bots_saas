@@ -437,7 +437,10 @@ function getQRCode(botId) {
 
 
 function whatsappBotsWillRestore(bots) {
-  return bots.some((b) => fs.existsSync(path.join(TOKENS_DIR, b.id)) && process.platform !== 'win32');
+  // ALWAYS true on linux: the sweep must run even on a token-less boot
+  // (fresh install / post-surgery) — orphans from the previous era keep
+  // eating CPU and every new link boots under contention.
+  return process.platform !== 'win32';
 }
 
 async function restoreBotsOnStartup() {

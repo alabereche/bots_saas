@@ -6547,3 +6547,36 @@ html, body {
 .tabs-nav-btn--right { right: 8px; }
 [data-theme=light] .tabs-nav-btn { background: #ffffff; border-color: rgba(15, 23, 42, 0.18); color: #1f2937; }
 [data-theme=light] .tabs-nav-btn:hover { background: #f1f3f2; }
+
+/* ═══ Mobile Viewport Stability (address-bar jitter fix) ═══════════
+   Mobile browsers resize the layout viewport when the address bar
+   hides/shows, so anything sized with 100vh re-lays-out mid-scroll and
+   the fixed wallpaper layers visibly jitter. Three surgeries, zero
+   visual change on desktop:
+   1. Fixed wallpaper layers get a CONSTANT height (100lvh = largest
+      viewport): they never resize; the extra bottom strip simply hides
+      behind the address bar. (With inset:0 + explicit height, the
+      height wins over the bottom edge — exactly what we want.)
+   2. In-flow full-height roots reference the SMALL viewport (100svh):
+      the page height stops breathing with the bar.
+   3. Overscroll bounce and horizontal drift are disabled. */
+html {
+  overscroll-behavior-y: none;
+}
+body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+.ambient-depth-bg,
+.modern-bg-container {
+  height: 100vh;
+  height: 100lvh; /* constant even as the mobile address bar toggles */
+  will-change: transform;
+}
+.app-layout,
+.app-main,
+.landing-page-root,
+.lp2-root {
+  min-height: 100vh;
+  min-height: 100svh; /* stable small-viewport reference */
+}

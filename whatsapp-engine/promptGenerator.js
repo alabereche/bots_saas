@@ -84,8 +84,28 @@ function buildSystemPrompt(config) {
         line += " (عرض خاص: بدلاً من " + p.oldPrice + " " + currency + " — خصم " + Math.round((1 - np / op) * 100) + "%)";
       }}
       if (p.description) line += " | " + p.description;
+      // Stock tiers: the customer-facing language is qualitative (متوفر /
+      // آخر قطع / نفذت الكمية) — the exact number is disclosed ONLY when
+      // the customer asks for it explicitly.
+      if (p.stock !== null && p.stock !== undefined) {
+        if (p.stock === 0) {
+          line += " | حالة المخزون: نفذت الكمية";
+        } else if (p.stock <= 3) {
+          line += " | حالة المخزون: آخر قطع متبقية!";
+        } else {
+          line += " | حالة المخزون: متوفر";
+        }
+      }
       prompt += line + "\n";
     }});
+    const managedStock = (config.products || []).filter(p => p && p.stock !== null && p.stock !== undefined);
+    if (managedStock.some(p => p.stock === 0) || managedStock.some(p => p.stock > 0 && p.stock <= 3)) {
+      prompt += "\n### قواعد المخزون (إلزامية)\n";
+      prompt += "- المنتج الذي حالته (نفذت الكمية): **ممنوع منعاً باتاً** بيعه أو الوعد به أو عرض صوره — اعتذر بلطف واقترح بديلاً متوفراً من الكتالوج.\n";
+      prompt += "- المنتج الذي حالته (آخر قطع متبقية): ذكّر الزبون بالندرة بلغة إلحاح لطيفة — هذا دافع شراء مشروع.\n";
+      prompt += "- إذا سأل الزبون صراحة عن الكمية الدقيقة المتبقية، اذكر الرقم الحقيقي بصدق.\n";
+      prompt += "- إذا طلب الزبون منتجاً نفد، اعرض حفظ طلبه وإبلاغه عند عودة التوفر (التزم، فهذا يبني الثقة).\n";
+    }
     prompt += "تنبيه: المعرف بين الأقواس أعلاه للتوثيق الداخلي فقط — **ممنوع منعاً باتاً** كتابته في ردودك كنص (مثل [prod_xxx]) — الزبون لا يرى المعرفات. لعرض صورة المنتج استخدم الوسم الصحيح من القاعدة 6 بالأسفل حرفياً.\n";
     prompt += "\n### قواعد العرض الذكي والتنسيق الاحترافي (RTL):\n";
     prompt += "1. **قاعدة استقامة الأسطر (منع انكسار النصوص والأسعار)**: في واتساب وتيليغرام، وضع النجوم (*) أو الأقواس وسط الكلمات الأجنبية يكسر السطر ويشوه السعر. لذلك:\n";

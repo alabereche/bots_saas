@@ -615,6 +615,11 @@ async function handleMessage(msg, config) {
       }, config.orderMergeMode || 'merge').then(async (saved) => {
         if (!saved) return;
 
+        // v1 stock: every confirmed order consumes one unit
+        if (order.product) {
+          firestore.adjustProductStock(config.id, order.product, -1, config.userId).catch(() => {});
+        }
+
         // Sync to Google Sheets / Webhook
         // Google Sheets is a Pro capability (plan-checked server-side)
         if (bill.limits.sheets) syncToGoogleSheets(liveConfig, {

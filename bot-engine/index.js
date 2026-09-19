@@ -27,7 +27,7 @@ import { validateWebhookUrl } from './ssrf-guard.js';
 import { parseGeminiKeys, runKeyPool } from './gemini-pool.js';
 import { encrypt, decrypt } from './encryption.js';
 import { syncToGoogleSheets } from './sheetsSync.js';
-import { initBilling, getLimits, checkAndCountMessage, markLimitNotified, wasLimitNotified } from './billing.mjs';
+import { initBilling, getLimits, checkAndCountMessage, markLimitNotified, wasLimitNotified, adjustProductStock } from './billing.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -572,6 +572,9 @@ function extractAndSaveOrder(botId, ownerUserId, customerId, customerName, rawRe
         orderSummary: cleanReply.slice(-500),
       }, config?.orderMergeMode || 'merge').then(async (saved) => {
         if (!saved) return;
+
+        // v1 stock: every confirmed order consumes one unit
+        if (product) adjustProductStock(botId, product, -1, ownerUserId).catch(() => {});
 
         // Sync to Google Sheets — Pro capability (plan-checked)
         if (config && (await getLimits(config.userId)).sheets) {
@@ -1590,6 +1593,13 @@ app.post('/api/orders/:id/delivery-status', async (req, res) => {
 
   const order = updateResult.order;
   let notificationSent = false;
+
+  // Stock restore: cancelled/returned gives the unit back — exactly once
+  // per order (stockRestored flag on the order doc survives re-presses).
+  if (order && deliveryStatus === 'cancelled' && order.product && !order.stockRestored) {
+    await adjustProductStock(botId, order.product, +1, order.ownerUserId || order.userId || botConfig.userId).catch(() => {});
+    db.collection('orders').doc(orderId).set({ stockRestored: true }, { merge: true }).catch(() => {});
+  }
 
   if (notifyCustomer && order && order.customerId && !updateResult.alreadyProcessed) {
     try {

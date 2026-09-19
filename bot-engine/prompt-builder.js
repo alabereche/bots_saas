@@ -76,6 +76,16 @@ function buildSystemPrompt(config) {
         line += " (عرض خاص: بدلاً من " + p.oldPrice + " " + currency + " — خصم " + Math.round((1 - np / op) * 100) + "%)";
       }}
       if (p.description) line += " | " + p.description;
+      // Stock tiers (qualitative — exact number only on explicit ask)
+      if (p.stock !== null && p.stock !== undefined) {
+        if (p.stock === 0) {
+          line += " | حالة المخزون: نفذت الكمية";
+        } else if (p.stock <= 3) {
+          line += " | حالة المخزون: آخر قطع متبقية!";
+        } else {
+          line += " | حالة المخزون: متوفر";
+        }
+      }
       prompt += line + "\n";
     }});
     prompt += "\n### قواعد العرض الذكي والتنسيق الاحترافي (RTL):\n";
@@ -98,6 +108,15 @@ function buildSystemPrompt(config) {
     prompt += "7. إذا طلب صوراً إضافية صراحة: وضع في آخر سطر:\n[SHOW_PRODUCT_GALLERY:معرف_المنتج]\n";
     prompt += "8. استخدم المعرف المكتوب بين القوسين فقط. لا تضع روابط URL إطلاقاً.\n";
   }
+  const managedStock = (config.products || []).filter(p => p && p.stock !== null && p.stock !== undefined);
+  if (managedStock.some(p => p.stock === 0) || managedStock.some(p => p.stock > 0 && p.stock <= 3)) {
+    prompt += "\n### قواعد المخزون (إلزامية)\n";
+    prompt += "- المنتج الذي حالته (نفذت الكمية): **ممنوع منعاً باتاً** بيعه أو الوعد به أو عرض صوره — اعتذر بلطف واقترح بديلاً متوفراً من الكتالوج.\n";
+    prompt += "- المنتج الذي حالته (آخر قطع متبقية): ذكّر الزبون بالندرة بلغة إلحاح لطيفة.\n";
+    prompt += "- إذا سأل الزبون صراحة عن الكمية الدقيقة، اذكر الرقم الحقيقي بصدق.\n";
+    prompt += "- إذا طلب الزبون منتجاً نفد، اعرض حفظ طلبه وإبلاغه عند عودة التوفر.\n";
+  }
+
 
   prompt += "\n## قواعد أمنية وسلوكيات الذكاء الاصطناعي الصارمة:\n";
   prompt += "1. كن مفيداً ومباشراً في إجاباتك ضمن سياق نشاط \"" + (config.businessName || 'المشروع') + "\" فقط، وتجنب الكلام الإنشائي الزائد.\n";

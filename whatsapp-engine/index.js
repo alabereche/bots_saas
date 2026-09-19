@@ -546,6 +546,13 @@ app.post('/api/orders/:id/delivery-status', async (req, res) => {
   const order = updateResult.order;
   let notificationSent = false;
 
+  // Stock restore: cancelled/returned gives the unit back — exactly once
+  // per order (stockRestored flag on the order doc survives re-presses).
+  if (order && deliveryStatus === 'cancelled' && order.product && !order.stockRestored) {
+    await firestore.adjustProductStock(botId, order.product, +1, order.ownerUserId || order.userId || bot.userId).catch(() => {});
+    db.collection('orders').doc(orderId).set({ stockRestored: true }, { merge: true }).catch(() => {});
+  }
+
   // Send idempotent customer notification if requested and customerId is present
   const customerTarget = order?.customerId || order?.phone;
   if (notifyCustomer && order && customerTarget && !updateResult.alreadyProcessed) {

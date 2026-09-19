@@ -61,7 +61,11 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
     description: '',
     primaryImage: '',
     secondaryImages: [],
+    stock: '',
   });
+  const [showStockManager, setShowStockManager] = useState(false);
+  const [stockDraft, setStockDraft] = useState({});
+  const [stockFilter, setStockFilter] = useState('all');
 
   const primaryInputRef = useRef(null);
   const secondaryInputRef = useRef(null);
@@ -224,18 +228,24 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
     setSaving(true);
     try {
       let updatedList = [...products];
+      // '' = unmanaged (feature off for this product); a number = managed
+      const normalizedStock = formData.stock === '' || formData.stock === null
+        ? null
+        : Math.max(0, Math.floor(Number(formData.stock) || 0));
 
       if (editingId) {
-        // Edit existing
+        // Edit existing — spread the previous product first so fields the
+        // form does not own (id, anything future) survive the round-trip
         updatedList = updatedList.map((p) =>
           p.id === editingId
-            ? { ...formData, id: editingId }
+            ? { ...p, ...formData, stock: normalizedStock, id: editingId }
             : p
         );
       } else {
         // Add new
         const newProduct = {
           ...formData,
+          stock: normalizedStock,
           id: `prod_${Date.now()}`,
         };
         updatedList.push(newProduct);
@@ -245,7 +255,7 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
       setProducts(updatedList);
       setIsAdding(false);
       setEditingId(null);
-      setFormData({ name: '', price: '', oldPrice: '', description: '', primaryImage: '', secondaryImages: [] });
+      setFormData({ name: '', price: '', oldPrice: '', description: '', primaryImage: '', secondaryImages: [], stock: '' });
       toast.success(editingId ? 'تم تحديث المنتج بنجاح' : 'تمت إضافة المنتج بنجاح');
     } catch (err) {
       console.error('Save product error:', err);
@@ -275,6 +285,38 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
     }
   };
 
+  // ─── Stock manager (a LENS over the same catalog products — one save) ───
+  const openStockManager = () => {
+    const draft = {};
+    products.forEach((p) => {
+      draft[p.id] = p.stock === null || p.stock === undefined ? '' : String(p.stock);
+    });
+    setStockDraft(draft);
+    setStockFilter('all');
+    setShowStockManager(true);
+  };
+
+  const handleStockSave = async () => {
+    setSaving(true);
+    try {
+      const updated = products.map((p) => {
+        const v = stockDraft[p.id];
+        const norm = v === '' || v === null || v === undefined
+          ? null
+          : Math.max(0, Math.floor(Number(v) || 0));
+        return { ...p, stock: norm };
+      });
+      await onUpdateBot({ products: updated });
+      setProducts(updated);
+      toast.success('تم حفظ كميات المخزون بنجاح');
+      setShowStockManager(false);
+    } catch (err) {
+      toast.error('فشل حفظ المخزون: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Start Editing
   const startEdit = (product) => {
     setEditingId(product.id);
@@ -290,6 +332,7 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
       description: product.description || '',
       primaryImage: validPrimary,
       secondaryImages: validSecondary,
+      stock: product.stock === null || product.stock === undefined ? '' : String(product.stock),
     });
     setIsAdding(true);
   };
@@ -317,19 +360,32 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
         </div>
 
         {!isAdding && (
-          <button
-            type="button"
-            className="btn btn-primary"
-            style={{ gap: '8px', padding: '0.65rem 1.25rem', whiteSpace: 'nowrap' }}
-            onClick={() => {
-              setEditingId(null);
-              setFormData({ name: '', price: '', oldPrice: '', description: '', primaryImage: '', secondaryImages: [] });
-              setIsAdding(true);
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            إضافة منتج جديد
-          </button>
+          <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ gap: '8px', padding: '0.65rem 1.25rem', whiteSpace: 'nowrap' }}
+              onClick={() => {
+                setEditingId(null);
+                setFormData({ name: '', price: '', oldPrice: '', description: '', primaryImage: '', secondaryImages: [], stock: '' });
+                setIsAdding(true);
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              إضافة منتج جديد
+            </button>
+            {products.length > 0 && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ gap: '8px', padding: '0.65rem 1.25rem', whiteSpace: 'nowrap' }}
+                onClick={openStockManager}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M20 7H4"/><path d="M12 3v18"/><path d="M6 21h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2z"/></svg>
+                إدارة المخزون
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -402,6 +458,19 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
                 <span className="currency-pill">{bot.currency || 'دج'}</span>
               </div>
             </div>
+
+          <div className="form-group">
+            <label className="form-label">الكمية المتاحة (اختياري — اتركها فارغة لمنتج بلا تتبع مخزون)</label>
+            <input
+              type="number"
+              min="0"
+              className="form-input"
+              placeholder="مثال: 12 — عند النفاذ يعتذر البوت تلقائياً"
+              value={formData.stock}
+              onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+              style={{ direction: 'ltr' }}
+            />
+          </div>
           </div>
 
           <div className="form-group" style={{ marginBottom: '1.25rem' }}>
@@ -576,6 +645,96 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
             + إضافة أول منتج
           </button>
         </div>
+      ) : showStockManager ? (
+        <div className="catalog-editor-card" style={{ padding: '1.4rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.7rem', marginBottom: '1rem' }}>
+            <h4 style={{ margin: 0, fontSize: '1.02rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+              إدارة المخزون — الكميات المتبقية
+            </h4>
+            <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+              {[['all', 'الكل'], ['low', 'على وشك النفاذ'], ['out', 'نفذ']].map(([val, label]) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setStockFilter(val)}
+                  style={{
+                    padding: '0.4rem 0.85rem', fontSize: '0.78rem', fontWeight: 700,
+                    borderRadius: 'var(--radius-full)', cursor: 'pointer',
+                    border: stockFilter === val ? '1px solid var(--color-primary)' : '1px solid var(--border-default)',
+                    background: stockFilter === val ? 'rgba(16, 185, 129, 0.14)' : 'var(--bg-cell)',
+                    color: stockFilter === val ? 'var(--color-primary-light)' : 'var(--text-secondary)',
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <p style={{ margin: '0 0 1rem', fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+            اترك الخانة فارغة لمنتج بلا تتبع مخزون. كل طلبية مؤكدة تخصم تلقائياً، والمرتجع يعيد الكمية، والبوت يعتذر عند النفاذ ويقترح البدائل.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.1rem' }}>
+            {products
+              .filter((p) => {
+                if (stockFilter === 'low') return p.stock !== null && p.stock !== undefined && p.stock > 0 && p.stock <= 3;
+                if (stockFilter === 'out') return p.stock === 0;
+                return true;
+              })
+              .map((p) => {
+              const managed = p.stock !== null && p.stock !== undefined;
+              const tier = managed ? (p.stock === 0 ? { label: 'نفذ', color: '#f87171' } : p.stock <= 3 ? { label: 'آخر ' + p.stock + ' قطع', color: '#fbbf24' } : { label: 'متوفر ' + p.stock, color: '#34d399' }) : null;
+              return (
+                <div key={p.id} style={{
+                  display: 'flex', alignItems: 'center', gap: '0.7rem', flexWrap: 'wrap',
+                  padding: '0.6rem 0.8rem', borderRadius: '12px',
+                  background: 'var(--bg-cell)', border: '1px solid var(--border-subtle)',
+                }}>
+                  <span style={{ flex: '1 1 200px', fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {p.name}
+                  </span>
+                  {tier && (
+                    <span style={{ fontSize: '0.74rem', fontWeight: 800, color: tier.color, minWidth: '72px' }}>
+                      {tier.label}
+                    </span>
+                  )}
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="بدون"
+                    value={stockDraft[p.id] ?? ''}
+                    onChange={(e) => setStockDraft({ ...stockDraft, [p.id]: e.target.value })}
+                    style={{
+                      width: '92px', padding: '0.45rem 0.6rem', direction: 'ltr',
+                      background: 'var(--bg-app)', color: 'var(--text-primary)',
+                      border: '1px solid var(--border-default)', borderRadius: '9px',
+                      fontSize: '0.88rem',
+                    }}
+                  />
+                </div>
+              );
+            })}
+            {products.filter((p) => {
+              if (stockFilter === 'low') return p.stock !== null && p.stock !== undefined && p.stock > 0 && p.stock <= 3;
+              if (stockFilter === 'out') return p.stock === 0;
+              return true;
+            }).length === 0 && (
+              <p style={{ textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '0.85rem', padding: '1rem' }}>
+                لا منتجات مطابقة لهذا الفلتر.
+              </p>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'flex-end' }}>
+            <button type="button" className="btn btn-secondary" onClick={() => setShowStockManager(false)}>
+              إلغاء
+            </button>
+            <button type="button" className="btn btn-primary" onClick={handleStockSave} disabled={saving}>
+              {saving ? 'جارٍ الحفظ...' : 'حفظ المخزون'}
+            </button>
+          </div>
+        </div>
       ) : (
         <div className="catalog-items-grid">
           {products.map((p) => {
@@ -594,6 +753,20 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
                     <div className="item-count-chip">
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                       {totalImgs} {totalImgs === 1 ? 'صورة' : 'صور'}
+                    </div>
+                  )}
+
+                  {p.stock !== null && p.stock !== undefined && (
+                    <div className="item-stock-chip" style={{
+                      position: 'absolute', bottom: '10px', right: '10px',
+                      padding: '3px 10px', borderRadius: 'var(--radius-full)',
+                      fontSize: '0.72rem', fontWeight: 800,
+                      background: p.stock === 0 ? 'rgba(239, 68, 68, 0.16)' : p.stock <= 3 ? 'rgba(245, 158, 11, 0.16)' : 'rgba(16, 185, 129, 0.16)',
+                      border: p.stock === 0 ? '1px solid rgba(239, 68, 68, 0.45)' : p.stock <= 3 ? '1px solid rgba(245, 158, 11, 0.45)' : '1px solid rgba(16, 185, 129, 0.45)',
+                      color: p.stock === 0 ? '#f87171' : p.stock <= 3 ? '#fbbf24' : '#34d399',
+                      backdropFilter: 'blur(6px)',
+                    }}>
+                      {p.stock === 0 ? 'نفذ' : p.stock <= 3 ? `آخر ${p.stock} قطع` : `متوفر ${p.stock}`}
                     </div>
                   )}
                 </div>

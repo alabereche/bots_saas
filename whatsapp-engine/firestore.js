@@ -574,6 +574,56 @@ async function findAbandonedLeads(botId, delayHours = 2, windowHours = 6, maxRem
   }
 }
 
+// ─── Stock ledger (bound to the catalog products on the bot doc) ────
+// Transaction-safe decrement/restore. Crossing notifications (bell only)
+// fire when the threshold/out-of-stock line is CROSSED, never per sale.
+const LOW_STOCK_THRESHOLD = 3;
+
+async function adjustProductStock(botId, productName, delta, ownerUserId) {
+  if (!botId || !productName) return { ok: false };
+  try {
+    const nameKey = String(productName).trim().toLowerCase();
+    const result = await db.runTransaction(async (tx) => {
+      const botRef = db.collection('bots').doc(botId);
+      const botSnap = await tx.get(botRef);
+      if (!botSnap.exists) return { skipped: true };
+      const products = Array.isArray(botSnap.data().products) ? botSnap.data().products : [];
+      const idx = products.findIndex((p) => p && String(p.name || '').trim().toLowerCase() === nameKey);
+      if (idx === -1) return { skipped: true, reason: 'product not found' };
+      const p = products[idx];
+      if (p.stock === null || p.stock === undefined) return { skipped: true, reason: 'unmanaged' };
+      const oldStock = p.stock;
+      let newStock = oldStock + delta;
+      if (newStock < 0) newStock = 0;
+      if (newStock === oldStock) return { skipped: true, reason: 'no change' };
+      products[idx] = { ...p, stock: newStock };
+      tx.update(botRef, { products });
+      return { ok: true, oldStock, newStock, productName: p.name };
+    });
+    if (!result.ok) return result;
+    if (delta < 0 && ownerUserId) {
+      let title = null, body = null;
+      if (result.newStock === 0) {
+        title = 'نفذ منتج من الكتالوج';
+        body = 'نفذت الكمية من «' + result.productName + '» — أخفِه أو أعد التزويد.';
+      } else if (result.oldStock > LOW_STOCK_THRESHOLD && result.newStock <= LOW_STOCK_THRESHOLD) {
+        title = 'منتج على وشك النفاذ';
+        body = 'بقيت ' + result.newStock + ' قطع فقط من «' + result.productName + '».';
+      }
+      if (title) {
+        db.collection('notifications').add({
+          userId: ownerUserId, botId, type: 'stock', title, body,
+          createdAt: FieldValue.serverTimestamp(),
+        }).catch(() => {});
+      }
+    }
+    return result;
+  } catch (e) {
+    console.error('[Firestore] Stock adjust error:', e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
 // Record that an abandonment reminder was sent to this customer — the doc
 // shape matches exactly what findAbandonedLeads() reads to skip them
 // (botId / customerId / remindedAt within the 48h lookback window).
@@ -735,4 +785,5 @@ module.exports = {
   saveLead,
   findLeads,
   repairOrphanLeads,
+  adjustProductStock,
 };

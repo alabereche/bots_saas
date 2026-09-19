@@ -122,3 +122,54 @@ export function wasLimitNotified(botId) {
   const u = memUsage.get(botId);
   return !!(u && u.limitNotified);
 }
+
+// ─── Stock ledger (bound to the catalog products on the bot doc) ────
+// Transaction-safe: two simultaneous orders on the last unit → the first
+// wins, the second finds 0. Crossing notifications fire only when the
+// threshold/out-of-stock line is CROSSED, never per sale below it.
+const LOW_STOCK_THRESHOLD = 3;
+
+export async function adjustProductStock(botId, productName, delta, ownerUserId) {
+  if (!dbRef || !botId || !productName) return { ok: false };
+  try {
+    const nameKey = String(productName).trim().toLowerCase();
+    const result = await dbRef.runTransaction(async (tx) => {
+      const botRef = dbRef.collection('bots').doc(botId);
+      const botSnap = await tx.get(botRef);
+      if (!botSnap.exists) return { skipped: true };
+      const products = Array.isArray(botSnap.data().products) ? botSnap.data().products : [];
+      const idx = products.findIndex((p) => p && String(p.name || '').trim().toLowerCase() === nameKey);
+      if (idx === -1) return { skipped: true, reason: 'product not found' };
+      const p = products[idx];
+      if (p.stock === null || p.stock === undefined) return { skipped: true, reason: 'unmanaged' };
+      const oldStock = p.stock;
+      let newStock = oldStock + delta;
+      if (newStock < 0) newStock = 0;
+      if (newStock === oldStock) return { skipped: true, reason: 'no change' };
+      products[idx] = { ...p, stock: newStock };
+      tx.update(botRef, { products });
+      return { ok: true, oldStock, newStock, productName: p.name };
+    });
+    if (!result.ok) return result;
+    if (delta < 0 && ownerUserId) {
+      let title = null, body = null;
+      if (result.newStock === 0) {
+        title = 'نفذ منتج من الكتالوج';
+        body = 'نفذت الكمية من «' + result.productName + '» — أخفِه أو أعد التزويد.';
+      } else if (result.oldStock > LOW_STOCK_THRESHOLD && result.newStock <= LOW_STOCK_THRESHOLD) {
+        title = 'منتج على وشك النفاذ';
+        body = 'بقيت ' + result.newStock + ' قطع فقط من «' + result.productName + '».';
+      }
+      if (title) {
+        dbRef.collection('notifications').add({
+          userId: ownerUserId, botId, type: 'stock', title, body,
+          createdAt: new Date(),
+        }).catch(() => {});
+      }
+    }
+    return result;
+  } catch (e) {
+    console.warn('[Billing] Stock adjust error:', e.message);
+    return { ok: false, error: e.message };
+  }
+}

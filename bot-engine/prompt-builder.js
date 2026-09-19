@@ -78,14 +78,16 @@ function buildSystemPrompt(config) {
       if (p.description) line += " | " + p.description;
       // Stock tiers (qualitative — exact number only on explicit ask)
       if (p.stock !== null && p.stock !== undefined) {
-        // Availability = physical stock minus units reserved by pending orders
-        const avail = p.stock - (p.reserved || 0);
+        // Availability = physical stock minus units reserved by pending
+        // orders. The EXACT count rides along (disclose only on explicit
+        // ask) so a customer asking «كم بقي بالضبط؟» gets the real number.
+        const avail = Math.max(0, p.stock - (p.reserved || 0));
         if (avail <= 0) {
-          line += " | حالة المخزون: نفذت الكمية";
+          line += " | حالة المخزون: نفذت الكمية (المتاح: 0)";
         } else if (avail <= 3) {
-          line += " | حالة المخزون: آخر قطع متبقية!";
+          line += " | حالة المخزون: آخر قطع متبقية! (المتاح فعلياً: " + avail + " — أعلن الرقم فقط عند سؤال صريح عن الكمية الدقيقة)";
         } else {
-          line += " | حالة المخزون: متوفر";
+          line += " | حالة المخزون: متوفر (المتاح فعلياً: " + avail + " — أعلن الرقم فقط عند سؤال صريح عن الكمية الدقيقة)";
         }
       }
       prompt += line + "\n";

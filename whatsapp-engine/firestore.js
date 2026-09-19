@@ -640,6 +640,11 @@ async function adjustProductStock(botId, productName, action, ownerUserId) {
     });
     if (!result.ok || result.skipped) return result;
 
+    // The transaction wrote products OUTSIDE the bot cache — flush it or
+    // the next cached read serves the pre-transaction catalog for up to
+    // BOT_CACHE_TTL_MS (the stale-stock contradiction).
+    invalidateBotCache(botId);
+
     // Crossing-only owner notifications (bell), on the AVAILABILITY line
     if (ownerUserId && result.action === 'reserve') {
       let title = null, body = null;

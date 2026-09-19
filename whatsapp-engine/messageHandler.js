@@ -416,7 +416,10 @@ async function handleMessage(msg, config) {
     // Fetch live bot document to guarantee instant sync of newly added products
     let liveConfig = config;
     try {
-      const freshBot = await firestore.getBot(config.id);
+      // forceRefresh: STOCK TRUTH — the catalog must be the live doc, not
+      // the 60s cache; the dashboard writes products directly and the
+      // stock transactions run outside the cache.
+      const freshBot = await firestore.getBot(config.id, true);
       if (freshBot) {
         liveConfig = { ...config, ...freshBot };
       }

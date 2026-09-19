@@ -17,7 +17,7 @@ const FEATURE_ROWS = [
   { key: 'dailyMessages', free: '50 رسالة يومياً', pro: '500 رسالة يومياً' },
   { key: 'products', free: '10 منتجات في الكتالوج', pro: '500 منتج' },
   { key: 'recovery', free: 'تذكير واحد للمتروك', pro: 'حتى 3 تذكيرات + نص مخصص' },
-  { key: 'widget', free: 'نعم — مع شارة BotForge', pro: 'نعم — بلا شارة' },
+  { key: 'widget', label: 'ودجت الموقع الإلكتروني', free: 'نعم + شارة AuraBot', pro: 'نعم — بلا شارة' },
   { key: 'sheets', free: false, pro: true, label: 'مزامنة Google Sheets' },
   { key: 'delivery', free: false, pro: true, label: 'ربط شركات التوصيل (يال الدين، ZR)' },
   { key: 'analytics', free: false, pro: true, label: 'التحليلات وتصدير التقارير' },
@@ -145,14 +145,14 @@ export default function Billing() {
   const subscribe = () => {
     const email = auth.currentUser?.email || '';
     const text = encodeURIComponent(
-      `مرحباً، أريد الترقية إلى الباقة الاحترافية في BotForge.\nحسابي: ${email}`
+      `مرحباً، أريد الترقية إلى الباقة الاحترافية في AuraBot.\nحسابي: ${email}`
     );
     window.open(`https://wa.me/${BILLING_CONTACT.whatsappNumber}?text=${text}`, '_blank');
   };
 
   const subscribeTg = () => {
     const email = auth.currentUser?.email || '';
-    const text = encodeURIComponent(`مرحباً، أريد الترقية إلى الباقة الاحترافية في BotForge. حسابي: ${email}`);
+    const text = encodeURIComponent(`مرحباً، أريد الترقية إلى الباقة الاحترافية في AuraBot. حسابي: ${email}`);
     window.open(`https://t.me/${BILLING_CONTACT.telegramUsername}?text=${text}`, '_blank');
   };
 

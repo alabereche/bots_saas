@@ -253,7 +253,7 @@ export default function AnalyticsTab({ allMessages = [], orders = [], leads = []
   .foot b{color:#10b981}
   @media print{ body{background:#fff;color:#111} .card,.kpi{background:#fafafa;border-color:#ddd} .kpi-l,.pct,.meta,.muted,th,.foot,.line{color:#555} .brand b,.foot b{color:#111} .sale-n .sale-v{color:#111} }
 </style></head><body><div class="wrap">
-  <div class="brand"><span class="brand-dot"></span><b>BotForge Analytics</b></div>
+  <div class="brand"><span class="brand-dot"></span><b>AuraBot Analytics</b></div>
   <h1>${esc(reportTitle)}</h1>
   <div class="meta">الفترة: ${esc(periodLabel)} · أُنشئ التقرير في ${esc(generatedAt)}</div>
   <div class="kpis">${kpiHtml}</div>
@@ -277,7 +277,7 @@ export default function AnalyticsTab({ allMessages = [], orders = [], leads = []
     ${stats.noOrder.length === 0 ? '<div class="muted">كل من سأل في هذه الفترة أصبح له طلبية — أداء ممتاز.</div>' :
     `<table><thead><tr><th>الزبون</th><th>آخر رسالة</th><th>رسائل</th><th>آخر نشاط</th></tr></thead><tbody>${noOrderRows}</tbody></table>`}
   </div>
-  <div class="foot">أُنشئ هذا التقرير تلقائياً بواسطة <b>BotForge</b> — بائعك الآلي الذي لا ينام</div>
+  <div class="foot">أُنشئ هذا التقرير تلقائياً بواسطة <b>AuraBot</b> — بائعك الآلي الذي لا ينام</div>
 </div></body></html>`;
   };
 

@@ -546,6 +546,10 @@ app.post('/api/orders/:id/delivery-status', async (req, res) => {
   const order = updateResult.order;
   let notificationSent = false;
 
+  if (notifyCustomer && (!order || !(order.customerId || order.phone))) {
+    console.warn(`[API] ⚠️ Delivery dispatch skipped for order ${orderId}: no customerId/phone on the order doc`);
+  }
+
   // Stock restore: cancelled/returned gives the unit back — exactly once
   // per order (stockRestored flag on the order doc survives re-presses).
   if (order && deliveryStatus === 'cancelled' && order.product && !order.stockRestored) {
@@ -557,7 +561,10 @@ app.post('/api/orders/:id/delivery-status', async (req, res) => {
   const customerTarget = order?.customerId || order?.phone;
   if (notifyCustomer && order && customerTarget && !updateResult.alreadyProcessed) {
     const state = getBotState(botId);
-    if (state && state.status === 'connected' && state.client) {
+    // 'syncing' is the post-scan history window: the page is logged in and
+    // the client is live — dispatching during it is safe. Only a bot that
+    // is not actually running (no state / initializing) is refused.
+    if (state && (state.status === 'connected' || state.status === 'syncing') && state.client) {
       try {
         const statusLabel = trackingHelper.customerStatusLabel(deliveryStatus, bot.businessType);
         const providerName = trackingHelper.PROVIDER_NAMES[provider] || provider || '';

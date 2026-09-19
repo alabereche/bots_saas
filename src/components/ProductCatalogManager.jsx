@@ -70,6 +70,18 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
   const primaryInputRef = useRef(null);
   const secondaryInputRef = useRef(null);
 
+  // The engine decrements/restores stock on the LIVE bot doc (orders,
+  // returns) — mirror the incoming products into local state so the badges
+  // move in real time. Skipped while a form session is open so an
+  // in-progress edit is never clobbered mid-typing.
+  useEffect(() => {
+    if (isAdding || editingId || saving) return;
+    const incoming = bot?.products || [];
+    setProducts((prev) =>
+      JSON.stringify(prev) === JSON.stringify(incoming) ? prev : incoming
+    );
+  }, [bot?.products]);
+
   // Instant client-side WebP/JPEG compression helper
   const compressFileToDataUrl = (file) => {
     return new Promise((resolve) => {

@@ -576,6 +576,16 @@ function extractAndSaveOrder(botId, ownerUserId, customerId, customerName, rawRe
         // v1 stock: every confirmed order consumes one unit
         if (product) adjustProductStock(botId, product, -1, ownerUserId).catch(() => {});
 
+        // Tracking code follow-up (plain text on TG — long-press to copy)
+        if (saved.trackingCode && !saved.isUpdate) {
+          const botInstance = activeBots.get(botId)?.bot;
+          if (botInstance) {
+            botInstance.api.sendMessage(String(customerId),
+              'رمز تتبع طلبك: ' + saved.trackingCode + '\nاكتب «تتبع» في أي وقت للاستعلام عن حالة طلبيتك.'
+            ).catch(() => {});
+          }
+        }
+
         // Sync to Google Sheets — Pro capability (plan-checked)
         if (config && (await getLimits(config.userId)).sheets) {
           syncToGoogleSheets(config, {

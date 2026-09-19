@@ -684,7 +684,7 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
           </div>
 
           <p style={{ margin: '0 0 1rem', fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            اترك الخانة فارغة لمنتج بلا تتبع مخزون. كل طلبية مؤكدة تخصم تلقائياً، والمرتجع يعيد الكمية، والبوت يعتذر عند النفاذ ويقترح البدائل.
+            اترك الخانة فارغة لمنتج بلا تتبع. الطلبية المؤكدة تحجز قطعة (البوت يتوقف عن بيعها)، و«تم التوصيل» تخرجها من المخزون نهائياً، و«ملغي/مرتجع» تحررها. ما يراه الزبون = الفعلي ناقص المحجوز.
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.1rem' }}>
@@ -696,7 +696,8 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
               })
               .map((p) => {
               const managed = p.stock !== null && p.stock !== undefined;
-              const tier = managed ? (p.stock === 0 ? { label: 'نفذ', color: '#f87171' } : p.stock <= 3 ? { label: 'آخر ' + p.stock + ' قطع', color: '#fbbf24' } : { label: 'متوفر ' + p.stock, color: '#34d399' }) : null;
+              const avail = managed ? p.stock - (p.reserved || 0) : null;
+              const tier = managed ? (avail <= 0 ? { label: 'نفذ', color: '#f87171' } : avail <= 3 ? { label: 'آخر ' + avail + ' قطع', color: '#fbbf24' } : { label: 'متوفر ' + avail, color: '#34d399' }) : null;
               return (
                 <div key={p.id} style={{
                   display: 'flex', alignItems: 'center', gap: '0.7rem', flexWrap: 'wrap',
@@ -709,6 +710,11 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
                   {tier && (
                     <span style={{ fontSize: '0.74rem', fontWeight: 800, color: tier.color, minWidth: '72px' }}>
                       {tier.label}
+                    </span>
+                  )}
+                  {managed && (p.reserved || 0) > 0 && (
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)', background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-full)', padding: '2px 9px' }}>
+                      محجوز {p.reserved}
                     </span>
                   )}
                   <input
@@ -768,19 +774,23 @@ export default function ProductCatalogManager({ bot, onUpdateBot }) {
                     </div>
                   )}
 
-                  {p.stock !== null && p.stock !== undefined && (
-                    <div className="item-stock-chip" style={{
-                      position: 'absolute', bottom: '10px', right: '10px',
-                      padding: '3px 10px', borderRadius: 'var(--radius-full)',
-                      fontSize: '0.72rem', fontWeight: 800,
-                      background: p.stock === 0 ? 'rgba(239, 68, 68, 0.16)' : p.stock <= 3 ? 'rgba(245, 158, 11, 0.16)' : 'rgba(16, 185, 129, 0.16)',
-                      border: p.stock === 0 ? '1px solid rgba(239, 68, 68, 0.45)' : p.stock <= 3 ? '1px solid rgba(245, 158, 11, 0.45)' : '1px solid rgba(16, 185, 129, 0.45)',
-                      color: p.stock === 0 ? '#f87171' : p.stock <= 3 ? '#fbbf24' : '#34d399',
-                      backdropFilter: 'blur(6px)',
-                    }}>
-                      {p.stock === 0 ? 'نفذ' : p.stock <= 3 ? `آخر ${p.stock} قطع` : `متوفر ${p.stock}`}
-                    </div>
-                  )}
+                  {p.stock !== null && p.stock !== undefined && (() => {
+                    // Sellable = physical stock minus units reserved by pending orders
+                    const avail = p.stock - (p.reserved || 0);
+                    return (
+                      <div className="item-stock-chip" style={{
+                        position: 'absolute', bottom: '10px', right: '10px',
+                        padding: '3px 10px', borderRadius: 'var(--radius-full)',
+                        fontSize: '0.72rem', fontWeight: 800,
+                        background: avail <= 0 ? 'rgba(239, 68, 68, 0.16)' : avail <= 3 ? 'rgba(245, 158, 11, 0.16)' : 'rgba(16, 185, 129, 0.16)',
+                        border: avail <= 0 ? '1px solid rgba(239, 68, 68, 0.45)' : avail <= 3 ? '1px solid rgba(245, 158, 11, 0.45)' : '1px solid rgba(16, 185, 129, 0.45)',
+                        color: avail <= 0 ? '#f87171' : avail <= 3 ? '#fbbf24' : '#34d399',
+                        backdropFilter: 'blur(6px)',
+                      }}>
+                        {avail <= 0 ? 'نفذ' : avail <= 3 ? `آخر ${avail} قطع` : `متوفر ${avail}`}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Body Content */}

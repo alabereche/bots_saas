@@ -88,9 +88,11 @@ function buildSystemPrompt(config) {
       // آخر قطع / نفذت الكمية) — the exact number is disclosed ONLY when
       // the customer asks for it explicitly.
       if (p.stock !== null && p.stock !== undefined) {
-        if (p.stock === 0) {
+        // Availability = physical stock minus units reserved by pending orders
+        const avail = p.stock - (p.reserved || 0);
+        if (avail <= 0) {
           line += " | حالة المخزون: نفذت الكمية";
-        } else if (p.stock <= 3) {
+        } else if (avail <= 3) {
           line += " | حالة المخزون: آخر قطع متبقية!";
         } else {
           line += " | حالة المخزون: متوفر";

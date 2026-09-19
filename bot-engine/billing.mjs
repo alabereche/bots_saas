@@ -124,41 +124,75 @@ export function wasLimitNotified(botId) {
 }
 
 // ─── Stock ledger (bound to the catalog products on the bot doc) ────
-// Transaction-safe: two simultaneous orders on the last unit → the first
-// wins, the second finds 0. Crossing notifications fire only when the
-// threshold/out-of-stock line is CROSSED, never per sale below it.
+// Reservation model mirroring whatsapp-engine/billing.js: confirmed order
+// RESERVES, «تم التوصيل» decrements permanently, «ملغي/مرتجع» releases.
+// Availability = stock - reserved. Smart name matching (bidirectional
+// containment, longest name wins) because the AI paraphrases names.
 const LOW_STOCK_THRESHOLD = 3;
 
-export async function adjustProductStock(botId, productName, delta, ownerUserId) {
-  if (!dbRef || !botId || !productName) return { ok: false };
+function findProductIdx(products, productName) {
+  const nameKey = String(productName || '').trim().toLowerCase();
+  if (!nameKey) return -1;
+  let idx = products.findIndex((p) => p && String(p.name || '').trim().toLowerCase() === nameKey);
+  if (idx !== -1) return idx;
+  let best = -1, bestLen = 0;
+  products.forEach((p, i) => {
+    const n = String(p?.name || '').trim().toLowerCase();
+    if (!n) return;
+    if ((n.includes(nameKey) || nameKey.includes(n)) && n.length > bestLen) {
+      best = i; bestLen = n.length;
+    }
+  });
+  return best;
+}
+
+export async function adjustProductStock(botId, productName, action, ownerUserId) {
+  if (!dbRef || !botId || !productName || !['reserve', 'deliver', 'release'].includes(action)) {
+    return { ok: false };
+  }
   try {
-    const nameKey = String(productName).trim().toLowerCase();
     const result = await dbRef.runTransaction(async (tx) => {
       const botRef = dbRef.collection('bots').doc(botId);
       const botSnap = await tx.get(botRef);
       if (!botSnap.exists) return { skipped: true };
       const products = Array.isArray(botSnap.data().products) ? botSnap.data().products : [];
-      const idx = products.findIndex((p) => p && String(p.name || '').trim().toLowerCase() === nameKey);
+      const idx = findProductIdx(products, productName);
       if (idx === -1) return { skipped: true, reason: 'product not found' };
       const p = products[idx];
       if (p.stock === null || p.stock === undefined) return { skipped: true, reason: 'unmanaged' };
-      const oldStock = p.stock;
-      let newStock = oldStock + delta;
-      if (newStock < 0) newStock = 0;
-      if (newStock === oldStock) return { skipped: true, reason: 'no change' };
-      products[idx] = { ...p, stock: newStock };
+      const reserved = p.reserved || 0;
+      const avail = p.stock - reserved;
+      let newStock = p.stock, newReserved = reserved;
+
+      if (action === 'reserve') {
+        if (avail <= 0) return { ok: false, reason: 'out of stock', productName: p.name };
+        newReserved = reserved + 1;
+      } else if (action === 'deliver') {
+        newStock = Math.max(0, p.stock - 1);
+        newReserved = Math.max(0, reserved - 1);
+      } else {
+        newReserved = Math.max(0, reserved - 1);
+      }
+
+      if (newStock === p.stock && newReserved === reserved) return { skipped: true, reason: 'no change' };
+      products[idx] = { ...p, stock: newStock, reserved: newReserved };
       tx.update(botRef, { products });
-      return { ok: true, oldStock, newStock, productName: p.name };
+      return {
+        ok: true, action, productName: p.name,
+        stock: newStock, reserved: newReserved,
+        oldAvail: p.stock - reserved, avail: newStock - newReserved,
+      };
     });
-    if (!result.ok) return result;
-    if (delta < 0 && ownerUserId) {
+    if (!result.ok || result.skipped) return result;
+
+    if (ownerUserId && result.action === 'reserve') {
       let title = null, body = null;
-      if (result.newStock === 0) {
-        title = 'نفذ منتج من الكتالوج';
-        body = 'نفذت الكمية من «' + result.productName + '» — أخفِه أو أعد التزويد.';
-      } else if (result.oldStock > LOW_STOCK_THRESHOLD && result.newStock <= LOW_STOCK_THRESHOLD) {
+      if (result.avail === 0) {
+        title = 'كل كمية منتج محجوزة';
+        body = 'كل وحدات «' + result.productName + '» أصبحت محجوزة لطلبيات قائمة — أعد التزويد أو أخفِه حتى التسليم.';
+      } else if (result.oldAvail > LOW_STOCK_THRESHOLD && result.avail <= LOW_STOCK_THRESHOLD) {
         title = 'منتج على وشك النفاذ';
-        body = 'بقيت ' + result.newStock + ' قطع فقط من «' + result.productName + '».';
+        body = 'بقيت ' + result.avail + ' قطع متاحة فقط من «' + result.productName + '» (الباقي محجوز لطلبيات).';
       }
       if (title) {
         dbRef.collection('notifications').add({

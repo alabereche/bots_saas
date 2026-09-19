@@ -573,8 +573,8 @@ function extractAndSaveOrder(botId, ownerUserId, customerId, customerName, rawRe
       }, config?.orderMergeMode || 'merge').then(async (saved) => {
         if (!saved) return;
 
-        // v1 stock: every confirmed order consumes one unit
-        if (product) adjustProductStock(botId, product, -1, ownerUserId).catch(() => {});
+        // Reservation model: a confirmed order reserves one unit
+        if (product) adjustProductStock(botId, product, 'reserve', ownerUserId).catch(() => {});
 
         // Tracking code follow-up (plain text on TG — long-press to copy)
         if (saved.trackingCode && !saved.isUpdate) {
@@ -1604,11 +1604,16 @@ app.post('/api/orders/:id/delivery-status', async (req, res) => {
   const order = updateResult.order;
   let notificationSent = false;
 
-  // Stock restore: cancelled/returned gives the unit back — exactly once
-  // per order (stockRestored flag on the order doc survives re-presses).
-  if (order && deliveryStatus === 'cancelled' && order.product && !order.stockRestored) {
-    await adjustProductStock(botId, order.product, +1, order.ownerUserId || order.userId || botConfig.userId).catch(() => {});
-    db.collection('orders').doc(orderId).set({ stockRestored: true }, { merge: true }).catch(() => {});
+  // Stock lifecycle: «تم التوصيل» converts the reservation into a permanent
+  // decrement; «ملغي/مرتجع» releases it back. Each fires exactly once per
+  // order (flags on the order doc survive re-presses).
+  if (order && order.product && !order.stockDelivered && deliveryStatus === 'delivered') {
+    await adjustProductStock(botId, order.product, 'deliver', order.ownerUserId || order.userId || botConfig.userId).catch(() => {});
+    db.collection('orders').doc(orderId).set({ stockDelivered: true }, { merge: true }).catch(() => {});
+  }
+  if (order && order.product && !order.stockReleased && deliveryStatus === 'cancelled') {
+    await adjustProductStock(botId, order.product, 'release', order.ownerUserId || order.userId || botConfig.userId).catch(() => {});
+    db.collection('orders').doc(orderId).set({ stockReleased: true }, { merge: true }).catch(() => {});
   }
 
   if (notifyCustomer && order && order.customerId && !updateResult.alreadyProcessed) {

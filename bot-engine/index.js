@@ -911,6 +911,7 @@ function extractProductMedia(rawReply, productsList = []) {
   // mediaItems: [{ image, caption }] — caption '__REPLY__' means "use the
   // AI's textual pitch as the caption" (single product / gallery first img)
   const mediaItems = [];
+  const showcasedNames = [];
   let useReplyOnFirst = false;
 
   const findProduct = (targetId) => Array.isArray(productsList) ? productsList.find(p => p && (
@@ -923,6 +924,7 @@ function extractProductMedia(rawReply, productsList = []) {
   if (galleryProductId) {
     const product = findProduct(galleryProductId);
     if (product) {
+      showcasedNames.push(String(product.name || '').trim());
       const allImages = [];
       if (product.primaryImage) allImages.push(product.primaryImage);
       if (Array.isArray(product.secondaryImages)) {
@@ -937,7 +939,6 @@ function extractProductMedia(rawReply, productsList = []) {
     }
   } else if (singleIds.length > 0) {
     useReplyOnFirst = singleIds.length === 1;
-    const showcasedNames = [];
     for (const id of singleIds.slice(0, 4)) {
       const product = findProduct(id);
       if (!product) continue;

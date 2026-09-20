@@ -111,7 +111,7 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  padding: clamp(84px, 12vh, 130px) clamp(20px, 4.5vw, 58px) clamp(48px, 8vh, 96px);
+  padding: clamp(84px, 12vh, 130px) clamp(20px, 4.5vw, 58px) clamp(84px, 13vh, 130px);
 }
 
 /* Giant wordmark — the hero IS the name */
@@ -278,7 +278,7 @@
 /* ─── Scene 2: the about card — wide horizontal banner bridging the upper zone ─── */
 .lp2-about-card {
   width: min(1200px, calc(100% - 20px));
-  margin-top: clamp(-70px, -9vh, -110px);
+  margin-top: clamp(-50px, -7vh, -80px);
   position: relative;
   z-index: 10;
   border: 1px solid var(--lp2-border);
@@ -502,15 +502,13 @@
 }
 @media (max-width: 760px) {
   .lp2-hero-frame { margin: 8px 8px 6px; min-height: 0; }
-  /* kill the dead zone: tight bottom pad + section arrives right after */
-  .lp2-hero-content { padding-bottom: 26px; }
   .lp2-section { padding-top: 44px; }
   #how.lp2-section {
     padding-top: 0;
     padding-bottom: clamp(80px, 12vh, 140px);
   }
   .lp2-about-card {
-    margin-top: clamp(-40px, -5vh, -24px);
+    margin-top: -12px;
     border-radius: 20px;
     padding: clamp(26px, 6vw, 40px) clamp(16px, 4vw, 24px);
     width: calc(100% - 14px);
@@ -519,8 +517,9 @@
     grid-template-columns: 1fr;
     align-items: end;
     gap: 20px;
-    padding-bottom: 30px;
+    padding-bottom: 58px;
   }
+  .lp2-channels { margin-bottom: 6px; }
   .lp2-wordmark { font-size: clamp(4rem, 23vw, 7rem); text-align: center; }
   .lp2-wordmark-star { top: -0.05em; right: -0.3em; }
   .lp2-hero-cta-side { max-width: 100%; }
@@ -531,6 +530,8 @@
   .lp2-card { min-height: 0; }
   .lp2-section { padding-inline: 14px; }
   .lp2-btn-primary { padding: 7px 8px 7px 20px; font-size: 0.86rem; }
+  .lp2-hero-content { padding-bottom: 52px; }
+  .lp2-about-card { margin-top: -10px; }
 }
 
 /* ─── Reduced motion ─── */

@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useScroll, useTransform, useInView, useReducedMotion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import LegalModal from '../components/LegalModal';
 import '../landing-v2.css';
 
 const DEMO_BOT_URL = 'https://t.me/Zcodybot';
@@ -203,6 +204,7 @@ const FEATURES = [
 
 export default function Landing() {
   const { isAuthenticated } = useAuth();
+  const [legalModal, setLegalModal] = useState({ open: false, tab: 'terms' });
 
   return (
     <div className="lp2-root" dir="rtl">
@@ -336,15 +338,34 @@ export default function Landing() {
               </a>
             </div>
             <div className="lp2-footer-legal">
-              <Link to="/privacy">سياسة الخصوصية</Link>
-              <span aria-hidden="true">·</span>
-              <Link to="/terms">شروط الاستخدام</Link>
-              <span aria-hidden="true">·</span>
-              <span>© 2026 AuraBot</span>
+              <button
+                type="button"
+                className="lp2-footer-legal-btn"
+                onClick={() => setLegalModal({ open: true, tab: 'privacy' })}
+              >
+                سياسة الخصوصية
+              </button>
+              <span className="lp2-footer-legal-sep" aria-hidden="true">·</span>
+              <button
+                type="button"
+                className="lp2-footer-legal-btn"
+                onClick={() => setLegalModal({ open: true, tab: 'terms' })}
+              >
+                شروط الاستخدام
+              </button>
+              <span className="lp2-footer-legal-sep" aria-hidden="true">·</span>
+              <span className="lp2-footer-copy">© 2026 AuraBot</span>
             </div>
           </div>
         </Reveal>
       </footer>
+
+      {/* ══ Modal for Terms of Service & Privacy Policy ══ */}
+      <LegalModal
+        isOpen={legalModal.open}
+        initialTab={legalModal.tab}
+        onClose={() => setLegalModal(prev => ({ ...prev, open: false }))}
+      />
     </div>
   );
 }

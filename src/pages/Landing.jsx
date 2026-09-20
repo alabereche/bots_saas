@@ -448,7 +448,7 @@ export default function Landing() {
       <footer className="lp2-footer">
         <video
           className="lp2-footer-video"
-          src="/hero2.mp4"
+          src="/footer.mp4"
           autoPlay loop muted playsInline
           ref={el => { if (el) { el.muted = true; el.play().catch(() => {}); } }}
           aria-hidden="true"

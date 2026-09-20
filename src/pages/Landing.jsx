@@ -219,6 +219,7 @@ export default function Landing() {
         >
           <a href="#how" className="lp2-nav-link">كيف يعمل</a>
           <a href="#features" className="lp2-nav-link">المميزات</a>
+          <a href="#pricing" className="lp2-nav-link">الأسعار</a>
           <a href={DEMO_BOT_URL} target="_blank" rel="noopener noreferrer" className="lp2-nav-link">تجربة حية</a>
           <Link to="/login" className="lp2-nav-link is-strong">دخول</Link>
         </motion.nav>
@@ -283,7 +284,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ═══ Scene 2 — one sentence, revealed by scroll ═══ */}
+      {/* ═══ Scene 2 — one sentence, revealed by scroll + the 4 feature cards inside engraved wallpaper ═══ */}
       <section className="lp2-section" id="how">
         <div className="lp2-about-card">
           <span className="lp2-label">آلية العمل</span>
@@ -297,11 +298,9 @@ export default function Landing() {
             className="lp2-about-body"
           />
         </div>
-      </section>
 
-      {/* ═══ Scene 3 — four quiet cards ═══ */}
-      <section className="lp2-section" id="features">
-        <div className="lp2-features-head">
+        {/* ─── 4 Feature cards inside engraved wallpaper ─── */}
+        <div className="lp2-features-head" id="features">
           <WordsPullUp text="مصمّم ليبيع نيابة عنك." className="lp2-features-title is-cream" as="h2" />
           <WordsPullUp text="خفيف عليك. ثقيل على المبيعات." className="lp2-features-title is-dim" delay={0.2} />
         </div>
@@ -310,6 +309,138 @@ export default function Landing() {
           {FEATURES.map((f, i) => (
             <FeatureCard key={f.num} f={f} index={i} />
           ))}
+        </div>
+      </section>
+
+      {/* ═══ Scene 3 — Pricing Plans (الخطط: المجانية و برو) ═══ */}
+      <section className="lp2-section lp2-pricing-section" id="pricing">
+        <div className="lp2-pricing-head">
+          <span className="lp2-label">باقات الاشتراك</span>
+          <WordsPullUp text="استثمر في نمو متجرك بدون تعقيد." className="lp2-pricing-title" as="h2" />
+          <p className="lp2-pricing-sub">
+            ابدأ مجاناً وجرّب بنفسك، ورَقِّ إلى باقة Pro عندما تتوسع مبيعاتك وتطلب مميزات متقدمة.
+          </p>
+        </div>
+
+        <div className="lp2-pricing-grid">
+          {/* Free Plan */}
+          <div className="lp2-pricing-card">
+            <div className="lp2-pricing-card-header">
+              <span className="lp2-pricing-badge is-free">تجربة غير محدودة</span>
+              <h3 className="lp2-pricing-name">الباقة المجانية</h3>
+              <p className="lp2-pricing-desc">
+                مثالية للمتاجر والمشاريع الناشئة لاختبار سرعة الذكاء الاصطناعي وتفاعل الزبائن.
+              </p>
+            </div>
+
+            <div className="lp2-pricing-price-wrap">
+              <span className="lp2-pricing-amount">0</span>
+              <span className="lp2-pricing-currency">دج</span>
+              <span className="lp2-pricing-period">/ شهرياً (مجاناً)</span>
+            </div>
+
+            <div className="lp2-pricing-divider" />
+
+            <ul className="lp2-pricing-features">
+              <li>
+                <span className="lp2-pricing-check"><Check /></span>
+                <span><strong>بوت واحد</strong> (واتساب أو تلغرام)</span>
+              </li>
+              <li>
+                <span className="lp2-pricing-check"><Check /></span>
+                <span><strong>50 رسالة يومياً</strong> بالذكاء الاصطناعي</span>
+              </li>
+              <li>
+                <span className="lp2-pricing-check"><Check /></span>
+                <span>كتالوج حتى <strong>10 منتجات</strong> مع الصور</span>
+              </li>
+              <li>
+                <span className="lp2-pricing-check"><Check /></span>
+                <span>تذكير آلي واحد للسلات والطلبات المتروكة</span>
+              </li>
+              <li>
+                <span className="lp2-pricing-check"><Check /></span>
+                <span>ودجت المحادثة الفورية لموقعك الإلكتروني</span>
+              </li>
+              <li>
+                <span className="lp2-pricing-check"><Check /></span>
+                <span>لوحة تحكم لإدارة المحادثات والطلبيات</span>
+              </li>
+            </ul>
+
+            <Link
+              to={isAuthenticated ? '/dashboard' : '/login'}
+              className="lp2-pricing-btn is-free-btn"
+            >
+              ابدأ مجاناً الآن
+            </Link>
+          </div>
+
+          {/* Pro Plan */}
+          <div className="lp2-pricing-card is-popular">
+            <div className="lp2-pricing-popular-tag">
+              <span>✦ الأكثر طلباً وقيمة</span>
+            </div>
+
+            <div className="lp2-pricing-card-header">
+              <span className="lp2-pricing-badge is-pro">أتمتة شاملة</span>
+              <h3 className="lp2-pricing-name">باقة المحترفين (Pro)</h3>
+              <p className="lp2-pricing-desc">
+                المنظومة الكاملة لمضاعفة مبيعات متجرك وإدارة التوصيل للـ 58 ولاية آلياً.
+              </p>
+            </div>
+
+            <div className="lp2-pricing-price-wrap">
+              <span className="lp2-pricing-amount">1,500</span>
+              <span className="lp2-pricing-currency">دج</span>
+              <span className="lp2-pricing-period">/ شهرياً (150 ألف)</span>
+            </div>
+
+            <div className="lp2-pricing-divider" />
+
+            <ul className="lp2-pricing-features">
+              <li>
+                <span className="lp2-pricing-check is-pro"><Check /></span>
+                <span><strong>5 بوتات واتساب + 8 تلغرام</strong> معاً</span>
+              </li>
+              <li>
+                <span className="lp2-pricing-check is-pro"><Check /></span>
+                <span><strong>500 رسالة يومياً</strong> بالذكاء الاصطناعي</span>
+              </li>
+              <li>
+                <span className="lp2-pricing-check is-pro"><Check /></span>
+                <span>كتالوج موسّع حتى <strong>500 منتج</strong> بالصور</span>
+              </li>
+              <li>
+                <span className="lp2-pricing-check is-pro"><Check /></span>
+                <span>حتى <strong>3 تذكيرات ذكية</strong> + نصوص مخصصة</span>
+              </li>
+              <li>
+                <span className="lp2-pricing-check is-pro"><Check /></span>
+                <span>ربط شركات التوصيل (<strong>يال الدين، ZR Express</strong>)</span>
+              </li>
+              <li>
+                <span className="lp2-pricing-check is-pro"><Check /></span>
+                <span>مزامنة تلقائية وفورية مع <strong>Google Sheets</strong></span>
+              </li>
+              <li>
+                <span className="lp2-pricing-check is-pro"><Check /></span>
+                <span>ودجت موقع احترافي <strong>بدون شارة AuraBot</strong></span>
+              </li>
+              <li>
+                <span className="lp2-pricing-check is-pro"><Check /></span>
+                <span>تقارير مبيعات متقدمة ودعم فني بأولوية خاصة</span>
+              </li>
+            </ul>
+
+            <Link
+              to={isAuthenticated ? '/dashboard/billing' : '/login'}
+              className="lp2-pricing-btn is-pro-btn"
+            >
+              <span>اشترك في باقة Pro</span>
+              <span className="lp2-btn-orb"><ArrowLeft /></span>
+            </Link>
+          </div>
         </div>
       </section>
 

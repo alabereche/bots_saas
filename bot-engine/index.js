@@ -1154,17 +1154,13 @@ async function startBot(config) {
         if (mediaItems.length > 1 && showcasedNames.length > 0 && reply) {
           const lows = showcasedNames.map((n) => n.toLowerCase()).filter(Boolean);
           reply = reply
-            .split('
-')
+            .split('\n')
             .filter((line) => {
               const low = line.toLowerCase();
               return !lows.some((n) => low.includes(n));
             })
-            .join('
-')
-            .replace(/
-{2,}/g, '
-')
+            .join('\n')
+            .replace(/\n{2,}/g, '\n')
             .trim();
         }
 

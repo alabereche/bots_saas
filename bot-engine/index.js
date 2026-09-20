@@ -937,6 +937,7 @@ function extractProductMedia(rawReply, productsList = []) {
     }
   } else if (singleIds.length > 0) {
     useReplyOnFirst = singleIds.length === 1;
+    const showcasedNames = [];
     for (const id of singleIds.slice(0, 4)) {
       const product = findProduct(id);
       if (!product) continue;
@@ -947,10 +948,11 @@ function extractProductMedia(rawReply, productsList = []) {
       const discPct = hasDisc ? Math.round((1 - np / op) * 100) : 0;
       const cap = `${product.name || 'منتج'} - السعر: ${product.price}${hasDisc ? ` بدلاً من ${product.oldPrice} (خصم ${discPct}%)` : ''}`;
       mediaItems.push({ image: mainImg, caption: cap });
+      showcasedNames.push(String(product.name || '').trim());
     }
   }
 
-  return { cleanReply, mediaItems, useReplyOnFirst };
+  return { cleanReply, mediaItems, useReplyOnFirst, showcasedNames };
 }
 
 
@@ -1143,8 +1145,28 @@ async function startBot(config) {
           }
         }
 
-        const { cleanReply: finalReplyText, mediaItems, useReplyOnFirst } = extractProductMedia(replyWithoutTags, currentConfig.products);
-        const reply = finalReplyText || rawReply;
+        const { cleanReply: finalReplyText, mediaItems, useReplyOnFirst, showcasedNames } = extractProductMedia(replyWithoutTags, currentConfig.products);
+        let reply = finalReplyText || rawReply;
+
+        // Multi-product showcase: the photos right below carry every name +
+        // price caption — strip any pitch line that re-lists a showcased
+        // product so the text stays a short intro (mirrors the WA engine).
+        if (mediaItems.length > 1 && showcasedNames.length > 0 && reply) {
+          const lows = showcasedNames.map((n) => n.toLowerCase()).filter(Boolean);
+          reply = reply
+            .split('
+')
+            .filter((line) => {
+              const low = line.toLowerCase();
+              return !lows.some((n) => low.includes(n));
+            })
+            .join('
+')
+            .replace(/
+{2,}/g, '
+')
+            .trim();
+        }
 
         if (mediaItems.length > 1 && useReplyOnFirst) {
           // Gallery: multiple images of ONE product -> album, caption on first

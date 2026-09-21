@@ -952,30 +952,34 @@ app.listen(PORT, '0.0.0.0', () => {
   setInterval(runAbandonedRecoveryCron, 10 * 60 * 1000);
   setTimeout(runAbandonedRecoveryCron, 30 * 1000); // Initial check after 30s
 
-  // ─── Dawn renewal (preventive): sessions age and their internal
-  // channels rot silently. Every day at DAWN_RENEWAL_HOUR (default 4am,
-  // the dead hour) each CONNECTED bot is reborn on its saved session —
-  // fresh channel before it ever has a chance to die mid-day. Merchant
-  // notifications stay quiet: this is maintenance, not an incident.
+  // ─── Dawn Health Audit (preventive & non-destructive):
+  // Every day at DAWN_HOUR (default 4am), perform a non-destructive audit.
+  // GOLDEN ARCHITECTURAL RULE: If a bot is 'connected' and healthy, NEVER kill or
+  // disconnect it! Chromium disk cache is capped at 200MB, so it never bloats.
+  // We only rescue bots genuinely stuck in 'error' or broken states.
   const DAWN_HOUR = parseInt(process.env.DAWN_RENEWAL_HOUR ?? '4', 10);
-  const dawnEnabled = (process.env.DAWN_RENEWAL_ENABLED ?? 'true') !== 'false';
+  const dawnAuditEnabled = (process.env.DAWN_RENEWAL_ENABLED ?? 'true') !== 'false';
   let dawnLastRunDate = '';
   setInterval(async () => {
-    if (!dawnEnabled) return;
+    if (!dawnAuditEnabled) return;
     const now = new Date();
     const today = now.toISOString().slice(0, 10);
     if (now.getHours() !== DAWN_HOUR || dawnLastRunDate === today) return;
     dawnLastRunDate = today;
     try {
-      const statuses = getAllBotStatuses().filter(s => s.status === 'connected');
-      console.log(`[DawnRenewal] 🌅 Renewing ${statuses.length} session(s) for a fresh day...`);
-      for (const s of statuses) {
-        // staggered: each reborn Chromium costs ~150MB — never together
-        await healBot(s.id, 'scheduled dawn renewal');
+      const allStatuses = getAllBotStatuses();
+      const connectedBots = allStatuses.filter(s => s.status === 'connected');
+      console.log(`[DawnAudit] 🌅 Dawn audit: ${connectedBots.length} active bot(s) healthy and untouched.`);
+
+      // Rescue any bot that ended up in 'error' or stuck without a merchant stop
+      const stuckBots = allStatuses.filter(s => s.status === 'error');
+      for (const s of stuckBots) {
+        console.warn(`[DawnAudit] 🩺 Rescuing stuck bot "${s.botName || s.id}"...`);
+        await healBot(s.id, 'scheduled dawn rescue');
         await new Promise(r => setTimeout(r, 8000));
       }
     } catch (err) {
-      console.error('[DawnRenewal] Failed:', err.message);
+      console.error('[DawnAudit] Audit failed:', err.message);
     }
   }, 15 * 60 * 1000);
 

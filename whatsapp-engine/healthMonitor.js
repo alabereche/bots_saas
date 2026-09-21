@@ -22,11 +22,11 @@ const READY_LATE_CAP_MS = parseInt(process.env.HEALTH_READY_CAP_MS || '240000', 
 const LIVENESS_AFTER_SILENCE_MS = parseInt(process.env.HEALTH_LIVENESS_MINUTES || '60', 10) * 60 * 1000;
 const PROBE_TIMEOUT_MS = parseInt(process.env.HEALTH_PROBE_TIMEOUT_MS || '25000', 10);
 
-// States that mean the session is genuinely alive — WPPConnect SocketState
-// values (getConnectionState). PAIRING is the normal sync phase right after
-// the phone links; a truly unpaired session never has status 'connected'
-// (statusFind/onStateChange flip it to reconnecting first).
+// States that mean the session is genuinely alive — WPPConnect SocketState values
 const LIVE_STATES = ['CONNECTED', 'PAIRING'];
+// States where WhatsApp Web is momentarily reconnecting or syncing — give it time to stabilize
+const TRANSIENT_STATES = ['OPENING', 'RESUMING', 'SYNCING'];
+const STATE_HEAL_THRESHOLD = parseInt(process.env.HEALTH_STATE_HEAL_THRESHOLD || '3', 10);
 
 let botManagerRef = null;
 let firestoreRef = null;
@@ -34,6 +34,7 @@ const watchers = new Map();        // botId -> interval handle
 const lastIncomingAt = new Map();  // botId -> epoch ms (set by botManager on every message)
 const lastProbeOkAt = new Map();   // botId -> epoch ms of last successful server round-trip
 const probeFailStreak = new Map(); // botId -> consecutive probe failures
+const stateFailStreak = new Map(); // botId -> consecutive state check failures
 
 // getChats() throws a bogus minified "r" error even on sessions that
 // receive messages fine (verified 2026-09-16/17 logs) — a single probe
@@ -75,6 +76,7 @@ function stopAll() {
 function markIncoming(botId) {
   lastIncomingAt.set(botId, Date.now());
   probeFailStreak.delete(botId);
+  stateFailStreak.delete(botId);
 }
 
 // A fresh ready IS a successful server handshake (auth round-tripped
@@ -84,6 +86,7 @@ function markIncoming(botId) {
 function markReady(botId) {
   lastProbeOkAt.set(botId, Date.now());
   probeFailStreak.delete(botId);
+  stateFailStreak.delete(botId);
 }
 
 async function tick(botId) {
@@ -113,18 +116,41 @@ async function tick(botId) {
       ),
     ]);
   } catch (e) {
-    console.warn(`[Health] ⚠️ Bot ${botId} state check FAILED (${e.message}) — treating as zombie.`);
+    const streak = (stateFailStreak.get(botId) || 0) + 1;
+    stateFailStreak.set(botId, streak);
+    if (streak < STATE_HEAL_THRESHOLD) {
+      console.warn(`[Health] ⚠️ Bot ${botId} state check error (${e.message}), streak ${streak}/${STATE_HEAL_THRESHOLD}`);
+      return;
+    }
+    console.warn(`[Health] ⚠️ Bot ${botId} state check FAILED ${streak}x (${e.message}) — treating as zombie.`);
+    stateFailStreak.delete(botId);
     bm.markUnhealthy(botId);
     return bm.healBot(botId, `state check failed: ${e.message}`);
   }
 
-  const live = raw && LIVE_STATES.includes(String(raw).toUpperCase());
+  const rawUpper = String(raw ?? '').toUpperCase();
+  const live = LIVE_STATES.includes(rawUpper);
+  const transient = TRANSIENT_STATES.includes(rawUpper);
+
+  if (transient) {
+    console.log(`[Health] ⏳ Bot ${botId} in transient network state "${raw}" — awaiting socket stabilization.`);
+    return;
+  }
+
   if (!live) {
-    console.warn(`[Health] ⚠️ Bot ${botId} reports state "${raw ?? 'null'}" while status=connected — treating as zombie.`);
+    const streak = (stateFailStreak.get(botId) || 0) + 1;
+    stateFailStreak.set(botId, streak);
+    if (streak < STATE_HEAL_THRESHOLD) {
+      console.warn(`[Health] ⚠️ Bot ${botId} reported non-live state "${raw ?? 'null'}" (${streak}/${STATE_HEAL_THRESHOLD})`);
+      return;
+    }
+    console.warn(`[Health] ⚠️ Bot ${botId} sustained non-live state "${raw ?? 'null'}" ${streak}x — treating as zombie.`);
+    stateFailStreak.delete(botId);
     bm.markUnhealthy(botId);
     return bm.healBot(botId, `zombie state: ${raw ?? 'null'}`);
   }
 
+  stateFailStreak.delete(botId);
   bm.markHealthy(botId);
 
   // ─── Liveness probe: page says alive — now make the SERVER prove it ───
@@ -215,6 +241,7 @@ function forget(botId) {
   lastIncomingAt.delete(botId);
   lastProbeOkAt.delete(botId);
   probeFailStreak.delete(botId);
+  stateFailStreak.delete(botId);
   const key = `birth:${botId}`;
   if (watchers.has(key)) {
     clearTimeout(watchers.get(key));

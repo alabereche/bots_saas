@@ -67,27 +67,57 @@ function armQrWaitTimeout(botId, config) {
           st.client.close(),
           new Promise(r => setTimeout(r, 5000)),
         ]);
-      } else {
-        // In-flight wpp.create(): the browser isn't exposed yet — the only
-        // lever is killing the Chromium holding this bot's token dir.
-        await killPendingBrowser(botId);
       }
     } catch { /* best effort */ }
-    clearStaleLocks(botId);
+    await cleanBotBrowserAndLocks(botId);
     if (activeBots.get(botId) === st) activeBots.delete(botId);
     firestore.updateBotStatus(botId, 'disconnected').catch(() => {});
   }, QR_WAIT_TIMEOUT_MS);
   qrWaitTimers.set(botId, t);
 }
 
-// Kills any Chromium holding this bot's token userDataDir. Needed because a
-// create still awaiting its first QR never exposes a client object to close.
-function killPendingBrowser(botId) {
-  return new Promise((resolve) => {
-    if (process.platform === 'win32') return resolve();
-    execFile('pkill', ['-f', `whatsapp-engine/tokens/${botId}`], () => resolve());
+// ─── Force-kill Chromium and clear stale SingletonLocks ───────
+// Ensures zero zombie processes and zero lock files before any launch or retry.
+async function cleanBotBrowserAndLocks(botId) {
+  if (!botId) return;
+  // 1. Force-kill any Chromium process holding this bot's token directory
+  await new Promise((resolve) => {
+    if (process.platform === 'win32') {
+      execFile('wmic', ['process', 'where', `commandline like '%tokens\\\\${botId}%' and name like '%chrome%'`, 'call', 'terminate'], () => resolve());
+    } else {
+      execFile('pkill', ['-9', '-f', `tokens/${botId}`], () => resolve());
+    }
   });
+
+  // Give operating system a beat to release file descriptors
+  await new Promise((r) => setTimeout(r, 1000));
+
+  // 2. Remove stale Chromium lock files without touching tokens/session data
+  try {
+    const candidateDirs = [
+      path.join(TOKENS_DIR, botId),
+      path.join(TOKENS_DIR, botId, botId),
+    ];
+    const lockFiles = ['SingletonLock', 'SingletonCookie', 'SingletonSocket'];
+    for (const dir of candidateDirs) {
+      if (!fs.existsSync(dir)) continue;
+      for (const lf of lockFiles) {
+        const p = path.join(dir, lf);
+        if (fs.existsSync(p)) {
+          try {
+            fs.unlinkSync(p);
+            console.log(`[BotManager] 🔓 Purged stale lock file "${lf}" for bot ${botId}`);
+          } catch {}
+        }
+      }
+    }
+  } catch (err) {
+    console.warn(`[BotManager] Notice clearing stale locks for bot ${botId}:`, err.message);
+  }
 }
+
+// Backward-compatible alias
+const killPendingBrowser = cleanBotBrowserAndLocks;
 
 function cleanSession(botId) {
   try {
@@ -188,6 +218,8 @@ async function createWhatsAppBotInner(botId, config, phoneNumber = null, forceNe
           '--disable-backgrounding-occluded-windows',
           '--disable-renderer-backgrounding',
           '--window-size=1280,800',
+          '--disk-cache-size=209715200',
+          '--media-cache-size=52428800',
         ],
       },
       // Phone pairing: top-level phoneNumber option + catchLinkCode callback
@@ -334,11 +366,8 @@ async function createWhatsAppBotInner(botId, config, phoneNumber = null, forceNe
     // Transient init failures (browser crash, page closed) must self-heal —
     // a retry regenerates the QR so the dashboard picks it up automatically.
     if (!merchantStopped.has(botId)) {
-      if (/already running/i.test(err.message || '')) {
-        // A zombie Chromium holds the token dir (crashed create, rapid
-        // double-click era) — free it or every retry hits the same wall.
-        await killPendingBrowser(botId);
-      }
+      // Always sweep zombie browser processes and stale locks on any init failure
+      await cleanBotBrowserAndLocks(botId);
       scheduleAutoRestart(botId, config);
     }
     throw err;
@@ -526,11 +555,17 @@ async function healBot(botId, reason = 'unhealthy') {
   reconnectTimers.delete(botId);
   clearQrWaitTimeout(botId);
   try {
-    await Promise.race([
-      entry.client?.close(),
-      new Promise(r => setTimeout(r, 5000)),
-    ]);
+    if (entry.client) {
+      await Promise.race([
+        entry.client.close(),
+        new Promise(r => setTimeout(r, 4000)),
+      ]);
+    }
   } catch { /* best effort */ }
+
+  // Hard sweep any lingering Chromium processes and stale SingletonLocks
+  await cleanBotBrowserAndLocks(botId);
+
   if (activeBots.get(botId) === entry) activeBots.delete(botId);
   scheduleAutoRestart(botId, entry.config);
 }
@@ -567,9 +602,12 @@ function scheduleAutoRestart(botId, config) {
   const timer = setTimeout(async () => {
     reconnectTimers.delete(botId);
     try {
+      // PRE-FLIGHT: Ensure zero zombie processes and zero stale locks before attempting restart
+      await cleanBotBrowserAndLocks(botId);
       await createWhatsAppBot(botId, config);
     } catch (e) {
       console.error(`[BotManager] Auto-restart failed for "${config.botName}":`, e.message);
+      await cleanBotBrowserAndLocks(botId);
       scheduleAutoRestart(botId, config);
     }
   }, delay);
@@ -584,6 +622,7 @@ module.exports = {
   restoreBotsOnStartup,
   getAllBotStatuses,
   healBot,
+  cleanBotBrowserAndLocks,
   markHealthy,
   markUnhealthy,
   clearMerchantStop,

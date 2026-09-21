@@ -3805,6 +3805,11 @@ html, body {
   border-bottom: 1px solid var(--border-subtle, var(--veil-2));
 }
 .notif-panel-title { font-weight: 800; font-size: 0.9rem; color: #ffffff; }
+.notif-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .notif-mark-read {
   background: none;
   border: none;
@@ -3813,8 +3818,32 @@ html, body {
   font-weight: 700;
   cursor: pointer;
   padding: 2px 4px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
 }
-.notif-mark-read:hover { text-decoration: underline; }
+.notif-mark-read:hover {
+  text-decoration: underline;
+  background: rgba(52, 211, 153, 0.1);
+}
+.notif-clear-all {
+  background: none;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #f87171;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 7px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+.notif-clear-all:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+.notif-clear-all:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 .notif-list {
   max-height: 400px;
   overflow-y: auto;

@@ -209,9 +209,22 @@ function generateTrackingCode() {
 
 // ─── Notifications (in-app bell) ────────────────────────────────
 // Engines write via Admin SDK; the merchant's dashboard listens live.
+const recentTgNotificationsCache = new Map();
+const SYSTEM_TG_NOTIF_COOLDOWN_MS = 6 * 60 * 60 * 1000;
+
 async function createNotification({ userId, botId, type = 'system', title, body = '', meta = {} }) {
   try {
     if (!userId) return null;
+
+    if (type === 'system' && botId) {
+      const cacheKey = `${userId}_${botId}_${title}`;
+      const lastSent = recentTgNotificationsCache.get(cacheKey) || 0;
+      if (Date.now() - lastSent < SYSTEM_TG_NOTIF_COOLDOWN_MS) {
+        return null;
+      }
+      recentTgNotificationsCache.set(cacheKey, Date.now());
+    }
+
     const ref = await db.collection('notifications').add({
       userId,
       botId: botId || '',

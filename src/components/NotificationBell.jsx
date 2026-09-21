@@ -41,15 +41,41 @@ export default function NotificationBell({ variant = 'desktop' }) {
   const panelRef = useRef(null);
   const navigate = useNavigate();
 
+  const [clearing, setClearing] = useState(false);
+
   useEffect(() => {
     const uid = auth.currentUser?.uid;
     if (!uid) return undefined;
-    // Single where() equality keeps this index-free; sorted client-side
-    const q = query(collection(db, 'notifications'), where('userId', '==', uid), limit(25));
+    const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+    // Single where() equality keeps this index-free; sorted and pruned client-side
+    const q = query(collection(db, 'notifications'), where('userId', '==', uid), limit(50));
     const unsub = onSnapshot(q, (snap) => {
-      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      list.sort((a, b) => (b.createdIso || '').localeCompare(a.createdIso || ''));
-      setItems(list);
+      const now = Date.now();
+      const freshList = [];
+      const expiredDocs = [];
+
+      snap.docs.forEach(d => {
+        const data = d.data();
+        const createdTime = data.createdIso
+          ? new Date(data.createdIso).getTime()
+          : (data.createdAt?.toMillis ? data.createdAt.toMillis() : 0);
+
+        if (createdTime && (now - createdTime > TWENTY_FOUR_HOURS_MS)) {
+          expiredDocs.push(d);
+        } else {
+          freshList.push({ id: d.id, ...data });
+        }
+      });
+
+      freshList.sort((a, b) => (b.createdIso || '').localeCompare(a.createdIso || ''));
+      setItems(freshList);
+
+      // Auto-purge notifications older than 24 hours silently in the background
+      if (expiredDocs.length > 0) {
+        const batch = writeBatch(db);
+        expiredDocs.forEach(d => batch.delete(doc(db, 'notifications', d.id)));
+        batch.commit().catch(() => {});
+      }
     }, () => {});
     return unsub;
   }, []);
@@ -100,6 +126,21 @@ export default function NotificationBell({ variant = 'desktop' }) {
     } catch { /* best effort */ }
   };
 
+  const clearAllNotifications = async () => {
+    if (!items.length || clearing) return;
+    setClearing(true);
+    try {
+      const batch = writeBatch(db);
+      items.forEach(n => batch.delete(doc(db, 'notifications', n.id)));
+      await batch.commit();
+      setItems([]);
+    } catch (err) {
+      console.error('Failed to clear notifications:', err);
+    } finally {
+      setClearing(false);
+    }
+  };
+
   const openItem = (n) => {
     if (!n.read) updateDoc(doc(db, 'notifications', n.id), { read: true }).catch(() => {});
     setOpen(false);
@@ -114,10 +155,23 @@ export default function NotificationBell({ variant = 'desktop' }) {
     >
       <div className="notif-panel-head">
         <span className="notif-panel-title">الإشعارات</span>
-        {unread > 0 && (
-          <button type="button" className="notif-mark-read" onClick={markAllRead}>
-            تحديد الكل كمقروء
-          </button>
+        {items.length > 0 && (
+          <div className="notif-panel-actions">
+            {unread > 0 && (
+              <button type="button" className="notif-mark-read" onClick={markAllRead}>
+                تحديد الكل كمقروء
+              </button>
+            )}
+            <button
+              type="button"
+              className="notif-clear-all"
+              onClick={clearAllNotifications}
+              disabled={clearing}
+              title="حذف جميع الإشعارات"
+            >
+              مسح الكل
+            </button>
+          </div>
         )}
       </div>
 

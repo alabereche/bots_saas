@@ -401,9 +401,23 @@ async function updateOrderDeliveryStatus(orderId, newDeliveryStatus, providerInf
 // ─── Notifications (in-app bell) ────────────────────────────────
 // Engines write via Admin SDK (client create is denied by rules);
 // the merchant's dashboard listens in realtime.
+const recentNotificationsCache = new Map();
+const SYSTEM_NOTIF_COOLDOWN_MS = 6 * 60 * 60 * 1000; // 6h deduplication cooldown
+
 async function createNotification({ userId, botId, type = 'system', title, body = '', meta = {} }) {
   try {
     if (!userId) return null;
+
+    // Cooldown for repetitive system notifications (disconnect/reconnect notices)
+    if (type === 'system' && botId) {
+      const cacheKey = `${userId}_${botId}_${title}`;
+      const lastSent = recentNotificationsCache.get(cacheKey) || 0;
+      if (Date.now() - lastSent < SYSTEM_NOTIF_COOLDOWN_MS) {
+        return null; // Suppress repetitive alert
+      }
+      recentNotificationsCache.set(cacheKey, Date.now());
+    }
+
     const ref = await db.collection('notifications').add({
       userId,
       botId: botId || '',
@@ -421,6 +435,38 @@ async function createNotification({ userId, botId, type = 'system', title, body 
     return null;
   }
 }
+
+// Automatically delete notifications older than 24 hours
+async function cleanupExpiredNotifications() {
+  try {
+    const snap = await db.collection('notifications').limit(150).get();
+    if (snap.empty) return 0;
+    const now = Date.now();
+    const expired = snap.docs.filter(d => {
+      const data = d.data();
+      const t = data.createdIso
+        ? new Date(data.createdIso).getTime()
+        : (data.createdAt?.toMillis ? data.createdAt.toMillis() : 0);
+      return t && (now - t > 24 * 60 * 60 * 1000);
+    });
+
+    if (expired.length > 0) {
+      const batch = db.batch();
+      expired.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+      console.log(`[Firestore] 🧹 Purged ${expired.length} expired notification(s) (> 24h old)`);
+      return expired.length;
+    }
+    return 0;
+  } catch (e) {
+    console.warn('[Firestore] Cleanup notifications error:', e.message);
+    return 0;
+  }
+}
+
+// Schedule notification sweep on startup and every 6 hours
+setTimeout(() => { cleanupExpiredNotifications().catch(() => {}); }, 15000);
+setInterval(() => { cleanupExpiredNotifications().catch(() => {}); }, 6 * 60 * 60 * 1000).unref();
 
 async function getConversationHistory(botId, customerId, limitCount = 10) {
   try {
@@ -831,4 +877,5 @@ module.exports = {
   findLeads,
   repairOrphanLeads,
   adjustProductStock,
+  cleanupExpiredNotifications,
 };

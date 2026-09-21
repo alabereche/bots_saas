@@ -171,7 +171,7 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
     };
 
     tick();
-    const interval = setInterval(tick, 2500);
+    const interval = setInterval(tick, 1500);
     return () => { stopped = true; clearInterval(interval); };
   }, [waStatus, bot.id]);
 
@@ -248,6 +248,7 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
         body: JSON.stringify({
           botId: bot.id,
           phoneNumber: fullInternationalPhone,
+          forceNew: true,
         }),
       });
       let data = null;

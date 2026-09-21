@@ -15,6 +15,30 @@ const { handleMessage } = require('./messageHandler');
 const messageQueue = require('./messageQueue');
 const healthMonitor = require('./healthMonitor');
 
+// ─── Modernize WPPConnect Defaults in Node Module Cache ─────────
+// 1. Override ancient Chrome 102 User-Agent (2022) with modern Chrome 131
+//    to eliminate socket drops and phone pairing "حدث خطأ" failures.
+try {
+  const waUserAgent = require('@wppconnect-team/wppconnect/dist/config/WAuserAgente');
+  if (waUserAgent) {
+    waUserAgent.useragentOverride = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+  }
+} catch (e) {
+  console.warn('[BotManager] Notice patching WAuserAgente:', e.message);
+}
+
+// 2. Disable blocking GitHub release check and welcome banner for fast startup
+try {
+  const createConfig = require('@wppconnect-team/wppconnect/dist/config/create-config');
+  if (createConfig && createConfig.defaultOptions) {
+    createConfig.defaultOptions.updatesLog = false;
+    createConfig.defaultOptions.disableWelcome = true;
+    createConfig.defaultOptions.whatsappVersion = undefined;
+  }
+} catch (e) {
+  console.warn('[BotManager] Notice patching create-config:', e.message);
+}
+
 // Active bots: botId -> { client, config, qrCode, status }
 const activeBots = new Map();
 
@@ -119,12 +143,17 @@ async function cleanBotBrowserAndLocks(botId) {
 // Backward-compatible alias
 const killPendingBrowser = cleanBotBrowserAndLocks;
 
-function cleanSession(botId) {
+async function cleanSession(botId) {
+  if (!botId) return;
   try {
     const tokenDir = path.join(TOKENS_DIR, botId);
     if (fs.existsSync(tokenDir)) {
       fs.rmSync(tokenDir, { recursive: true, force: true });
-      console.log(`[BotManager] Purged WPPConnect tokens for bot: ${botId}`);
+      if (fs.existsSync(tokenDir)) {
+        await new Promise(r => setTimeout(r, 250));
+        fs.rmSync(tokenDir, { recursive: true, force: true });
+      }
+      console.log(`[BotManager] 🗑️ Purged old session and tokens completely for bot: ${botId}`);
     }
   } catch (e) {
     console.error(`[BotManager] Error cleaning session for bot ${botId}:`, e.message);
@@ -146,13 +175,16 @@ function isCreating(botId) {
 async function createWhatsAppBot(botId, config, phoneNumber = null, forceNew = false) {
   const pending = pendingCreates.get(botId);
   if (pending) {
-    if (!phoneNumber && !forceNew) {
+    if (forceNew) {
+      console.log(`[BotManager] Force-new requested for "${config.botName}" — terminating previous in-flight attempt to start clean.`);
+      pendingCreates.delete(botId);
+      try {
+        await cleanBotBrowserAndLocks(botId);
+      } catch {}
+    } else {
       console.log(`[BotManager] Create already in flight for "${config.botName}" — joining the pending session.`);
       return pending;
     }
-    const err = new Error('create already in flight');
-    err.code = 'CREATE_IN_FLIGHT';
-    throw err;
   }
   const p = createWhatsAppBotInner(botId, config, phoneNumber, forceNew).finally(() => {
     pendingCreates.delete(botId);
@@ -173,11 +205,14 @@ async function createWhatsAppBotInner(botId, config, phoneNumber = null, forceNe
     if (activeBots.get(botId) === existing) activeBots.delete(botId);
   }
 
+  // When linking a bot (forceNew) or pairing a new phone:
+  // ALWAYS purge any old session and kill any lingering browser instances first.
   if (phoneNumber || forceNew) {
-    cleanSession(botId);
+    await cleanBotBrowserAndLocks(botId);
+    await cleanSession(botId);
   }
 
-  console.log(`[BotManager] Initializing WPPConnect bot "${config.botName}"...`);
+  console.log(`[BotManager] Initializing WPPConnect bot "${config.botName}" (forceNew: ${forceNew})...`);
 
   const botState = {
     client: null,
@@ -202,6 +237,9 @@ async function createWhatsAppBotInner(botId, config, phoneNumber = null, forceNe
       autoClose: 0,
       deviceSyncTimeout: 0,
       logQR: false, // QR reaches the dashboard via catchQR — no ASCII floods in pm2 logs
+      updatesLog: false, // Do not block initialization on GitHub update checks
+      disableWelcome: true, // Suppress welcome console banners
+      whatsappVersion: undefined, // Let live WhatsApp Web load without version interception
       puppeteerOptions: {
         headless: true,
         args: [
@@ -220,6 +258,7 @@ async function createWhatsAppBotInner(botId, config, phoneNumber = null, forceNe
           '--window-size=1280,800',
           '--disk-cache-size=209715200',
           '--media-cache-size=52428800',
+          '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
         ],
       },
       // Phone pairing: top-level phoneNumber option + catchLinkCode callback
@@ -231,14 +270,16 @@ async function createWhatsAppBotInner(botId, config, phoneNumber = null, forceNe
       catchQR: (base64Image, _asciiQr, attempt, urlCode) => {
         console.log(`[BotManager] QR generated for "${config.botName}" (attempt ${attempt})`);
         botState.qrCode = urlCode || botState.qrCode;
-        // base64Image is canvas.toDataURL() — directly renderable; fall back
-        // to encoding the urlCode ourselves if the canvas scrape failed.
-        if (typeof base64Image === 'string' && base64Image.startsWith('data:')) {
-          botState.qrDataUrl = base64Image;
-        } else if (urlCode) {
-          QRCode.toDataURL(urlCode, { width: 300, margin: 2 })
+        if (urlCode) {
+          QRCode.toDataURL(urlCode, { width: 320, margin: 2, errorCorrectionLevel: 'H' })
             .then(url => { botState.qrDataUrl = url; })
-            .catch(() => {});
+            .catch(() => {
+              if (typeof base64Image === 'string' && base64Image.startsWith('data:')) {
+                botState.qrDataUrl = base64Image;
+              }
+            });
+        } else if (typeof base64Image === 'string' && base64Image.startsWith('data:')) {
+          botState.qrDataUrl = base64Image;
         }
         botState.status = 'waiting_scan';
         armQrWaitTimeout(botId, config);
@@ -321,7 +362,8 @@ async function createWhatsAppBotInner(botId, config, phoneNumber = null, forceNe
         healthMonitor.markReady(botId);
         healthMonitor.startWatch(botId);
       } else if (state === 'UNPAIRED' || state === 'UNPAIRED_IDLE') {
-        handleDisconnect(botId, config, `socket state: ${state}`);
+        console.log(`[BotManager] Bot "${config.botName}" was unlinked/unpaired from phone — purging dead session.`);
+        stopWhatsAppBot(botId, true).catch(() => {});
       } else if (state === 'CONFLICT' || state === 'TIMEOUT') {
         console.warn(`[BotManager] Socket "${state}" for "${config.botName}" — healing.`);
         const entry = activeBots.get(botId);
@@ -439,8 +481,11 @@ async function stopWhatsAppBot(botId, purgeSession = true) {
     await killPendingBrowser(botId);
   }
 
+  // Always kill lingering Chromium processes and clean SingletonLocks
+  await cleanBotBrowserAndLocks(botId);
+
   if (purgeSession) {
-    cleanSession(botId);
+    await cleanSession(botId);
   }
 
   firestore.updateBotStatus(botId, 'disconnected', {

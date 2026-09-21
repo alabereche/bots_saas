@@ -215,7 +215,7 @@ function checkPairingRateLimit(uid) {
 
 // POST /api/whatsapp/create — Initialize a WhatsApp bot (supports QR or Pairing Code)
 app.post('/api/whatsapp/create', async (req, res) => {
-  const { botId, phoneNumber } = req.body;
+  const { botId, phoneNumber, forceNew = true } = req.body;
   const config = await requireBotAccess(res, req.uid, botId);
   if (!config) return;
 
@@ -262,10 +262,9 @@ app.post('/api/whatsapp/create', async (req, res) => {
       console.warn('[Billing] Bot-count check skipped:', e.message);
     }
 
-    // Mode switch (QR -> phone pairing) while a link is already pending
-    // would need a second Chromium on the same token dir — refused; the
-    // merchant finishes or cancels the current attempt first.
-    if (cleanPhone && isCreating(botId)) {
+    // If a link is already in flight and forceNew is false, refuse concurrent conflict;
+    // but when forceNew is true, createWhatsAppBot terminates the old attempt cleanly.
+    if (cleanPhone && isCreating(botId) && !forceNew) {
       return res.status(409).json({ error: 'يوجد ربط قيد المحاولة الآن — انتظر ظهور الرمز أو ألغِ المحاولة أولاً' });
     }
 
@@ -274,7 +273,7 @@ app.post('/api/whatsapp/create', async (req, res) => {
     // and die at the tunnel ceiling. The dashboard polls /qr instead — the QR
     // arrives via the catchQR callback while this request is already answered.
     clearMerchantStop(botId);
-    createWhatsAppBot(botId, config, cleanPhone, !!cleanPhone).catch(err => {
+    createWhatsAppBot(botId, config, cleanPhone, forceNew !== false).catch(err => {
       if (err.code !== 'CREATE_IN_FLIGHT') {
         console.error(`[API] Background create failed for bot ${botId}:`, err.message);
       }
@@ -315,12 +314,12 @@ app.get('/api/whatsapp/:id/status', async (req, res) => {
   });
 });
 
-// POST /api/whatsapp/:id/stop — Disconnect bot
+// POST /api/whatsapp/:id/stop — Disconnect bot and purge session completely
 app.post('/api/whatsapp/:id/stop', async (req, res) => {
   if (!(await requireBotAccess(res, req.uid, req.params.id))) return;
   try {
-    await stopWhatsAppBot(req.params.id);
-    res.json({ success: true, message: 'تم ايقاف البوت' });
+    await stopWhatsAppBot(req.params.id, true);
+    res.json({ success: true, message: 'تم ايقاف البوت وتطهير الجلسة' });
   } catch (err) {
     console.error('[API] Stop error:', err.message);
     res.status(500).json({ error: 'حدث خطأ داخلي أثناء إيقاف البوت' });

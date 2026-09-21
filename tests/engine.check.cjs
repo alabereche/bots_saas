@@ -6,6 +6,10 @@
 //   G1  syntax validity of every engine module          (spliced/corrupted files)
 //   G2  module.exports shorthand names must be defined  (recordAbandonedReminder class)
 //   G3  promptGenerator functional assertions           (deleted prompt systems)
+//   G4  messageQueue functional gate                    (merge + per-customer isolation)
+//   G5  Gemini key-pool functional gate                 (429 rotation + 400 abort)
+//   G6  WhatsApp outboxQueue functional gate            (pacing + anti-ban + takeover)
+//   G7  Telegram queue functional gate                  (concurrency throttler + VPS shield)
 //
 // Zero dependencies. Exit 1 on any failure. Usage:
 //   node tests/engine.check.cjs <engineDir relative to repo root>
@@ -206,6 +210,73 @@ let last = '';
   } catch (e) {
     const out = String(e.stdout || '') + '\n[stderr]\n' + String(e.stderr || '') + '\n[exit] ' + e.status;
     fail('gemini-pool test failed:\n' + out);
+  }
+}
+
+// ─── G6: WhatsApp outbox queue functional gate (pacing + anti-ban) ───
+const obqPath = path.join(target, 'outboxQueue.js');
+if (fs.existsSync(obqPath)) {
+  console.log('\n[G6] اختبار وظيفي — WhatsApp Outbox Queue');
+  try {
+    const runner = `
+const { calculateDelay, calculateTypingDuration } = require('./outboxQueue.js');
+const pressure = calculateDelay(true, 5);
+const newChat = calculateDelay(true, 0);
+const activeChat = calculateDelay(false, 0);
+const typing = calculateTypingDuration(100);
+const ok = pressure <= 5000 && newChat >= 16000 && activeChat >= 4000 && typing >= 2500 && typing <= 6000;
+if (!ok) {
+  console.log('FAIL calculations', { pressure, newChat, activeChat, typing });
+  process.exit(1);
+}
+console.log('PASS');
+process.exit(0);`;
+    const out = execFileSync(process.execPath, ['-e', runner], {
+      cwd: target, env: { ...process.env }, stdio: 'pipe',
+    }).toString();
+    if (out.includes('PASS')) pass('حساب التأخير البشري + ضغط الإعلانات + محاكاة الكتابة');
+    else fail('outboxQueue: ' + out.trim());
+  } catch (e) {
+    const out = String(e.stdout || '') + '\n[stderr]\n' + String(e.stderr || '') + '\n[exit] ' + e.status;
+    fail('outboxQueue test failed:\n' + out);
+  }
+}
+
+// ─── G7: Telegram concurrency throttler gate ───
+const tgqPath = path.join(target, 'telegramQueue.js');
+if (fs.existsSync(tgqPath)) {
+  console.log('\n[G7] اختبار وظيفي — Telegram Concurrency Throttler');
+  try {
+    const runner = `
+import { enqueueTelegramTask, getActiveCount } from './telegramQueue.js';
+let maxActive = 0;
+let current = 0;
+const tasks = [];
+for (let i = 0; i < 6; i++) {
+  tasks.push(enqueueTelegramTask('b_test', async () => {
+    current++;
+    maxActive = Math.max(maxActive, current);
+    await new Promise(r => setTimeout(r, 20));
+    current--;
+  }));
+}
+await Promise.all(tasks);
+if (maxActive <= 3 && maxActive >= 1) {
+  console.log('PASS');
+  process.exit(0);
+} else {
+  console.log('FAIL maxActive=' + maxActive);
+  process.exit(1);
+}
+`;
+    const out = execFileSync(process.execPath, ['--input-type=module', '-e', runner], {
+      cwd: target, env: { ...process.env, TG_CONCURRENCY_LIMIT: '3', TG_QUEUE_GAP_MIN_MS: '5', TG_QUEUE_GAP_MAX_MS: '15' }, stdio: 'pipe',
+    }).toString();
+    if (out.includes('PASS')) pass('تقييد التزامن وحماية موارد VPS من الاختناق');
+    else fail('telegramQueue: ' + out.trim());
+  } catch (e) {
+    const out = String(e.stdout || '') + '\n[stderr]\n' + String(e.stderr || '') + '\n[exit] ' + e.status;
+    fail('telegramQueue test failed:\n' + out);
   }
 }
 

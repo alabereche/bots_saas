@@ -7,9 +7,10 @@
 // Transport layer speaks WPPConnect (client from msg.client).
 // ═══════════════════════════════════════════════════════════════
 
-const { askOpenRouter } = require('./openrouter');
+const { askOpenRouter, hasActiveConversation } = require('./openrouter');
 const firestore = require('./firestore');
 const { isTakeoverActive } = require('./takeover');
+const { enqueueOutgoingReply } = require('./outboxQueue');
 const trackingHelper = require('./tracking-helper');
 const { syncToGoogleSheets } = require('./sheetsSync');
 const { createBoundedCache } = require('./boundedCache');
@@ -167,12 +168,30 @@ function extractProductMedia(rawReply, productsList = []) {
   return { cleanReply, mediaItems, useReplyOnFirst };
 }
 
-// Helper: send plain text reply (WPPConnect transport)
-async function sendTextReply(msg, userId, text) {
+// Helper: send plain text reply (WPPConnect transport routed via human-paced outbox queue)
+async function sendTextReply(msg, userId, text, botId = null, isFirstInbound = false) {
+  if (botId && msg?.client) {
+    return enqueueOutgoingReply({
+      botId,
+      userId,
+      client: msg.client,
+      text,
+      isFirstInbound,
+      sendFn: async () => {
+        try {
+          await msg.client.sendText(userId, text);
+        } catch (sendErr) {
+          console.warn('[Handler] sendText failed, retrying once:', sendErr.message);
+          await msg.client.sendText(userId, text).catch(() => {});
+        }
+      },
+    });
+  }
+
   try {
     await msg.client.sendText(userId, text);
   } catch (sendErr) {
-    console.warn('[Handler] sendText failed, trying reply:', sendErr.message);
+    console.warn('[Handler] sendText fallback failed:', sendErr.message);
     await msg.client.sendText(userId, text).catch(() => {});
   }
 }
@@ -387,6 +406,7 @@ async function handleMessage(msg, config) {
 
     const displayMessage = userMessage || (isAudio ? '[رسالة صوتية]' : '');
     console.log(`[Handler] New message from ${userName} (${userId}): "${displayMessage}"`);
+    const isFirstInbound = !hasActiveConversation(config.id, userId);
 
     // Log the customer's message IMMEDIATELY — before any AI call —
     // so a provider outage can never silently swallow it
@@ -409,7 +429,7 @@ async function handleMessage(msg, config) {
 
     // If audio download failed completely and no text exists
     if (isAudio && !userMessage && !audioData) {
-      await sendTextReply(msg, userId, 'عذراً، لم أتمكن من تشغيل التسجيل الصوتي. هل يمكنك إعادة إرساله أو كتابة استفسارك؟');
+      await sendTextReply(msg, userId, 'عذراً، لم أتمكن من تشغيل التسجيل الصوتي. هل يمكنك إعادة إرساله أو كتابة استفسارك؟', config.id, isFirstInbound);
       return;
     }
 
@@ -450,7 +470,7 @@ async function handleMessage(msg, config) {
         trackingReply = trackingHelper.formatNoOrdersFound(explicitCode);
       }
 
-      await sendTextReply(msg, userId, trackingReply);
+      await sendTextReply(msg, userId, trackingReply, config.id, false);
 
       firestore.logBotMessage({
         botId: config.id,
@@ -480,7 +500,8 @@ async function handleMessage(msg, config) {
       if (!billing.wasLimitNotified(liveConfig.id)) {
         billing.markLimitNotified(liveConfig.id);
         await sendTextReply(msg, userId,
-          `وصلتَ حدّ الرسائل اليومي لباقتك الحالية (${bill.limits.dailyMessages} رسالة). سأعود لخدمتك غداً — أو رقّ حسابك من لوحة التحكم في صفحة الاشتراكات.`);
+          `وصلتَ حدّ الرسائل اليومي لباقتك الحالية (${bill.limits.dailyMessages} رسالة). سأعود لخدمتك غداً — أو رقّ حسابك من لوحة التحكم في صفحة الاشتراكات.`,
+          config.id, false);
         firestore.createNotification({
           userId: liveConfig.userId,
           botId: liveConfig.id,
@@ -541,52 +562,61 @@ async function handleMessage(msg, config) {
       };
 
       if (resolved.length > 0 && msg.client) {
-        if (useReplyOnFirst) {
-          // Single product / gallery: AI pitch as the first image caption
-          await sendImageSafely(resolved[0].media, reply);
-          for (let i = 1; i < resolved.length; i++) {
-            await new Promise(r => setTimeout(r, 400));
-            await sendImageSafely(resolved[i].media, null);
-          }
-        } else {
-          // Multi-product showcase: images ARE the list. The AI's text must
-          // be only a short intro — strip any lines that re-list showcased
-          // products (name match) so nothing is shown twice.
-          let pitch = (reply || '').trim();
-          const names = resolved.map(r => r.product?.name).filter(Boolean);
-          if (names.length > 0 && pitch) {
-            const lows = names.map(n => String(n).toLowerCase());
-            pitch = pitch
-              .split('\n')
-              .filter(line => {
-                const low = line.toLowerCase();
-                return !lows.some(n => n && low.includes(n.toLowerCase()));
-              })
-              .join('\n')
-              .replace(/\n{2,}/g, '\n')
-              .trim();
-          }
-          if (pitch) await msg.client.sendText(userId, pitch);
-          for (const r of resolved) {
-            const cur = liveConfig.currency || 'دج';
-            const op = r.product ? parseFloat(r.product.oldPrice) : NaN;
-            const np = r.product ? parseFloat(r.product.price) : NaN;
-            const hasDisc = op > 0 && np > 0 && op > np;
-            const discPct = hasDisc ? Math.round((1 - np / op) * 100) : 0;
-            const cap = r.product
-              ? `• ${r.product.name || 'منتج'}${hasDisc ? ` - كان ${r.product.oldPrice} ${cur}` : ''}${np ? ` - الآن: ${r.product.price} ${cur}` : ''}${hasDisc ? ` (خصم ${discPct}%)` : ''}`
-              : '';
-            await new Promise(r2 => setTimeout(r2, 400));
-            await sendImageSafely(r.media, cap || null);
-          }
-        }
+        await enqueueOutgoingReply({
+          botId: config.id,
+          userId,
+          client: msg.client,
+          text: reply,
+          isFirstInbound,
+          sendFn: async () => {
+            if (useReplyOnFirst) {
+              // Single product / gallery: AI pitch as the first image caption
+              await sendImageSafely(resolved[0].media, reply);
+              for (let i = 1; i < resolved.length; i++) {
+                await new Promise(r => setTimeout(r, 400));
+                await sendImageSafely(resolved[i].media, null);
+              }
+            } else {
+              // Multi-product showcase: images ARE the list. The AI's text must
+              // be only a short intro — strip any lines that re-list showcased
+              // products (name match) so nothing is shown twice.
+              let pitch = (reply || '').trim();
+              const names = resolved.map(r => r.product?.name).filter(Boolean);
+              if (names.length > 0 && pitch) {
+                const lows = names.map(n => String(n).toLowerCase());
+                pitch = pitch
+                  .split('\n')
+                  .filter(line => {
+                    const low = line.toLowerCase();
+                    return !lows.some(n => n && low.includes(n.toLowerCase()));
+                  })
+                  .join('\n')
+                  .replace(/\n{2,}/g, '\n')
+                  .trim();
+              }
+              if (pitch) await msg.client.sendText(userId, pitch);
+              for (const r of resolved) {
+                const cur = liveConfig.currency || 'دج';
+                const op = r.product ? parseFloat(r.product.oldPrice) : NaN;
+                const np = r.product ? parseFloat(r.product.price) : NaN;
+                const hasDisc = op > 0 && np > 0 && op > np;
+                const discPct = hasDisc ? Math.round((1 - np / op) * 100) : 0;
+                const cap = r.product
+                  ? `• ${r.product.name || 'منتج'}${hasDisc ? ` - كان ${r.product.oldPrice} ${cur}` : ''}${np ? ` - الآن: ${r.product.price} ${cur}` : ''}${hasDisc ? ` (خصم ${discPct}%)` : ''}`
+                  : '';
+                await new Promise(r2 => setTimeout(r2, 400));
+                await sendImageSafely(r.media, cap || null);
+              }
+            }
+          },
+        });
       } else {
         // Fallback to text if media failed to download
-        await sendTextReply(msg, userId, reply);
+        await sendTextReply(msg, userId, reply, config.id, isFirstInbound);
       }
     } else {
       // Standard text reply
-      await sendTextReply(msg, userId, reply);
+      await sendTextReply(msg, userId, reply, config.id, isFirstInbound);
     }
 
     console.log(`[Handler] Sent AI reply to ${userName}: "${reply.slice(0, 50)}..."`);

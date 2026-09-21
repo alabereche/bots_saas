@@ -219,4 +219,9 @@ function clearHistory(configId, userId) {
   conversationHistory.delete(`${configId}_${userId}`);
 }
 
-module.exports = { askOpenRouter, clearHistory };
+function hasActiveConversation(configId, userId) {
+  const entry = conversationHistory.get(`${configId}_${userId}`);
+  return !!(entry && entry.msgs && entry.msgs.length > 2);
+}
+
+module.exports = { askOpenRouter, clearHistory, hasActiveConversation };

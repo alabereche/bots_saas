@@ -28,6 +28,7 @@ import { parseGeminiKeys, runKeyPool } from './gemini-pool.js';
 import { encrypt, decrypt } from './encryption.js';
 import { syncToGoogleSheets } from './sheetsSync.js';
 import { initBilling, getLimits, checkAndCountMessage, markLimitNotified, wasLimitNotified, adjustProductStock } from './billing.mjs';
+import { enqueueTelegramTask, clearTelegramQueue } from './telegramQueue.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1238,13 +1239,17 @@ async function startBot(config) {
           tgDebounce.delete(key);
           if (g.ctx) {
             g.ctx.message.text = g.frags.join('\n');
-            await runTelegramIncoming(g.ctx);
+            await enqueueTelegramTask(config.id, () => runTelegramIncoming(g.ctx)).catch((err) => {
+              console.error(`[Telegram Queue] Error processing debounced message for bot ${config.id}:`, err.message);
+            });
           }
         }, wait);
         return;
       }
 
-      await runTelegramIncoming(ctx);
+      await enqueueTelegramTask(config.id, () => runTelegramIncoming(ctx)).catch((err) => {
+        console.error(`[Telegram Queue] Error processing message for bot ${config.id}:`, err.message);
+      });
     });
 
     bot.catch((err) => {
@@ -1268,6 +1273,7 @@ async function startBot(config) {
 }
 
 async function stopBot(botId) {
+  clearTelegramQueue(botId);
   const entry = activeBots.get(botId);
   if (!entry) return;
   try {

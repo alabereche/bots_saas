@@ -284,6 +284,58 @@ export default function BotDetail() {
 
   const selectedThread = selectedUserId ? customerThreads[selectedUserId] : null;
 
+  // ─── Dynamic Tab Badges (Seen / Actionable Lifecycle) ───
+  // 1. Chat Badge: clears when viewing the chat tab or opening the page
+  const [lastSeenChatTime, setLastSeenChatTime] = useState(() => {
+    return parseInt(localStorage.getItem(`botforge_seen_chat_${id}`) || '0', 10);
+  });
+
+  useEffect(() => {
+    if (activeTab === 'chat') {
+      const now = Date.now();
+      localStorage.setItem(`botforge_seen_chat_${id}`, String(now));
+      setLastSeenChatTime(now);
+    }
+  }, [activeTab, id, allMessages.length]);
+
+  const unreadChatCount = useMemo(() => {
+    if (activeTab === 'chat') return 0;
+    return sortedCustomers.filter(c => {
+      const lastMsg = c.messages[c.messages.length - 1];
+      if (!lastMsg || lastMsg.role !== 'user') return false;
+      const msgTime = new Date(lastMsg.createdAt).getTime();
+      return msgTime > lastSeenChatTime;
+    }).length;
+  }, [sortedCustomers, lastSeenChatTime, activeTab]);
+
+  // 2. Orders Badge: pending orders awaiting shipment (clears when status becomes 'shipped', 'delivered', or 'cancelled')
+  const pendingOrdersCount = useMemo(() => {
+    return orders.filter(o => {
+      const ds = normalizeDeliveryStatus(o.deliveryStatus);
+      if (ds === 'shipped' || ds === 'delivered' || ds === 'cancelled') return false;
+      if (o.status === 'completed' || o.status === 'cancelled') return false;
+      return true;
+    }).length;
+  }, [orders]);
+
+  // 3. CRM Leads Badge: clears when opening page or viewing CRM tab
+  const [seenLeadsCount, setSeenLeadsCount] = useState(() => {
+    const saved = localStorage.getItem(`botforge_seen_leads_${id}`);
+    return saved !== null ? parseInt(saved, 10) : null;
+  });
+
+  useEffect(() => {
+    if (leads.length > 0) {
+      localStorage.setItem(`botforge_seen_leads_${id}`, String(leads.length));
+      setSeenLeadsCount(leads.length);
+    }
+  }, [id, leads.length, activeTab]);
+
+  const unreadLeadsCount = useMemo(() => {
+    if (seenLeadsCount === null) return 0;
+    return Math.max(0, leads.length - seenLeadsCount);
+  }, [leads.length, seenLeadsCount]);
+
   const defaultDeliveryMessage = (order, currentBot) => {
     const customerName = order.customerName || 'عميلنا العزيز';
     const productName = order.product || 'طلبيتكم';
@@ -562,7 +614,7 @@ export default function BotDetail() {
 
   if (!bot) return null;
 
-  const newOrdersCount = orders.filter(o => o.status === 'new').length;
+  const newOrdersCount = pendingOrdersCount;
   const currentActivityName = bot.customType || businessTypeLabels[bot.businessType] || bot.businessType || 'مشروع عام';
   const isWhatsapp = bot.platform === 'whatsapp';
 
@@ -632,7 +684,7 @@ export default function BotDetail() {
           {
             key: 'chat',
             label: 'المحادثات',
-            count: sortedCustomers.length,
+            count: unreadChatCount || null,
             icon: (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -642,7 +694,7 @@ export default function BotDetail() {
           {
             key: 'orders',
             label: 'الطلبيات والتتبع',
-            count: newOrdersCount,
+            count: pendingOrdersCount || null,
             icon: (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
@@ -654,7 +706,7 @@ export default function BotDetail() {
           {
             key: 'leads',
             label: 'العملاء المحتملين (CRM)',
-            count: leads.length || null,
+            count: unreadLeadsCount || null,
             icon: (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>

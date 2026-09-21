@@ -420,7 +420,16 @@ export async function updateOrderDelivery(botId, orderId, platform = 'whatsapp',
     updatedAt: serverTimestamp(),
   };
 
-  if (deliveryStatus) updateData.deliveryStatus = deliveryStatus;
+  if (deliveryStatus) {
+    updateData.deliveryStatus = deliveryStatus;
+    if (deliveryStatus === 'shipped' || deliveryStatus === 'delivered') {
+      updateData.status = 'completed';
+    } else if (deliveryStatus === 'cancelled') {
+      updateData.status = 'cancelled';
+    } else if (deliveryStatus === 'accepted') {
+      updateData.status = 'confirmed';
+    }
+  }
   if (orderStatus) updateData.orderStatus = orderStatus;
   if (provider) updateData.deliveryProvider = provider;
   if (trackingNumber !== undefined) updateData.deliveryTrackingNumber = trackingNumber;

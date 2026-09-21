@@ -187,7 +187,7 @@ const pairingAttempts = new Map(); // uid -> { count, start }
 // failing silently until the next watchdog pass
 function maybeHealClient(botId, err) {
   const msgText = String((err && err.message) || '');
-  if (/Session closed|Target closed|Protocol error|Execution context|Evaluation failed|browser has been closed/i.test(msgText)) {
+  if (/Session closed|Target closed|Protocol error|Execution context|Evaluation failed|browser has been closed|timed out|timeout/i.test(msgText)) {
     try {
       healBot(botId, `send failure: ${msgText.slice(0, 100)}`);
     } catch { /* healing is best-effort */ }
@@ -589,14 +589,24 @@ app.post('/api/orders/:id/delivery-status', async (req, res) => {
         notifMsg += `يمكنك كتابة "تتبع" في أي وقت للاستعلام المباشر عن حالة الطلبية.`;
 
         let targetId = String(customerTarget).trim();
-        if (!targetId.includes('@')) {
+        // Resolve @lid: WhatsApp multi-device internal LID cannot receive direct sendText,
+        // so if customer has order.phone or targetId is LID, convert to @c.us phone JID!
+        if (targetId.endsWith('@lid') && order.phone) {
+          let cleanPhone = String(order.phone).replace(/[^0-9]/g, '');
+          if (cleanPhone.startsWith('0')) cleanPhone = '213' + cleanPhone.slice(1);
+          targetId = `${cleanPhone}@c.us`;
+        } else if (!targetId.includes('@')) {
           let cleanPhone = targetId.replace(/[^0-9]/g, '');
           if (cleanPhone.startsWith('0')) cleanPhone = '213' + cleanPhone.slice(1);
           targetId = `${cleanPhone}@c.us`;
         }
 
         console.log(`[API] 📢 Dispatching WhatsApp delivery notification for order ${orderId} to ${targetId}...`);
-        await state.client.sendText(targetId, notifMsg);
+        // Wrap sendText in 15s timeout to prevent Puppeteer from freezing the browser page
+        await Promise.race([
+          state.client.sendText(targetId, notifMsg),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('WhatsApp sendText timeout (15s)')), 15000))
+        ]);
         notificationSent = true;
         console.log(`[API] ✅ WhatsApp notification sent successfully to ${targetId}`);
 

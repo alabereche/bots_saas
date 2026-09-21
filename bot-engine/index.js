@@ -1709,13 +1709,10 @@ async function runTelegramAbandonedRecoveryCron() {
       const cutoffDate = new Date(Date.now() - delayHours * 3600 * 1000).toISOString();
       const maxLookbackDate = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
 
-      // Fetch recent messages
+      // Fetch recent messages (in-memory filtering avoids composite index requirement)
       const convSnap = await db.collection('conversations')
         .where('botId', '==', botId)
-        .where('platform', '==', 'telegram')
-        .where('createdAt', '>=', maxLookbackDate)
-        .orderBy('createdAt', 'desc')
-        .limit(100)
+        .limit(200)
         .get();
 
       if (convSnap.empty) continue;
@@ -1723,6 +1720,8 @@ async function runTelegramAbandonedRecoveryCron() {
       const threads = {};
       convSnap.docs.forEach(d => {
         const data = d.data();
+        if (data.platform !== 'telegram') return;
+        if (!data.createdAt || data.createdAt < maxLookbackDate) return;
         const cid = data.telegramUserId || data.customerId;
         if (!cid) return;
         if (!threads[cid]) {

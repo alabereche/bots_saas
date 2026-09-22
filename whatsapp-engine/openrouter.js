@@ -37,17 +37,28 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 const { parseGeminiKeys, runKeyPool } = require('./gemini-pool');
 const GEMINI_API_KEYS = parseGeminiKeys(process.env);
 
+function normalizeGeminiModel(rawModel) {
+  if (!rawModel || typeof rawModel !== 'string') return 'gemini-3.5-flash-lite';
+  const m = rawModel.trim();
+  if (m.includes('1.5') || m.includes('2.5') || m === 'gemini-3.7-flash-lite') {
+    return 'gemini-3.5-flash-lite';
+  }
+  return m;
+}
+
 // --- Google Gemini ---
 async function callGemini(apiKey, model, messages, audioData = null) {
+  const primaryModel = normalizeGeminiModel(model);
   const modelsToTry = [
-    model || 'gemini-3.7-flash-lite',
+    primaryModel,
     'gemini-3.5-flash-lite',
-    'gemini-2.5-flash-lite',
-    'gemini-2.5-flash',
+    'gemini-3.5-flash',
+    'gemini-3.7-flash',
+    'gemini-3.8-flash',
+    'gemini-3.6-flash',
     'gemini-2.0-flash',
     'gemini-2.0-flash-lite',
-    'gemini-1.5-flash',
-  ];
+  ].filter((v, i, a) => a.indexOf(v) === i);
 
   const systemInstruction = messages.find(m => m.role === 'system')?.content || '';
   const nonSystemMessages = messages.filter(m => m.role !== 'system');
@@ -81,70 +92,82 @@ async function callGemini(apiKey, model, messages, audioData = null) {
   });
 
   // `AQ.`-prefixed strings from AI Studio are API keys → x-goog-api-key.
-// Bearer is for real OAuth access tokens (ya29…) only.
-const isBearer = apiKey && (apiKey.startsWith('ya29') || (apiKey.length > 80 && !apiKey.startsWith('AQ.')));
-  const urlBase = 'https://generativelanguage.googleapis.com/v1beta/models';
+  // Bearer is for real OAuth access tokens (ya29…) only.
+  const isBearer = apiKey && (apiKey.startsWith('ya29') || (apiKey.length > 80 && !apiKey.startsWith('AQ.')));
 
   let lastError = null;
   for (const geminiModel of modelsToTry) {
-    try {
-      const url = `${urlBase}/${geminiModel}:generateContent`;
+    // gemini-3.5-flash-lite does not support custom temperature
+    const generationConfig = { maxOutputTokens: 800 };
+    if (!geminiModel.includes('flash-lite')) {
+      generationConfig.temperature = 0.7;
+    }
 
-      const headers = { 'Content-Type': 'application/json' };
-      if (isBearer) {
-        headers['Authorization'] = `Bearer ${apiKey}`;
-      } else {
-        headers['x-goog-api-key'] = apiKey;
-      }
+    const payload = JSON.stringify({
+      systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
+      contents,
+      generationConfig,
+    });
 
-      const res = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-          contents,
-          generationConfig: { maxOutputTokens: 800, temperature: 0.7 },
-        }),
-        signal: AbortSignal.timeout(AI_TIMEOUT_MS),
-      });
+    const apiVersions = ['v1', 'v1beta'];
+    for (const apiVersion of apiVersions) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${geminiModel}:generateContent`;
 
-      if (res.ok) {
-        const data = await res.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) return text;
-        lastError = new Error(`Gemini ${geminiModel}: empty response`);
-      } else {
-        const err = await res.text();
-        lastError = new Error(`Gemini ${geminiModel} ${res.status}: ${err}`);
-        // 404 = this model doesn't exist → the next fallback may work.
-        // 400/401/403 = bad request or credentials → every model will
-        // fail the same way; retrying only multiplies the latency.
-        if ((res.status === 401 || res.status === 403) && !isBearer && apiKey.startsWith('AQ.')) {
-          // New AI Studio keys: header auth rejected → try Bearer once
-          try {
-            const res2 = await fetch(url, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-              body: JSON.stringify({
-                systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-                contents,
-                generationConfig: { maxOutputTokens: 800, temperature: 0.7 },
-              }),
-              signal: AbortSignal.timeout(AI_TIMEOUT_MS),
-            });
-            if (res2.ok) {
-              const data2 = await res2.json();
-              const text2 = data2.candidates?.[0]?.content?.parts?.[0]?.text;
-              if (text2) return text2;
-            }
-          } catch { /* fall through to next model */ }
+        const headers = { 'Content-Type': 'application/json' };
+        if (isBearer) {
+          headers['Authorization'] = `Bearer ${apiKey}`;
+        } else {
+          headers['x-goog-api-key'] = apiKey;
         }
-        // 400 = malformed request (key-independent); 401/403 = bad key;
-        // 429 = this key's quota — all three stop this key's model loop.
-        if (res.status === 400 || res.status === 401 || res.status === 403 || res.status === 429) break;
+
+        const res = await fetch(url, {
+          method: 'POST',
+          headers,
+          body: payload,
+          signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) {
+            console.log(`[Gemini] Success using ${geminiModel} (${apiVersion})`);
+            return text;
+          }
+          lastError = new Error(`Gemini ${geminiModel} (${apiVersion}): empty response`);
+        } else {
+          const err = await res.text();
+          lastError = new Error(`Gemini ${geminiModel} (${apiVersion}) ${res.status}: ${err}`);
+          console.warn(`[Gemini] ${geminiModel} (${apiVersion}) failed with ${res.status}`);
+
+          if ((res.status === 401 || res.status === 403) && !isBearer && apiKey.startsWith('AQ.')) {
+            try {
+              const res2 = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                body: payload,
+                signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+              });
+              if (res2.ok) {
+                const data2 = await res2.json();
+                const text2 = data2.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (text2) {
+                  console.log(`[Gemini] Success using ${geminiModel} (${apiVersion}) via Bearer`);
+                  return text2;
+                }
+              }
+            } catch { /* fall through to next model/version */ }
+          }
+
+          if (res.status === 404) continue;
+          if (res.status === 400 || res.status === 401 || res.status === 403 || res.status === 429) {
+            break;
+          }
+        }
+      } catch (e) {
+        lastError = e;
       }
-    } catch (e) {
-      lastError = e;
     }
   }
 
@@ -198,7 +221,7 @@ async function askOpenRouter(config, userId, userMessage, audioData = null) {
   try {
     const customKey = config.customApiKey || config.geminiApiKey || config.apiKey;
     const keys = customKey ? [customKey] : GEMINI_API_KEYS;
-    const model = config.aiModel || config.model || process.env.DEFAULT_AI_MODEL || 'gemini-2.5-flash-lite';
+    const model = normalizeGeminiModel(config.aiModel || config.model || process.env.DEFAULT_AI_MODEL || 'gemini-3.5-flash-lite');
     reply = await runKeyPool(keys, (key) => callGemini(key, model, messages, audioData));
   } catch (err) {
     // The attempt failed: drop the user message from history so a

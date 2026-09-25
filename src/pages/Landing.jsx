@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion, useScroll, useTransform, useInView, useReducedMotion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import LegalModal from '../components/LegalModal';
+import { ShowcaseVideoCard } from '../components/ShowcaseVideoCard';
 import '../landing-v2.css';
 
 const DEMO_BOT_URL = 'https://t.me/Zcodybot';
@@ -298,6 +299,9 @@ export default function Landing() {
             className="lp2-about-body"
           />
         </div>
+
+        {/* ─── 3D Simulation Video Showcase (Google DeepMind / Antigravity Style) ─── */}
+        <ShowcaseVideoCard />
 
         {/* ─── 4 Feature cards inside engraved wallpaper ─── */}
         <div className="lp2-features-head" id="features">

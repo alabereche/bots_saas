@@ -427,6 +427,176 @@
 }
 .lp2-sr-word { display: inline-block; }
 
+/* ─── 3D Simulation Video Showcase Card (Google DeepMind / Antigravity Style) ─── */
+.lp2-showcase-wrap {
+  width: min(1140px, calc(100% - 24px));
+  margin: clamp(40px, 5.5vw, 68px) auto 0;
+  position: relative;
+  z-index: 10;
+}
+
+.lp2-showcase-glow {
+  position: absolute;
+  inset: -8px;
+  border-radius: clamp(24px, 3vw, 36px);
+  background: radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.08) 60%, transparent 80%);
+  filter: blur(32px);
+  opacity: 0.9;
+  pointer-events: none;
+  transition: opacity 0.6s ease;
+  z-index: 0;
+}
+
+.lp2-showcase-wrap:hover .lp2-showcase-glow {
+  opacity: 1;
+}
+
+.lp2-showcase-card {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: clamp(20px, 2.6vw, 32px);
+  overflow: hidden;
+  background: #020504;
+  border: 1.5px solid rgba(52, 211, 153, 0.35);
+  box-shadow: 
+    0 30px 80px -15px rgba(0, 0, 0, 0.95),
+    0 0 50px -10px rgba(16, 185, 129, 0.25);
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  transition: border-color 0.4s ease, box-shadow 0.4s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.lp2-showcase-card:hover {
+  border-color: rgba(52, 211, 153, 0.65);
+  box-shadow: 
+    0 35px 90px -15px rgba(0, 0, 0, 0.98),
+    0 0 70px -5px rgba(16, 185, 129, 0.35);
+}
+
+.lp2-showcase-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  background: transparent;
+}
+
+/* Live Badge Top Right */
+.lp2-showcase-badge {
+  position: absolute;
+  top: clamp(12px, 2vw, 20px);
+  right: clamp(12px, 2vw, 20px);
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.68);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: clamp(0.72rem, 1.1vw, 0.82rem);
+  font-weight: 600;
+  color: #34d399;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.lp2-showcase-pulse-dot {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  display: inline-block;
+}
+
+.lp2-showcase-pulse-ring {
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: #34d399;
+  opacity: 0.6;
+  animation: lp2-pulse 2s infinite ease-out;
+}
+
+@keyframes lp2-pulse {
+  0% { transform: scale(0.9); opacity: 0.8; }
+  70% { transform: scale(2.4); opacity: 0; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+/* Floating Audio Control (Google Style) */
+.lp2-showcase-sound-btn {
+  position: absolute;
+  bottom: clamp(12px, 2vw, 22px);
+  left: clamp(12px, 2vw, 22px);
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #e6e3d3;
+  font-family: inherit;
+  font-size: clamp(0.72rem, 1.1vw, 0.82rem);
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lp2-showcase-sound-btn:hover {
+  background: rgba(16, 185, 129, 0.22);
+  border-color: rgba(52, 211, 153, 0.5);
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7), 0 0 20px rgba(52, 211, 153, 0.25);
+}
+
+.lp2-showcase-sound-btn.is-active {
+  background: rgba(16, 185, 129, 0.28);
+  border-color: rgba(52, 211, 153, 0.6);
+  color: #ffffff;
+}
+
+/* Equalizer mini bars */
+.lp2-eq-bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2.5px;
+  height: 12px;
+  margin-right: 2px;
+}
+
+.lp2-eq-bar {
+  width: 2.5px;
+  background: #34d399;
+  border-radius: 1px;
+}
+
+.lp2-eq-bar-1 { animation: lp2-eq-jump 0.8s ease-in-out infinite alternate; }
+.lp2-eq-bar-2 { animation: lp2-eq-jump 0.6s ease-in-out infinite alternate 0.2s; }
+.lp2-eq-bar-3 { animation: lp2-eq-jump 0.7s ease-in-out infinite alternate 0.4s; }
+
+@keyframes lp2-eq-jump {
+  0% { height: 3px; }
+  100% { height: 12px; }
+}
+
 /* ─── Scene 2 continuation: features inside engraved wallpaper ─── */
 .lp2-features-head {
   width: min(1100px, 100%);
@@ -896,6 +1066,13 @@
   .lp2-features-head {
     margin-top: clamp(60px, 10vh, 90px);
   }
+  .lp2-showcase-wrap {
+    width: calc(100% - 16px);
+    margin-top: 32px;
+  }
+  .lp2-showcase-card {
+    border-radius: 18px;
+  }
   .lp2-about-card {
     margin-top: -85px;
     border-radius: 20px;
@@ -945,6 +1122,26 @@
   .lp2-section { padding-inline: 14px; }
   .lp2-btn-primary { padding: 5px 20px 5px 6px; font-size: 0.88rem; min-height: 46px; }
   .lp2-hero-content { padding-bottom: 105px; }
+  .lp2-showcase-wrap {
+    width: 100%;
+    margin-top: 24px;
+  }
+  .lp2-showcase-card {
+    border-radius: 16px;
+  }
+  .lp2-showcase-sound-btn {
+    padding: 6px 12px;
+    font-size: 0.72rem;
+    gap: 6px;
+    bottom: 10px;
+    left: 10px;
+  }
+  .lp2-showcase-badge {
+    padding: 4px 10px;
+    font-size: 0.68rem;
+    top: 10px;
+    right: 10px;
+  }
   .lp2-about-card { margin-top: -75px; }
   .lp2-footer {
     min-height: auto;

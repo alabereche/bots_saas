@@ -768,21 +768,25 @@ app.get('/health', (req, res) => {
 // platform owner ONLY (uid matched against SUPER_ADMIN_UID).
 app.get('/api/billing/plan', async (req, res) => {
   try {
-    const plan = await billing.resolvePlan(req.uid);
-    const limits = billing.PLAN_LIMITS[plan];
-    const usage = await billing.getDailyUsageForUser(req.uid);
     let profile = null;
     try {
       const snap = await db.collection('users').doc(req.uid).get();
-      if (snap.exists) {
-        profile = { planExpiresAt: snap.data().planExpiresAt || null };
-      }
+      if (snap.exists) profile = snap.data();
     } catch { /* profile optional */ }
+
+    const sub = billing.getSubscriptionDetails(profile);
+    const plan = sub.plan;
+    const limits = billing.PLAN_LIMITS[plan];
+    const usage = await billing.getDailyUsageForUser(req.uid);
+
     res.json({
       uid: req.uid,
       plan,
+      isTrial: sub.isTrial,
+      trialDaysLeft: sub.trialDaysLeft,
+      trialExpired: sub.trialExpired,
       limits,
-      planExpiresAt: profile?.planExpiresAt || null,
+      planExpiresAt: sub.planExpiresAt,
       usage,
       isAdmin: SUPER_ADMIN_UID && req.uid === SUPER_ADMIN_UID,
     });

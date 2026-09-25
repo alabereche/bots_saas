@@ -145,14 +145,14 @@ export default function Billing() {
   const subscribe = () => {
     const email = auth.currentUser?.email || '';
     const text = encodeURIComponent(
-      `مرحباً، أريد الترقية إلى الباقة الاحترافية في AuraBot.\nحسابي: ${email}`
+      `مرحباً، أريد تفعيل باقة Pro الشهرية (${PRICING.pro.amountDZD} دج) في AuraBot.\nحسابي: ${email}`
     );
     window.open(`https://wa.me/${BILLING_CONTACT.whatsappNumber}?text=${text}`, '_blank');
   };
 
   const subscribeTg = () => {
     const email = auth.currentUser?.email || '';
-    const text = encodeURIComponent(`مرحباً، أريد الترقية إلى الباقة الاحترافية في AuraBot. حسابي: ${email}`);
+    const text = encodeURIComponent(`مرحباً، أريد تفعيل باقة Pro الشهرية (${PRICING.pro.amountDZD} دج) في AuraBot. حسابي: ${email}`);
     window.open(`https://t.me/${BILLING_CONTACT.telegramUsername}?text=${text}`, '_blank');
   };
 
@@ -195,9 +195,68 @@ export default function Billing() {
           الاشتراكات والخطط
         </h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem' }}>
-          اختر ما يناسب حجم عملك — وارقِ متى كبرت
+          اختر ما يناسب حجم عملك — 7 أيام مجاناً، ثم {PRICING.pro.amountDZD} دج فقط شهرياً
         </p>
       </div>
+
+      {/* 7-Day Trial Banner */}
+      {planData?.isTrial && (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.08) 100%)',
+          border: '1.5px solid rgba(16, 185, 129, 0.45)',
+          borderRadius: 'var(--radius-lg, 14px)',
+          padding: '1.1rem 1.4rem',
+          marginBottom: '1.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1rem',
+          flexWrap: 'wrap',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '1.6rem' }}>⏳</span>
+            <div>
+              <div style={{ fontSize: '0.98rem', fontWeight: 800, color: 'var(--color-primary-light, #34d399)' }}>
+                أنت في فترة التجربة المجانية (7 أيام كاملة بكافة مميزات Pro)
+              </div>
+              <div style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginTop: '3px' }}>
+                متبقي <strong>{planData.trialDaysLeft} {planData.trialDaysLeft === 1 ? 'يوم' : 'أيام'}</strong> في تجربتك. بعد انتهائها، يمكنك التجديد بـ <strong>{PRICING.pro.amountDZD} دج</strong> شهرياً فقط.
+              </div>
+            </div>
+          </div>
+          <button className="btn btn-primary" onClick={subscribe} style={{ whiteSpace: 'nowrap' }}>
+            تثبيت الاشتراك بـ {PRICING.pro.amountDZD} دج
+          </button>
+        </div>
+      )}
+
+      {/* Trial Expired Notice */}
+      {planData?.trialExpired && plan === 'free' && (
+        <div style={{
+          background: 'rgba(239, 68, 68, 0.08)',
+          border: '1px solid rgba(239, 68, 68, 0.3)',
+          borderRadius: 'var(--radius-lg, 14px)',
+          padding: '1rem 1.25rem',
+          marginBottom: '1.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1rem',
+          flexWrap: 'wrap',
+        }}>
+          <div>
+            <div style={{ fontSize: '0.92rem', fontWeight: 700, color: '#f87171' }}>
+              انتهت فترة الـ 7 أيام التجريبية المجانية
+            </div>
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+              باقتك الحالية هي المجانية. للاستمرار في مضاعفة مبيعاتك وفتح كافة المزايا، اشترك بـ {PRICING.pro.amountDZD} دج شهرياً فقط.
+            </div>
+          </div>
+          <button className="btn btn-primary" onClick={subscribe} style={{ whiteSpace: 'nowrap' }}>
+            ترقية إلى Pro ({PRICING.pro.amountDZD} دج)
+          </button>
+        </div>
+      )}
 
       {/* Usage meter */}
       {limits && (
@@ -220,7 +279,9 @@ export default function Billing() {
           </div>
           {planData?.planExpiresAt && plan === 'pro' && (
             <p style={{ margin: '0.6rem 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-              اشتراكك الاحترافي ساري حتى {new Date(planData.planExpiresAt).toLocaleDateString('ar-DZ')}
+              {planData.isTrial
+                ? `فترة التجربة المجانية تنتهي بتاريخ ${new Date(planData.planExpiresAt).toLocaleDateString('ar-DZ')}`
+                : `اشتراكك الاحترافي ساري حتى ${new Date(planData.planExpiresAt).toLocaleDateString('ar-DZ')}`}
             </p>
           )}
         </div>

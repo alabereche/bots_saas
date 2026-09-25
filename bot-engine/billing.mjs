@@ -41,14 +41,40 @@ export const PLAN_LIMITS = {
 };
 
 const planCache = new Map(); // uid -> { plan, expiresAt, loadedAt }
+const TRIAL_DAYS = 7;
+
+function getSubscriptionDetails(doc) {
+  if (!doc) {
+    return { plan: 'free' };
+  }
+
+  if (doc.plan === 'pro') {
+    if (doc.planExpiresAt) {
+      const exp = new Date(doc.planExpiresAt).getTime();
+      if (Number.isFinite(exp) && Date.now() > exp) return { plan: 'free' };
+    }
+    return { plan: 'pro' };
+  }
+
+  let trialExp = null;
+  if (doc.trialExpiresAt) {
+    trialExp = new Date(doc.trialExpiresAt).getTime();
+  } else if (doc.createdAt) {
+    const created = doc.createdAt?.toDate ? doc.createdAt.toDate().getTime() : new Date(doc.createdAt).getTime();
+    if (Number.isFinite(created)) {
+      trialExp = created + TRIAL_DAYS * 24 * 3600 * 1000;
+    }
+  }
+
+  if (trialExp && Number.isFinite(trialExp) && Date.now() <= trialExp) {
+    return { plan: 'pro' };
+  }
+
+  return { plan: 'free' };
+}
 
 function effectivePlan(doc) {
-  const plan = doc?.plan === 'pro' ? 'pro' : 'free';
-  if (plan === 'pro' && doc?.planExpiresAt) {
-    const exp = new Date(doc.planExpiresAt).getTime();
-    if (Number.isFinite(exp) && Date.now() > exp) return 'free';
-  }
-  return plan;
+  return getSubscriptionDetails(doc).plan;
 }
 
 export async function resolvePlan(uid) {
@@ -65,8 +91,10 @@ export async function resolvePlan(uid) {
     console.warn('[Billing] Plan read failed for', uid, e.message);
   }
   const entry = {
-    plan: doc?.plan === 'pro' ? 'pro' : 'free',
+    plan: doc?.plan || 'free',
     planExpiresAt: doc?.planExpiresAt || null,
+    trialExpiresAt: doc?.trialExpiresAt || null,
+    createdAt: doc?.createdAt || null,
     loadedAt: Date.now(),
   };
   planCache.set(uid, entry);

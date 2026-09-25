@@ -316,31 +316,31 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ═══ Scene 3 — Pricing Plans (الخطط: المجانية و برو) ═══ */}
+      {/* ═══ Scene 3 — Pricing Plans (الخطط: 7 أيام مجاناً و برو بـ 1000 دج) ═══ */}
       <section className="lp2-section lp2-pricing-section" id="pricing">
         <div className="lp2-pricing-head">
           <span className="lp2-label">باقات الاشتراك</span>
           <WordsPullUp text="استثمر في نمو متجرك بدون تعقيد." className="lp2-pricing-title" as="h2" />
           <p className="lp2-pricing-sub">
-            ابدأ مجاناً وجرّب بنفسك، ورَقِّ إلى باقة Pro عندما تتوسع مبيعاتك وتطلب مميزات متقدمة.
+            ابدأ بـ 7 أيام مجاناً بكافة مميزات Pro — بدون بطاقة دفع، ثم 1,000 دج شهرياً للاستمرار في مضاعفة مبيعاتك.
           </p>
         </div>
 
         <div className="lp2-pricing-grid">
-          {/* Free Plan */}
+          {/* 7 Days Free Trial Plan */}
           <div className="lp2-pricing-card">
             <div className="lp2-pricing-card-header">
-              <span className="lp2-pricing-badge is-free">تجربة غير محدودة</span>
-              <h3 className="lp2-pricing-name">الباقة المجانية</h3>
+              <span className="lp2-pricing-badge is-free">7 أيام مجاناً</span>
+              <h3 className="lp2-pricing-name">فترة التجربة المجانية</h3>
               <p className="lp2-pricing-desc">
-                مثالية للمتاجر والمشاريع الناشئة لاختبار سرعة الذكاء الاصطناعي وتفاعل الزبائن.
+                عش تجربة باقة Pro الكاملة مجاناً لـ 7 أيام وشاهد بنفسك كيف يؤكد البوت طلبياتك ويرد على زبائنك آلياً.
               </p>
             </div>
 
             <div className="lp2-pricing-price-wrap">
               <span className="lp2-pricing-amount">0</span>
               <span className="lp2-pricing-currency">دج</span>
-              <span className="lp2-pricing-period">/ شهرياً (مجاناً)</span>
+              <span className="lp2-pricing-period">/ لمدة 7 أيام كاملة</span>
             </div>
 
             <div className="lp2-pricing-divider" />
@@ -348,19 +348,19 @@ export default function Landing() {
             <ul className="lp2-pricing-features">
               <li>
                 <span className="lp2-pricing-check"><Check /></span>
-                <span><strong>بوت واحد</strong> (واتساب أو تلغرام)</span>
+                <span><strong>كافة مميزات Pro مفتوحة</strong> خلال الأسبوع الأول</span>
               </li>
               <li>
                 <span className="lp2-pricing-check"><Check /></span>
-                <span><strong>50 رسالة يومياً</strong> بالذكاء الاصطناعي</span>
+                <span><strong>500 رسالة يومياً</strong> بالذكاء الاصطناعي</span>
               </li>
               <li>
                 <span className="lp2-pricing-check"><Check /></span>
-                <span>كتالوج حتى <strong>10 منتجات</strong> مع الصور</span>
+                <span>كتالوج حتى <strong>500 منتج</strong> مع الصور</span>
               </li>
               <li>
                 <span className="lp2-pricing-check"><Check /></span>
-                <span>تذكير آلي واحد للسلات والطلبات المتروكة</span>
+                <span>مزامنة الطلبيات المباشرة وتتبع الشحن</span>
               </li>
               <li>
                 <span className="lp2-pricing-check"><Check /></span>
@@ -368,7 +368,7 @@ export default function Landing() {
               </li>
               <li>
                 <span className="lp2-pricing-check"><Check /></span>
-                <span>لوحة تحكم لإدارة المحادثات والطلبيات</span>
+                <span><strong>بدون طلب بطاقة بنكية</strong> — ابدأ فوراً</span>
               </li>
             </ul>
 
@@ -376,7 +376,7 @@ export default function Landing() {
               to={isAuthenticated ? '/dashboard' : '/login'}
               className="lp2-pricing-btn is-free-btn"
             >
-              ابدأ مجاناً الآن
+              ابدأ تجربتك المجانية الآن
             </Link>
           </div>
 
@@ -390,14 +390,14 @@ export default function Landing() {
               <span className="lp2-pricing-badge is-pro">أتمتة شاملة</span>
               <h3 className="lp2-pricing-name">باقة المحترفين (Pro)</h3>
               <p className="lp2-pricing-desc">
-                المنظومة الكاملة لمضاعفة مبيعات متجرك وإدارة التوصيل للـ 58 ولاية آلياً.
+                المنظومة الكاملة لمضاعفة مبيعات متجرك وإدارة التوصيل للـ 58 ولاية آلياً بعد انتهاء التجربة.
               </p>
             </div>
 
             <div className="lp2-pricing-price-wrap">
-              <span className="lp2-pricing-amount">1,500</span>
+              <span className="lp2-pricing-amount">1,000</span>
               <span className="lp2-pricing-currency">دج</span>
-              <span className="lp2-pricing-period">/ شهرياً (150 ألف)</span>
+              <span className="lp2-pricing-period">/ شهرياً (100 ألف)</span>
             </div>
 
             <div className="lp2-pricing-divider" />

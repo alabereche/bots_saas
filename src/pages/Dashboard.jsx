@@ -3,11 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { subscribeBots } from '../services/firebase';
 import { useAuth } from '../context/AuthContext';
 
+const ENGINE_URL = import.meta.env.VITE_WHATSAPP_ENGINE_URL || 'https://wa.nosfir.online';
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [bots, setBots] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [planData, setPlanData] = useState(null);
 
   useEffect(() => {
     if (!user) return;
@@ -16,6 +19,16 @@ export default function Dashboard() {
       setBots(data);
       setLoading(false);
     });
+
+    (async () => {
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch(`${ENGINE_URL}/api/billing/plan`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) setPlanData(await res.json());
+      } catch { /* engine offline fallback */ }
+    })();
 
     return () => unsubscribe();
   }, [user]);
@@ -43,6 +56,36 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard-container">
+      {/* 7-Day Trial Banner */}
+      {planData?.isTrial && (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(5, 150, 105, 0.05) 100%)',
+          border: '1px solid rgba(16, 185, 129, 0.35)',
+          borderRadius: '16px',
+          padding: '0.85rem 1.25rem',
+          marginBottom: '1.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1rem',
+          flexWrap: 'wrap',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '1.3rem' }}>⏳</span>
+            <div style={{ fontSize: '0.88rem', color: 'var(--text-primary)' }}>
+              أنت في فترة التجربة المجانية (متبقي <strong style={{ color: 'var(--color-primary-light, #34d399)' }}>{planData.trialDaysLeft} {planData.trialDaysLeft === 1 ? 'يوم' : 'أيام'}</strong> بكافة مميزات Pro). استمر بعد انتهائها بـ 1,000 دج شهرياً فقط.
+            </div>
+          </div>
+          <button 
+            className="btn btn-secondary btn-sm"
+            onClick={() => navigate('/billing')}
+            style={{ borderRadius: '999px', fontSize: '0.82rem', padding: '0.4rem 1rem' }}
+          >
+            تفاصيل الاشتراك
+          </button>
+        </div>
+      )}
+
       {/* Top Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>

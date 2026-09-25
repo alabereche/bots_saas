@@ -49,16 +49,93 @@ const PLAN_LIMITS = {
   },
 };
 
-// ─── Plan resolution (5-min cache; expiry-aware) ──────────────
+// ─── Plan resolution (5-min cache; expiry-aware & 7-day trial) ──────────────
 const planCache = new Map(); // uid -> { plan, expiresAt, loadedAt }
+const TRIAL_DAYS = 7;
+
+function getSubscriptionDetails(doc) {
+  if (!doc) {
+    return {
+      plan: 'free',
+      isTrial: false,
+      trialDaysLeft: 0,
+      trialExpired: false,
+      planExpiresAt: null,
+    };
+  }
+
+  // 1. Explicit Paid Pro Plan
+  if (doc.plan === 'pro') {
+    if (doc.planExpiresAt) {
+      const exp = new Date(doc.planExpiresAt).getTime();
+      if (Number.isFinite(exp) && Date.now() > exp) {
+        return {
+          plan: 'free',
+          isTrial: false,
+          trialDaysLeft: 0,
+          trialExpired: false,
+          planExpiresAt: null,
+          isExpired: true,
+        };
+      }
+    }
+    return {
+      plan: 'pro',
+      isTrial: false,
+      trialDaysLeft: 0,
+      trialExpired: false,
+      planExpiresAt: doc.planExpiresAt || null,
+      isExpired: false,
+    };
+  }
+
+  // 2. Automatic 7-Day Pro Trial for all users
+  let trialExp = null;
+  if (doc.trialExpiresAt) {
+    trialExp = new Date(doc.trialExpiresAt).getTime();
+  } else if (doc.createdAt) {
+    const created = doc.createdAt?.toDate ? doc.createdAt.toDate().getTime() : new Date(doc.createdAt).getTime();
+    if (Number.isFinite(created)) {
+      trialExp = created + TRIAL_DAYS * 24 * 3600 * 1000;
+    }
+  }
+
+  if (trialExp && Number.isFinite(trialExp)) {
+    const diff = trialExp - Date.now();
+    if (diff > 0) {
+      const daysLeft = Math.max(1, Math.ceil(diff / (24 * 3600 * 1000)));
+      return {
+        plan: 'pro',
+        isTrial: true,
+        trialDaysLeft: daysLeft,
+        trialExpired: false,
+        planExpiresAt: new Date(trialExp).toISOString(),
+        isExpired: false,
+      };
+    } else {
+      return {
+        plan: 'free',
+        isTrial: false,
+        trialDaysLeft: 0,
+        trialExpired: true,
+        planExpiresAt: null,
+        isExpired: false,
+      };
+    }
+  }
+
+  return {
+    plan: 'free',
+    isTrial: false,
+    trialDaysLeft: 0,
+    trialExpired: false,
+    planExpiresAt: null,
+    isExpired: false,
+  };
+}
 
 function effectivePlan(doc) {
-  const plan = doc?.plan === 'pro' ? 'pro' : 'free';
-  if (plan === 'pro' && doc?.planExpiresAt) {
-    const exp = new Date(doc.planExpiresAt).getTime();
-    if (Number.isFinite(exp) && Date.now() > exp) return 'free';
-  }
-  return plan;
+  return getSubscriptionDetails(doc).plan;
 }
 
 async function resolvePlan(uid) {
@@ -75,8 +152,10 @@ async function resolvePlan(uid) {
     console.warn('[Billing] Plan read failed for', uid, e.message);
   }
   const entry = {
-    plan: doc?.plan === 'pro' ? 'pro' : 'free',
+    plan: doc?.plan || 'free',
     planExpiresAt: doc?.planExpiresAt || null,
+    trialExpiresAt: doc?.trialExpiresAt || null,
+    createdAt: doc?.createdAt || null,
     loadedAt: Date.now(),
   };
   planCache.set(uid, entry);
@@ -190,4 +269,5 @@ module.exports = {
   markLimitNotified,
   wasLimitNotified,
   getDailyUsageForUser,
+  getSubscriptionDetails,
 };

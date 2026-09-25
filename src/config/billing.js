@@ -12,8 +12,12 @@ export const BILLING_CONTACT = {
 };
 
 export const PRICING = {
+  trial: {
+    days: 7,
+  },
   pro: {
-    amountDZD: 1500,
+    amountDZD: 1000,
     period: 'شهرياً',
   },
 };
+

@@ -46,8 +46,15 @@ service cloud.firestore {
       allow read: if isOwner(userId) || isSuperAdmin();
       allow create: if isOwner(userId)
         && (!('plan' in request.resource.data) || request.resource.data.plan == 'free')
-        && !request.resource.data.keys().hasAny(['role', 'isAdmin', 'superAdmin', 'permissions']);
-      allow update: if isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['plan', 'role', 'isAdmin', 'superAdmin', 'permissions']);
+        && !request.resource.data.keys().hasAny([
+          'role', 'isAdmin', 'superAdmin', 'permissions',
+          'planExpiresAt', 'planActivatedAt', 'trialExpiresAt'
+        ])
+        && (!('createdAt' in request.resource.data) || request.resource.data.createdAt == request.time);
+      allow update: if isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'plan', 'role', 'isAdmin', 'superAdmin', 'permissions',
+        'planExpiresAt', 'planActivatedAt', 'trialExpiresAt', 'createdAt'
+      ]);
       allow delete: if false;
     }
 

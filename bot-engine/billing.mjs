@@ -57,11 +57,19 @@ function getSubscriptionDetails(doc) {
   }
 
   let trialExp = null;
+  const now = Date.now();
+  const maxTrialWindow = (TRIAL_DAYS + 1) * 24 * 3600 * 1000;
+
   if (doc.trialExpiresAt) {
-    trialExp = new Date(doc.trialExpiresAt).getTime();
+    const rawExp = new Date(doc.trialExpiresAt).getTime();
+    // Safety check: trial expiration cannot exceed max allowed window from now
+    if (Number.isFinite(rawExp) && rawExp <= now + maxTrialWindow) {
+      trialExp = rawExp;
+    }
   } else if (doc.createdAt) {
     const created = doc.createdAt?.toDate ? doc.createdAt.toDate().getTime() : new Date(doc.createdAt).getTime();
-    if (Number.isFinite(created)) {
+    // Safety check: createdAt cannot be in the future (allowing max 5 min clock drift)
+    if (Number.isFinite(created) && created <= now + 5 * 60 * 1000) {
       trialExp = created + TRIAL_DAYS * 24 * 3600 * 1000;
     }
   }

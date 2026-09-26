@@ -4,6 +4,7 @@ import { useToast } from '../context/ToastContext';
 import { subscribeBots, createBot, updateBot } from '../services/firebase';
 import TelegramStoreStudio, { STORE_TEMPLATES, serializeStoreRowsForFirestore } from '../components/telegram-store/TelegramStoreStudio';
 import BotLoader from '../components/BotLoader';
+import { Store, Sparkles, Headphones, Gamepad2, Plus, ArrowUpRight, CheckCircle2, Smartphone, Zap } from 'lucide-react';
 
 const ENGINE_URL = import.meta.env.VITE_WHATSAPP_ENGINE_URL || 'https://wa.nosfir.online';
 
@@ -113,7 +114,7 @@ export default function TelegramStorePage() {
       };
 
       const created = await createBot(storePayload);
-      toast.success('تم إنشاء متجر تيليغرام بنجاح! 🚀');
+      toast.success('تم إنشاء متجر تيليغرام بنجاح!');
       setSelectedStoreId(created.id);
       setShowCreateModal(false);
       setNewStoreName('');
@@ -154,9 +155,9 @@ export default function TelegramStorePage() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '1.5rem',
+            color: '#38bdf8',
           }}>
-            🛍️
+            <Store size={24} />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -172,8 +173,12 @@ export default function TelegramStorePage() {
                 borderRadius: '8px',
                 letterSpacing: '0.5px',
                 boxShadow: '0 2px 8px rgba(2, 132, 199, 0.4)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px',
               }}>
-                PRO 💎
+                <Sparkles size={10} />
+                PRO
               </span>
             </div>
             <p style={{ margin: '3px 0 0', fontSize: '0.88rem', color: 'rgba(255, 255, 255, 0.6)' }}>
@@ -251,10 +256,10 @@ export default function TelegramStorePage() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '2.5rem',
             margin: '0 auto 1.5rem',
+            color: '#38bdf8',
           }}>
-            📱
+            <Smartphone size={38} />
           </div>
 
           <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.75rem', color: '#ffffff' }}>
@@ -281,7 +286,7 @@ export default function TelegramStorePage() {
               gap: '8px',
             }}
           >
-            <span>🚀</span>
+            <Plus size={18} />
             إنشاء متجري الأول الآن
           </button>
         </div>
@@ -326,7 +331,7 @@ export default function TelegramStorePage() {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '1.4rem' }}>🛍️</span>
+                <Store size={22} color="#38bdf8" />
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: '#ffffff' }}>
                   إنشاء متجر تيليغرام جديد
                 </h3>
@@ -426,7 +431,10 @@ export default function TelegramStorePage() {
                       transition: 'all 0.2s',
                     }}
                   >
-                    <div style={{ fontSize: '1.25rem', marginBottom: '4px' }}>🎧 💎</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px', color: '#38bdf8' }}>
+                      <Headphones size={20} />
+                      <Sparkles size={16} />
+                    </div>
                     <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#ffffff' }}>اشتراكات وتطبيقات</div>
                     <div style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.6)', marginTop: '2px' }}>
                       Gemini, Spotify, Duolingo, Netflix
@@ -444,7 +452,10 @@ export default function TelegramStorePage() {
                       transition: 'all 0.2s',
                     }}
                   >
-                    <div style={{ fontSize: '1.25rem', marginBottom: '4px' }}>🎮 ⚡</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px', color: '#38bdf8' }}>
+                      <Gamepad2 size={20} />
+                      <Zap size={16} />
+                    </div>
                     <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#ffffff' }}>شحن ألعاب وبطاقات</div>
                     <div style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.6)', marginTop: '2px' }}>
                       Free Fire, PUBG, بطاقات شحن
@@ -485,9 +496,17 @@ export default function TelegramStorePage() {
                     fontWeight: 700,
                     cursor: creating ? 'not-allowed' : 'pointer',
                     boxShadow: '0 4px 15px rgba(14, 165, 233, 0.35)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
                   }}
                 >
-                  {creating ? 'جاري الإنشاء...' : 'إنشاء المتجر وفتح الاستوديو 🚀'}
+                  {creating ? 'جاري الإنشاء...' : (
+                    <>
+                      <Store size={16} />
+                      <span>إنشاء المتجر وفتح الاستوديو</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

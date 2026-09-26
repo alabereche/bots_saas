@@ -1040,7 +1040,7 @@ function buildStoreKeyboard(rowsInput = []) {
     if (!Array.isArray(row) || row.length === 0) return;
     row.forEach((btn) => {
       if (!btn || !btn.id) return;
-      const label = `${btn.icon ? btn.icon + ' ' : ''}${btn.text || 'زر'}`;
+      const label = btn.text || 'زر';
       if (btn.action === 'url' && btn.url) {
         const link = btn.url.startsWith('http') ? btn.url : `https://${btn.url}`;
         keyboard.url(label, link);
@@ -1115,15 +1115,15 @@ async function broadcastToLogsChannel(api, channelId, itemTitle, price, buyerNam
     }
 
     const logText =
-      `📢 *عملية شراء جديدة ناجحة! 🛍️⚡*\n` +
+      `*عملية شراء جديدة ناجحة!*\n` +
       `━━━━━━━━━━━━━━━━━━\n` +
-      `📦 *المنتج:* ${itemTitle}\n` +
-      `💰 *القيمة:* ${price ? price + ' دج' : 'مدفوع'}\n` +
-      `👤 *المشتري:* ${buyerName || 'زبون مميز'}\n` +
-      `🏪 *المتجر:* ${storeName || 'المتجر الرسمي'}\n` +
-      `⚡ *الحالة:* تم الحجز وجاري التسليم الفوري ✅\n` +
+      `*المنتج:* ${itemTitle}\n` +
+      `*القيمة:* ${price ? price + ' دج' : 'مدفوع'}\n` +
+      `*المشتري:* ${buyerName || 'زبون مميز'}\n` +
+      `*المتجر:* ${storeName || 'المتجر الرسمي'}\n` +
+      `*الحالة:* تم الحجز وجاري التسليم الفوري\n` +
       `━━━━━━━━━━━━━━━━━━\n` +
-      `🔥 شكراً لثقتكم المستمرة بنا!`;
+      `شكراً لثقتكم المستمرة بنا!`;
 
     await api.sendMessage(target, logText, { parse_mode: 'Markdown' });
     console.log(`[Telegram Store] Broadcasted order log to channel ${target}`);
@@ -1145,14 +1145,14 @@ async function handleStoreStart(ctx, currentConfig) {
         : `https://t.me/${channelRaw.replace(/^@/, '')}`;
 
       const subKeyboard = new InlineKeyboard()
-        .url('📢 اضغط هنا للانضمام للقناة', channelLink)
+        .url('اضغط هنا للانضمام للقناة', channelLink)
         .row()
-        .text('تحقق من الانضمام ✅', 'tgstore_check_sub');
+        .text('تحقق من الانضمام', 'tgstore_check_sub');
 
       const notice =
-        `👋 أهلاً بك في متجر *${currentConfig.businessName || currentConfig.botName}*!\n\n` +
-        `⚠️ *تنبيه:* للانضمام واستخدام المتجر وتصفح العروض الحصرية، يجب أولاً الاشتراك في قناتنا الرسمية للإثباتات واللوغز.\n\n` +
-        `👇 اشترك بالقناة عبر الزر أدناه ثم اضغط على «تحقق من الانضمام» للدخول:`;
+        `أهلاً بك في متجر *${currentConfig.businessName || currentConfig.botName}*!\n\n` +
+        `*تنبيه:* للانضمام واستخدام المتجر وتصفح العروض الحصرية، يجب أولاً الاشتراك في قناتنا الرسمية للإثباتات واللوغز.\n\n` +
+        `اشترك بالقناة عبر الزر أدناه ثم اضغط على «تحقق من الانضمام» للدخول:`;
 
       await ctx.reply(notice, { reply_markup: subKeyboard, parse_mode: 'Markdown' }).catch(async () => {
         await ctx.reply(notice, { reply_markup: subKeyboard });
@@ -1167,7 +1167,7 @@ async function handleStoreStart(ctx, currentConfig) {
 async function sendStoreMainMenu(ctx, currentConfig) {
   const storeConfig = currentConfig.telegramStore || {};
   const welcome = storeConfig.welcomeMessage ||
-    `مرحباً بك في متجر *${currentConfig.businessName || currentConfig.botName}*! 💎\nاختر الخدمة أو المنتج الذي تريده لتأكيد طلبك فوراً:`;
+    `مرحباً بك في متجر *${currentConfig.businessName || currentConfig.botName}*!\nاختر الخدمة أو المنتج الذي تريده لتأكيد طلبك فوراً:`;
   const keyboard = buildStoreKeyboard(storeConfig);
 
   const banner = storeConfig.bannerUrl ? resolveInputMedia(storeConfig.bannerUrl) : null;
@@ -1234,11 +1234,11 @@ async function startBot(config) {
         if (data === 'tgstore_check_sub') {
           const isSub = await checkUserSubscription(ctx, storeConfig.forceSubscribeChannel);
           if (isSub) {
-            await ctx.answerCallbackQuery({ text: '🎉 تم التحقق بنجاح! مرحباً بك في المتجر.' }).catch(() => {});
+            await ctx.answerCallbackQuery({ text: 'تم التحقق بنجاح! مرحباً بك في المتجر.' }).catch(() => {});
             await sendStoreMainMenu(ctx, currentConfig);
           } else {
             await ctx.answerCallbackQuery({
-              text: '⚠️ لم تشترك بعد في القناة! يرجى الاشتراك أولاً ثم الضغط للتحقق.',
+              text: 'لم تشترك بعد في القناة! يرجى الاشتراك أولاً ثم الضغط للتحقق.',
               show_alert: true,
             }).catch(() => {});
           }
@@ -1254,8 +1254,8 @@ async function startBot(config) {
 
         if (data === 'tgstore_wallet') {
           const walletText = storeConfig.walletInfo ||
-            '💳 *معلومات وطرق الدفع المعتمدة:*\n\n• بريدي موب (BaridiMob)\n• الحساب البريدي الجاري (CCP)\n\n📌 بعد التحويل، يرجى إرسال صورة وصل الدفع هنا في المحادثة مباشرة!';
-          const kb = new InlineKeyboard().text('🔙 العودة للقائمة الرئيسية', 'tgstore_main');
+            '*معلومات وطرق الدفع المعتمدة:*\n\n• بريدي موب (BaridiMob)\n• الحساب البريدي الجاري (CCP)\n\nبعد التحويل، يرجى إرسال صورة وصل الدفع هنا في المحادثة مباشرة!';
+          const kb = new InlineKeyboard().text('العودة للقائمة الرئيسية', 'tgstore_main');
           await ctx.reply(walletText, { reply_markup: kb, parse_mode: 'Markdown' }).catch(() => {
             ctx.reply(walletText, { reply_markup: kb });
           });
@@ -1264,8 +1264,8 @@ async function startBot(config) {
 
         if (data === 'tgstore_rules') {
           const rules = storeConfig.rulesText ||
-            '📜 *قوانين وشروط المتجر والضمان:*\n\n1. جميع المنتجات والحسابات أصلية ومضمونة.\n2. التسليم يتم فور مراجعة وصل الدفع.\n3. الدعم متوفر لمساعدتك في أي وقت.';
-          const kb = new InlineKeyboard().text('🔙 العودة للقائمة الرئيسية', 'tgstore_main');
+            '*قوانين وشروط المتجر والضمان:*\n\n1. جميع المنتجات والحسابات أصلية ومضمونة.\n2. التسليم يتم فور مراجعة وصل الدفع.\n3. الدعم متوفر لمساعدتك في أي وقت.';
+          const kb = new InlineKeyboard().text('العودة للقائمة الرئيسية', 'tgstore_main');
           await ctx.reply(rules, { reply_markup: kb, parse_mode: 'Markdown' }).catch(() => {
             ctx.reply(rules, { reply_markup: kb });
           });
@@ -1277,8 +1277,8 @@ async function startBot(config) {
           const btn = findStoreButton(storeConfig, subId);
           if (btn && btn.subButtons) {
             const subKb = buildStoreKeyboard(btn.subButtons);
-            subKb.row().text('🔙 العودة للقائمة الرئيسية', 'tgstore_main');
-            const subTitle = `📂 *${btn.text || 'قائمة المنتجات'}*\nاختر من الخيارات التالية:`;
+            subKb.row().text('العودة للقائمة الرئيسية', 'tgstore_main');
+            const subTitle = `*${btn.text || 'قائمة المنتجات'}*\nاختر من الخيارات التالية:`;
             await ctx.reply(subTitle, { reply_markup: subKb, parse_mode: 'Markdown' }).catch(() => {
               ctx.reply(subTitle, { reply_markup: subKb });
             });
@@ -1292,17 +1292,17 @@ async function startBot(config) {
           if (btn) {
             const priceStr = btn.productPrice ? `${btn.productPrice} دج` : 'سعر خاص';
             const prodText =
-              `💎 *${btn.text}*\n` +
+              `*${btn.text}*\n` +
               `━━━━━━━━━━━━━━━━━━\n` +
-              `💰 *السعر:* ${priceStr}\n` +
-              (btn.customMessage ? `\n📝 ${btn.customMessage}\n` : '') +
-              `\n⚡ للتأكيد الفوري اضغط على زر «شراء الآن» أدناه:`;
+              `*السعر:* ${priceStr}\n` +
+              (btn.customMessage ? `\n${btn.customMessage}\n` : '') +
+              `\nللتأكيد الفوري اضغط على زر «شراء الآن» أدناه:`;
 
             const prodKb = new InlineKeyboard()
-              .text('🛒 شراء الآن (تأكيد الطلب)', `tgstore_buy_${btn.id}`)
+              .text('شراء الآن (تأكيد الطلب)', `tgstore_buy_${btn.id}`)
               .row()
-              .text('💳 طرق الدفع', 'tgstore_wallet')
-              .text('🔙 رجوع', 'tgstore_main');
+              .text('طرق الدفع', 'tgstore_wallet')
+              .text('رجوع', 'tgstore_main');
 
             await ctx.reply(prodText, { reply_markup: prodKb, parse_mode: 'Markdown' }).catch(() => {
               ctx.reply(prodText, { reply_markup: prodKb });

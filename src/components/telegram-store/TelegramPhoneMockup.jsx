@@ -1,4 +1,18 @@
 import { useState } from 'react';
+import StoreIcon from './StoreIcons';
+import {
+  AlertTriangle,
+  Megaphone,
+  CheckCircle2,
+  ShoppingBag,
+  Folder,
+  ArrowRight,
+  Coins,
+  CreditCard,
+  FileText,
+  RotateCcw,
+  Bot,
+} from 'lucide-react';
 
 /**
  * TelegramPhoneMockup — Ultra-Realistic Telegram Mobile Screen Simulator
@@ -9,7 +23,7 @@ export default function TelegramPhoneMockup({
   botName = 'متجر تيليغرام',
   businessName = 'متجرنا الرقمي',
   bannerUrl = '',
-  welcomeMessage = 'مرحباً بك في متجرنا الرقمي! 🛍️\nاختر من القائمة أدناه لتصفح الباقات وشحن رصيدك فوراً:',
+  welcomeMessage = 'مرحباً بك في متجرنا الرقمي!\nاختر من القائمة أدناه لتصفح الباقات وشحن رصيدك فوراً:',
   buttons = [], // array of rows: [ [ { id, text, icon, action, ... } ] ]
   forceSubscribeChannel = '',
   walletInfo = '',
@@ -50,7 +64,7 @@ export default function TelegramPhoneMockup({
   const currentRows = activeSubmenu
     ? [
         ...(activeSubmenu.subButtons || []),
-        [{ id: 'back_main', text: 'رجوع للقائمة الرئيسية 🔙', action: 'back_main' }],
+        [{ id: 'back_main', text: 'رجوع للقائمة الرئيسية', action: 'back_main' }],
       ]
     : buttons;
 
@@ -174,7 +188,7 @@ export default function TelegramPhoneMockup({
                 fontSize: '13px',
                 boxShadow: '0 2px 8px rgba(14, 165, 233, 0.4)',
               }}>
-                {botName ? botName.charAt(0) : '🤖'}
+                {botName ? botName.charAt(0) : <Bot size={16} />}
               </div>
               {/* Bot Info */}
               <div style={{ textAlign: 'left', lineHeight: 1.2 }}>
@@ -238,8 +252,9 @@ export default function TelegramPhoneMockup({
                 boxShadow: '0 2px 5px rgba(0,0,0,0.3)',
                 border: '1px solid rgba(14, 165, 233, 0.25)',
               }}>
-                <div style={{ fontSize: '11px', color: '#ffffff', lineHeight: 1.5, marginBottom: '8px' }}>
-                  ⚠️ <strong>تنبيه الزبون:</strong> يرجى الانضمام لقناة الإثباتات واللوغز أولاً لفتح المتجر 👇
+                <div style={{ fontSize: '11px', color: '#ffffff', lineHeight: 1.5, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <AlertTriangle size={13} color="#f59e0b" />
+                  <span><strong>تنبيه الزبون:</strong> يرجى الانضمام لقناة الإثباتات واللوغز أولاً لفتح المتجر</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                   <button style={{
@@ -250,8 +265,13 @@ export default function TelegramPhoneMockup({
                     padding: '7px',
                     fontSize: '11px',
                     fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '5px',
                   }}>
-                    📢 انضم للقناة ({forceSubscribeChannel})
+                    <Megaphone size={12} />
+                    <span>انضم للقناة ({forceSubscribeChannel})</span>
                   </button>
                   <button 
                     onClick={() => setMockView('menu')}
@@ -264,9 +284,14 @@ export default function TelegramPhoneMockup({
                       fontSize: '11px',
                       fontWeight: 700,
                       cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '5px',
                     }}
                   >
-                    ✅ تم الانضمام / فتح المتجر
+                    <CheckCircle2 size={12} />
+                    <span>تم الانضمام / فتح المتجر</span>
                   </button>
                 </div>
               </div>
@@ -305,7 +330,7 @@ export default function TelegramPhoneMockup({
                     gap: '6px',
                     borderBottom: '1px solid rgba(255,255,255,0.05)',
                   }}>
-                    <span>🛍️</span>
+                    <ShoppingBag size={16} />
                     <span>{businessName}</span>
                   </div>
                 )}
@@ -319,7 +344,12 @@ export default function TelegramPhoneMockup({
                     whiteSpace: 'pre-line',
                     wordBreak: 'break-word',
                   }}>
-                    {activeSubmenu ? `📂 قائمة: ${activeSubmenu.text}` : welcomeMessage}
+                    {activeSubmenu ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                        <Folder size={12} color="#38bdf8" />
+                        <span>قائمة: {activeSubmenu.text}</span>
+                      </span>
+                    ) : welcomeMessage}
                   </div>
 
                   <div style={{
@@ -355,7 +385,7 @@ export default function TelegramPhoneMockup({
                       border: '1px dashed rgba(255,255,255,0.1)',
                       borderRadius: '8px',
                     }}>
-                      لا توجد أزرار بعد. أضف أزراراً من المحرر باليسار 👈
+                      لا توجد أزرار بعد. أضف أزراراً من المحرر باليسار
                     </div>
                   ) : (
                     currentRows.map((row, rIdx) => (
@@ -401,7 +431,11 @@ export default function TelegramPhoneMockup({
                             onMouseEnter={(e) => { e.currentTarget.style.background = '#356391'; }}
                             onMouseLeave={(e) => { e.currentTarget.style.background = btn.action === 'back_main' ? '#3e4a59' : '#2b5278'; }}
                           >
-                            {btn.icon && <span>{btn.icon}</span>}
+                            {btn.action === 'back_main' ? (
+                              <ArrowRight size={12} />
+                            ) : (
+                              btn.icon && <StoreIcon icon={btn.icon} size={row.length >= 3 ? 11 : 13} />
+                            )}
                             <span>{btn.text}</span>
                           </button>
                         ))}
@@ -432,8 +466,9 @@ export default function TelegramPhoneMockup({
                   <div style={{ fontSize: '13px', fontWeight: 800, color: '#fff', marginBottom: '4px' }}>
                     {selectedProduct.name}
                   </div>
-                  <div style={{ fontSize: '12px', fontWeight: 800, color: '#10b981', marginBottom: '6px' }}>
-                    💰 السعر: {selectedProduct.price} دج
+                  <div style={{ fontSize: '12px', fontWeight: 800, color: '#10b981', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Coins size={13} color="#10b981" />
+                    <span>السعر: {selectedProduct.price} دج</span>
                   </div>
                   <div style={{ fontSize: '10.5px', color: '#b9c7d4', lineHeight: 1.5, marginBottom: '10px' }}>
                     {selectedProduct.description || 'تسليم فوري ومباشر بعد تأكيد الدفع.'}
@@ -451,9 +486,14 @@ export default function TelegramPhoneMockup({
                         fontSize: '11px',
                         fontWeight: 700,
                         cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '5px',
                       }}
                     >
-                      💳 شراء الآن وتأكيد الطلب
+                      <CreditCard size={12} />
+                      <span>شراء الآن وتأكيد الطلب</span>
                     </button>
                     <button
                       onClick={() => setMockView('menu')}
@@ -465,9 +505,14 @@ export default function TelegramPhoneMockup({
                         padding: '6px',
                         fontSize: '10.5px',
                         cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '5px',
                       }}
                     >
-                      🔙 رجوع للقائمة
+                      <ArrowRight size={12} />
+                      <span>رجوع للقائمة</span>
                     </button>
                   </div>
                 </div>
@@ -482,8 +527,9 @@ export default function TelegramPhoneMockup({
                 padding: '11px',
                 border: '1px solid rgba(14,165,233,0.3)',
               }}>
-                <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#0ea5e9', marginBottom: '6px' }}>
-                  💳 شحن الرصيد والدفع
+                <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#0ea5e9', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <CreditCard size={14} color="#0ea5e9" />
+                  <span>شحن الرصيد والدفع</span>
                 </div>
                 <div style={{ fontSize: '10.5px', color: '#e0e6ed', lineHeight: 1.6, whiteSpace: 'pre-line', marginBottom: '10px' }}>
                   {walletInfo || `طرق الدفع المتوفرة:\n• بريدي موب (BaridiMob): 00799999000123456789\n• الحساب الجاري (CCP)\nبعد التحويل، أرسل صورة الوصل هنا مباشرة!`}
@@ -499,9 +545,14 @@ export default function TelegramPhoneMockup({
                     padding: '6px',
                     fontSize: '10.5px',
                     cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '5px',
                   }}
                 >
-                  🔙 رجوع للقائمة
+                  <ArrowRight size={12} />
+                  <span>رجوع للقائمة</span>
                 </button>
               </div>
             )}
@@ -514,8 +565,9 @@ export default function TelegramPhoneMockup({
                 padding: '11px',
                 border: '1px solid rgba(245,158,11,0.3)',
               }}>
-                <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#f59e0b', marginBottom: '6px' }}>
-                  📜 قوانين وشروط المتجر
+                <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#f59e0b', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <FileText size={14} color="#f59e0b" />
+                  <span>قوانين وشروط المتجر</span>
                 </div>
                 <div style={{ fontSize: '10px', color: '#d1d8e0', lineHeight: 1.6, whiteSpace: 'pre-line', marginBottom: '10px' }}>
                   {rulesText || `1. التسليم يتم فور تأكيد وصل الدفع.\n2. الضمان ساري طوال فترة الاشتراك.\n3. يمنع مشاركة الحسابات المخالفة للضمان.`}
@@ -531,9 +583,14 @@ export default function TelegramPhoneMockup({
                     padding: '6px',
                     fontSize: '10.5px',
                     cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '5px',
                   }}
                 >
-                  🔙 رجوع للقائمة
+                  <ArrowRight size={12} />
+                  <span>رجوع للقائمة</span>
                 </button>
               </div>
             )}
@@ -574,9 +631,12 @@ export default function TelegramPhoneMockup({
                   color: '#fff',
                   cursor: 'pointer',
                   fontSize: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
-                🔄
+                <RotateCcw size={12} />
               </button>
             )}
           </div>

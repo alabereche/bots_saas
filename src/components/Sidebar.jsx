@@ -74,7 +74,7 @@ export default function Sidebar() {
           to: '/telegram-store',
           label: 'متجر تيليغرام',
           desktopLabel: 'متجر تيليغرام',
-          badge: 'PRO 💎',
+          badge: 'PRO',
           icon: (
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>

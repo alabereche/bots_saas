@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { subscribeBots, createBot, updateBot } from '../services/firebase';
-import TelegramStoreStudio, { STORE_TEMPLATES } from '../components/telegram-store/TelegramStoreStudio';
+import TelegramStoreStudio, { STORE_TEMPLATES, serializeStoreRowsForFirestore } from '../components/telegram-store/TelegramStoreStudio';
 import BotLoader from '../components/BotLoader';
 
 const ENGINE_URL = import.meta.env.VITE_WHATSAPP_ENGINE_URL || 'https://wa.nosfir.online';
@@ -75,6 +75,7 @@ export default function TelegramStorePage() {
     setCreating(true);
     try {
       const templateData = STORE_TEMPLATES[selectedTemplateKey] || STORE_TEMPLATES.subscriptions;
+      const { rowsJson } = serializeStoreRowsForFirestore(templateData.rows);
 
       const storePayload = {
         userId: user.uid,
@@ -107,7 +108,7 @@ export default function TelegramStorePage() {
           forceSubscribeEnabled: false,
           forceSubscribeChannel: '',
           logsChannelId: '',
-          rows: templateData.rows,
+          rowsJson,
         },
       };
 

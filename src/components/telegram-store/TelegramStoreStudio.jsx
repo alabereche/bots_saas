@@ -69,6 +69,30 @@ export const STORE_TEMPLATES = {
   },
 };
 
+// Helper to safely parse rows from Firestore without nested array issues
+export function parseStoreRows(storeConfig) {
+  if (!storeConfig) return [];
+  if (storeConfig.rowsJson) {
+    try {
+      const parsed = JSON.parse(storeConfig.rowsJson);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch { /* fallback */ }
+  }
+  if (Array.isArray(storeConfig.rows)) {
+    if (storeConfig.rows.length > 0 && Array.isArray(storeConfig.rows[0])) {
+      return storeConfig.rows;
+    }
+  }
+  return [];
+}
+
+// Helper to safely serialize rows for Firestore (Firestore strictly rejects nested arrays [[...]])
+export function serializeStoreRowsForFirestore(rows) {
+  const safeRows = Array.isArray(rows) ? rows : [];
+  const rowsJson = JSON.stringify(safeRows);
+  return { rowsJson };
+}
+
 export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) {
   const toast = useToast();
   const navigate = useNavigate();
@@ -83,7 +107,10 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
   const [logsChannelId, setLogsChannelId] = useState(initialStore.logsChannelId || '');
   const [walletInfo, setWalletInfo] = useState(initialStore.walletInfo || STORE_TEMPLATES.subscriptions.walletInfo);
   const [rulesText, setRulesText] = useState(initialStore.rulesText || STORE_TEMPLATES.subscriptions.rulesText);
-  const [rows, setRows] = useState(initialStore.rows || STORE_TEMPLATES.subscriptions.rows);
+  const [rows, setRows] = useState(() => {
+    const parsed = parseStoreRows(initialStore);
+    return (parsed && parsed.length > 0) ? parsed : STORE_TEMPLATES.subscriptions.rows;
+  });
 
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('buttons'); // 'buttons' | 'channels' | 'settings'
@@ -112,7 +139,8 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
       if (s.logsChannelId !== undefined) setLogsChannelId(s.logsChannelId);
       if (s.walletInfo) setWalletInfo(s.walletInfo);
       if (s.rulesText) setRulesText(s.rulesText);
-      if (s.rows) setRows(s.rows);
+      const parsed = parseStoreRows(s);
+      if (parsed && parsed.length > 0) setRows(parsed);
     }
   }, [bot?.id]);
 
@@ -234,6 +262,7 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
   const handleSaveStore = async () => {
     setSaving(true);
     try {
+      const { rowsJson } = serializeStoreRowsForFirestore(rows);
       const storePayload = {
         enabled,
         bannerUrl: bannerUrl.trim(),
@@ -243,7 +272,7 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
         logsChannelId: logsChannelId.trim(),
         walletInfo: walletInfo.trim(),
         rulesText: rulesText.trim(),
-        rows: rows,
+        rowsJson,
         updatedAt: new Date().toISOString(),
       };
 

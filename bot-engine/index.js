@@ -997,8 +997,43 @@ function extractProductMedia(rawReply, productsList = []) {
 // Telegram Digital Store & Interactive Studio Backend Helpers
 // ═══════════════════════════════════════════════════════════════
 
-function buildStoreKeyboard(rows = []) {
+function parseStoreRows(input) {
+  if (!input) return [];
+  if (typeof input === 'string') {
+    try {
+      const p = JSON.parse(input);
+      if (Array.isArray(p)) return p;
+    } catch { return []; }
+  }
+  if (typeof input === 'object' && !Array.isArray(input)) {
+    if (input.rowsJson) {
+      try {
+        const p = JSON.parse(input.rowsJson);
+        if (Array.isArray(p)) return p;
+      } catch { /* fallback */ }
+    }
+    input = input.rows;
+  }
+  if (Array.isArray(input)) {
+    if (input.length > 0 && Array.isArray(input[0])) {
+      return input;
+    }
+    if (input.length > 0 && input[0] && Array.isArray(input[0].buttons)) {
+      return input.map(r => (r.buttons || []).map(b => {
+        let sub = b.subButtons;
+        if (typeof sub === 'string') {
+          try { sub = JSON.parse(sub); } catch { sub = []; }
+        }
+        return { ...b, subButtons: sub };
+      }));
+    }
+  }
+  return [];
+}
+
+function buildStoreKeyboard(rowsInput = []) {
   const keyboard = new InlineKeyboard();
+  const rows = parseStoreRows(rowsInput);
   if (!Array.isArray(rows) || rows.length === 0) return keyboard;
 
   rows.forEach((row, rIdx) => {
@@ -1031,14 +1066,15 @@ function buildStoreKeyboard(rows = []) {
   return keyboard;
 }
 
-function findStoreButton(rows = [], targetId) {
+function findStoreButton(rowsInput = [], targetId) {
+  const rows = parseStoreRows(rowsInput);
   if (!Array.isArray(rows) || !targetId) return null;
   for (const row of rows) {
     if (!Array.isArray(row)) continue;
     for (const btn of row) {
       if (!btn) continue;
       if (String(btn.id) === String(targetId)) return btn;
-      if (Array.isArray(btn.subButtons)) {
+      if (btn.subButtons) {
         const subMatch = findStoreButton(btn.subButtons, targetId);
         if (subMatch) return subMatch;
       }
@@ -1132,7 +1168,7 @@ async function sendStoreMainMenu(ctx, currentConfig) {
   const storeConfig = currentConfig.telegramStore || {};
   const welcome = storeConfig.welcomeMessage ||
     `مرحباً بك في متجر *${currentConfig.businessName || currentConfig.botName}*! 💎\nاختر الخدمة أو المنتج الذي تريده لتأكيد طلبك فوراً:`;
-  const keyboard = buildStoreKeyboard(storeConfig.rows || []);
+  const keyboard = buildStoreKeyboard(storeConfig);
 
   const banner = storeConfig.bannerUrl ? resolveInputMedia(storeConfig.bannerUrl) : null;
 
@@ -1238,8 +1274,8 @@ async function startBot(config) {
 
         if (data.startsWith('tgstore_sub_')) {
           const subId = data.replace('tgstore_sub_', '');
-          const btn = findStoreButton(storeConfig.rows, subId);
-          if (btn && Array.isArray(btn.subButtons)) {
+          const btn = findStoreButton(storeConfig, subId);
+          if (btn && btn.subButtons) {
             const subKb = buildStoreKeyboard(btn.subButtons);
             subKb.row().text('🔙 العودة للقائمة الرئيسية', 'tgstore_main');
             const subTitle = `📂 *${btn.text || 'قائمة المنتجات'}*\nاختر من الخيارات التالية:`;
@@ -1252,7 +1288,7 @@ async function startBot(config) {
 
         if (data.startsWith('tgstore_prod_')) {
           const prodId = data.replace('tgstore_prod_', '');
-          const btn = findStoreButton(storeConfig.rows, prodId);
+          const btn = findStoreButton(storeConfig, prodId);
           if (btn) {
             const priceStr = btn.productPrice ? `${btn.productPrice} دج` : 'سعر خاص';
             const prodText =
@@ -1277,7 +1313,7 @@ async function startBot(config) {
 
         if (data.startsWith('tgstore_msg_')) {
           const msgId = data.replace('tgstore_msg_', '');
-          const btn = findStoreButton(storeConfig.rows, msgId);
+          const btn = findStoreButton(storeConfig, msgId);
           if (btn) {
             const msgText = btn.customMessage || btn.text || 'مرحباً بك!';
             const kb = new InlineKeyboard().text('🔙 العودة للقائمة الرئيسية', 'tgstore_main');
@@ -1290,7 +1326,7 @@ async function startBot(config) {
 
         if (data.startsWith('tgstore_buy_')) {
           const buyId = data.replace('tgstore_buy_', '');
-          const btn = findStoreButton(storeConfig.rows, buyId);
+          const btn = findStoreButton(storeConfig, buyId);
           const itemTitle = btn ? btn.text : 'منتج رقمي';
           const itemPrice = btn ? btn.productPrice : '';
           const customerName = ctx.from.first_name || ctx.from.username || 'زبون تيليغرام';

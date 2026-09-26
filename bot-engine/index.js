@@ -1692,6 +1692,8 @@ async function startBot(config) {
       console.error(`[Engine] Bot "${config.botName}" error:`, err.message);
     });
 
+    await bot.api.deleteWebhook({ drop_pending_updates: false }).catch(() => {});
+
     bot.start({
       onStart: (botInfo) => {
         console.log(`[Engine] Bot "${config.botName}" is running online (@${botInfo?.username || 'unknown'}).`);
@@ -1802,14 +1804,15 @@ function listenToBots() {
       if (isTelegram && config.telegramToken && config.telegramToken.trim()) {
         currentBotIds.add(config.id);
         const isRunning = activeBots.has(config.id);
-        if (config.isActive && !isRunning) {
+        const isBotActive = config.isActive === true || config.status === 'active' || config.telegramStore?.enabled === true;
+        if (isBotActive && !isRunning) {
           // Plan gates BEFORE launch: TG slots per plan + the one-channel
           // lock (a bot already speaking on WhatsApp cannot gain Telegram
           // on the free plan). Async, non-blocking for the snapshot loop.
           planGateTgStart(config).then((allowed) => { if (allowed) startBot(config); });
-        } else if (!config.isActive && isRunning) {
+        } else if (!isBotActive && isRunning) {
           stopBot(config.id);
-        } else if (config.isActive && isRunning) {
+        } else if (isBotActive && isRunning) {
           // Update config reference
           const entry = activeBots.get(config.id);
           if (entry) entry.config = config;

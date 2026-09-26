@@ -277,7 +277,12 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
       };
 
       if (onUpdateBot) {
-        await onUpdateBot({ telegramStore: storePayload });
+        await onUpdateBot({
+          telegramStore: storePayload,
+          isActive: enabled,
+          telegramEnabled: true,
+          status: enabled ? 'active' : 'inactive',
+        });
       }
       toast.success('تم حفظ إعدادات متجر تيليغرام بنجاح! 🚀');
     } catch (err) {

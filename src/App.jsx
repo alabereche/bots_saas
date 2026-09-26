@@ -13,6 +13,7 @@ const Login = lazy(() => import('./pages/Login'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const CreateBot = lazy(() => import('./pages/CreateBot'));
 const BotDetail = lazy(() => import('./pages/BotDetail'));
+const TelegramStorePage = lazy(() => import('./pages/TelegramStorePage'));
 const Billing = lazy(() => import('./pages/Billing'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const TermsOfService = lazy(() => import('./pages/TermsOfService'));
@@ -64,6 +65,7 @@ function AppLayout() {
                       <Routes>
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/create-bot" element={<CreateBot />} />
+                        <Route path="/telegram-store" element={<TelegramStorePage />} />
                         <Route path="/bot/:id" element={<BotDetail />} />
                         <Route path="/billing" element={<Billing />} />
                         <Route path="/admin" element={<AdminRoute><AdminOverview /></AdminRoute>} />

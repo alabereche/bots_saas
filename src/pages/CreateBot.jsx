@@ -7,7 +7,6 @@ import { COUNTRIES } from '../data/countries';
 import TEMPLATES from './botTemplates.jsx';
 
 export const BUSINESS_TYPES = [
-  { value: 'telegram_store', label: 'متجر تيليغرام رقمي تفاعلي (PRO 💎)', placeholder: 'مثال:\nGemini Advanced 18 Months - 1500 دج\nSpotify Premium 3M - 800 دج\nFree Fire 520 جوهرة - 1100 دج\nشدات ببجي وبطاقات ألعاب' },
   { value: 'shop', label: 'متجر إلكتروني / مبيعات وتجارة', placeholder: 'مثال:\nحذاء رياضي - 4500 دج\nقميص قطني - 2500 دج\nعطر فاخر - 6000 دج' },
   { value: 'support', label: 'خدمة عملاء ودعم فني', placeholder: 'مثال:\nكيفية إعادة تعيين كلمة المرور\nأوقات الرد على التذاكر\nسياسة الإرجاع والضمان' },
   { value: 'agency', label: 'شركة / وكالة خدمات', placeholder: 'مثال:\nتصميم المواقع وتطبيقات الموبايل\nإدارة الحملات الإعلانية\nصناعة المحتوى والتسويق' },
@@ -329,40 +328,21 @@ export default function CreateBot() {
         whatsappStatus: selectedChannels.includes('whatsapp') ? 'not_initialized' : 'disabled',
         features: {
           catalog: true,
-          orders: businessType === 'shop' || businessType === 'restaurant' || businessType === 'services' || businessType === 'telegram_store',
-          orderTracking: businessType === 'shop' || businessType === 'telegram_store',
+          orders: businessType === 'shop' || businessType === 'restaurant' || businessType === 'services',
+          orderTracking: businessType === 'shop',
           delivery: businessType === 'shop',
-          notifications: true,
+          notifications: businessType === 'shop',
           bookings: businessType === 'booking' || businessType === 'clinic' || businessType === 'salon',
           webhooks: true,
         },
       };
-
-      if (businessType === 'telegram_store') {
-        botData.telegramStore = {
-          enabled: true,
-          welcomeMessage: 'مرحباً بك في متجرنا الرقمي! 🛍️\nاختر من القائمة أدناه لتصفح الباقات وشحن رصيدك فوراً:',
-          forceSubscribeEnabled: false,
-          forceSubscribeChannel: '',
-          logsChannelId: '',
-          walletInfo: 'طرق الدفع والشحن المتوفرة:\n• بريدي موب (BaridiMob): 00799999000123456789\n• الحساب الجاري (CCP)\n📌 بعد التحويل، أرسل صورة الوصل هنا في المحادثة مباشرة!',
-          rulesText: '📜 شروط وضمان المتجر:\n1. جميع الحسابات أصلية ومضمونة طوال مدة الاشتراك.\n2. التسليم يتم تلقائياً وفورياً بعد مراجعة الوصل.',
-          rows: [
-            [{ id: 'b_1', text: 'Gemini Advanced 18 Months - 1500 دج', icon: '💎', action: 'product', productPrice: '1500' }],
-            [{ id: 'b_2', text: 'Spotify Premium 3M - 800 دج', icon: '🎧', action: 'product', productPrice: '800' }],
-            [{ id: 'b_3', text: 'Duolingo Super 12M - 990 دج', icon: '🦉', action: 'product', productPrice: '990' }],
-            [{ id: 'b_4', text: 'تصفح كل الخدمات 🛍️', icon: '🛍️', action: 'submenu' }, { id: 'b_5', text: 'شحن الرصيد 💳', icon: '💳', action: 'wallet' }],
-            [{ id: 'b_6', text: 'قناة الإثباتات 📢', icon: '📢', action: 'url', url: 'https://t.me/' }, { id: 'b_7', text: 'قوانين البيع 📜', icon: '📜', action: 'rules' }],
-          ],
-        };
-      }
 
       if (selectedChannels.includes('telegram') && telegramToken.trim()) {
         botData.telegramToken = telegramToken.trim();
       }
 
       const created = await createBot(botData);
-      toast.success('تم إنشاء المتجر والمساعد الذكي بنجاح!');
+      toast.success('تم إنشاء المساعد الذكي بنجاح!');
       navigate(`/bot/${created.id}`);
     } catch (err) {
       toast.error(err.message || 'خطأ في إنشاء البوت');

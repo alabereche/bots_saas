@@ -225,7 +225,13 @@ export default function Dashboard() {
                 <div
                   key={bot.id}
                   className="bot-item-card"
-                  onClick={() => navigate(`/bot/${bot.id}`)}
+                  onClick={() => {
+                    if (bot.businessType === 'telegram_store' || bot.telegramStore?.enabled) {
+                      navigate('/telegram-store');
+                    } else {
+                      navigate(`/bot/${bot.id}`);
+                    }
+                  }}
                 >
                   <div className="bot-item-header">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>

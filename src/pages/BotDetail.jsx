@@ -774,7 +774,7 @@ export default function BotDetail() {
               </svg>
             ),
           },
-          {
+          ...( (bot.businessType === 'telegram_store' || bot.telegramStore?.enabled) ? [{
             key: 'tgstore',
             label: 'متجر تيليغرام 📱',
             count: null,
@@ -786,7 +786,7 @@ export default function BotDetail() {
                 <path d="M6 8h12M6 12h8"/>
               </svg>
             ),
-          },
+          }] : []),
           {
             key: 'widget',
             label: 'ودجت الموقع والتطبيقات',

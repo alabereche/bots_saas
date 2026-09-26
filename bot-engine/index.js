@@ -164,9 +164,9 @@ const telegramAvatarCache = createBoundedCache({ maxEntries: 2000, ttlMs: 24 * 6
 
 // ownerUserId is stamped on every document so the security rules can
 // authorize owner access without a per-document get()
-async function saveMessage(botId, ownerUserId, telegramUserId, userName, content, role, platform = 'telegram', userAvatar = null) {
+async function saveMessage(botId, ownerUserId, telegramUserId, userName, content, role, platform = 'telegram', userAvatar = null, receiptUrl = null) {
   try {
-    await db.collection('conversations').add({
+    const msgDoc = {
       botId,
       platform,
       userId: ownerUserId || '',
@@ -178,7 +178,9 @@ async function saveMessage(botId, ownerUserId, telegramUserId, userName, content
       role, // 'user' | 'bot' | 'owner'
       createdAt: new Date().toISOString(),
       timestamp: FieldValue.serverTimestamp(),
-    });
+    };
+    if (receiptUrl) msgDoc.receiptUrl = receiptUrl;
+    await db.collection('conversations').add(msgDoc);
   } catch (e) {
     console.error('[Engine] Save message error:', e.message);
   }
@@ -1457,11 +1459,77 @@ async function startBot(config) {
 
       // ─── Fast-Path Payment Receipt Detection (0 LLM Calls) ───────
       if (isPhoto && isStoreMode) {
+        let receiptUrl = '';
+        try {
+          const photos = ctx.message.photo;
+          if (photos && photos.length > 0) {
+            const highestPhoto = photos[photos.length - 1];
+            const fileInfo = await ctx.api.getFile(highestPhoto.file_id).catch(() => null);
+            if (fileInfo && fileInfo.file_path) {
+              receiptUrl = `https://api.telegram.org/file/bot${currentConfig.telegramToken.trim()}/${fileInfo.file_path}`;
+            }
+          }
+        } catch (photoErr) {
+          console.warn('[Telegram Store] Failed to fetch receipt URL:', photoErr.message);
+        }
+
+        // Link with latest pending order or create one in Firestore
+        let linkedTrackingCode = '';
+        try {
+          const existingOrderSnap = await db.collection('orders')
+            .where('botId', '==', currentConfig.id)
+            .where('customerId', '==', String(userId))
+            .orderBy('createdAt', 'desc')
+            .limit(1)
+            .get();
+
+          if (existingOrderSnap && !existingOrderSnap.empty) {
+            const orderDoc = existingOrderSnap.docs[0];
+            const oData = orderDoc.data();
+            linkedTrackingCode = oData.trackingCode || '';
+            await orderDoc.ref.update({
+              receiptUrl: receiptUrl || null,
+              proofType: 'photo_receipt',
+              hasProof: true,
+              deliveryStatus: 'pending',
+              orderStatus: 'pending_verification',
+              updatedAt: new Date().toISOString(),
+            });
+          } else {
+            const newOrder = await saveOrderToFirestore({
+              botId: currentConfig.id,
+              ownerUserId: currentConfig.userId,
+              platform: 'telegram',
+              customerId: String(userId),
+              customerName: userName,
+              phone: ctx.from.username ? `@${ctx.from.username}` : '',
+              address: '',
+              product: 'طلب مباشر (وصل تحويل)',
+              price: '',
+              orderType: 'telegram_store',
+              receiptUrl: receiptUrl || null,
+              proofType: 'photo_receipt',
+              hasProof: true,
+              deliveryStatus: 'pending',
+              orderStatus: 'pending_verification',
+              notes: 'أرسل الزبون وصل دفع في المحادثة',
+              orderSummary: 'وصل تحويل عبر متجر تيليغرام',
+            }, 'separate');
+            if (newOrder) linkedTrackingCode = newOrder.trackingCode;
+          }
+        } catch (linkErr) {
+          console.warn('[Telegram Store] Order link error:', linkErr.message);
+        }
+
+        const userMsgContent = receiptUrl ? `[وصل دفع]\n${receiptUrl}` : '[صورة / وصل دفع]';
+        saveMessage(currentConfig.id, currentConfig.userId, userId, userName, userMsgContent, 'user', 'telegram', userAvatar, receiptUrl);
+
         const receiptReply =
-          `🧾 *تم استلام صورة وصل التحويل بنجاح!* 💎\n\n` +
-          `جاري مراجعة الوصل والتأكد من بيانات الدفع من طرف المشرفين.\n` +
+          `*تم استلام صورة وصل التحويل بنجاح!*\n\n` +
+          (linkedTrackingCode ? `رقم الطلب الخاص بك: #${linkedTrackingCode}\n` : '') +
+          `جاري مراجعة الوصل وبيانات الدفع من طرف المشرفين.\n` +
           `سيتم تسليم طلبك في أقرب وقت ممكن بعد المراجعة.\n\n` +
-          `🙏 شكراً لثقتكم واختياركم لنا!`;
+          `شكراً لثقتكم واختياركم لنا!`;
 
         await ctx.reply(receiptReply, { parse_mode: 'Markdown' }).catch(() => {
           ctx.reply(receiptReply);
@@ -1473,12 +1541,12 @@ async function startBot(config) {
           userId: currentConfig.userId,
           botId: currentConfig.id,
           type: 'order',
-          title: `🧾 وصل دفع جديد من ${userName}`,
-          body: `أرسل الزبون وصل دفع في البوت ${currentConfig.botName}. يرجى مراجعة المحادثة والتسليم.`,
+          title: `وصل دفع جديد من ${userName}`,
+          body: `أرسل الزبون وصل دفع ${linkedTrackingCode ? `للطلب #${linkedTrackingCode}` : ''}. يرجى مراجعته وتسليمه من لوحة التحكم.`,
           meta: { customerId: String(userId) },
         }).catch(() => {});
 
-        console.log(`[Telegram Store] 🧾 Receipt acknowledged for ${userName} (${userId}) — 0 LLM calls`);
+        console.log(`[Telegram Store] Receipt acknowledged & saved for ${userName} (${userId}) — 0 LLM calls`);
         return;
       }
 

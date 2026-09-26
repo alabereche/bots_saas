@@ -109,6 +109,13 @@ export const STORE_ICON_OPTIONS = [
   { id: 'tag', label: 'تخفيض وكوبون', Icon: Tag },
 ];
 
+export function stripEmojis(str) {
+  if (typeof str !== 'string') return '';
+  return str
+    .replace(/[\u{1F300}-\u{1F9FF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F1E6}-\u{1F1FF}]|[\u{1F900}-\u{1F9FF}]|[\u{1FA70}-\u{1FAFF}]|[\u{E0020}-\u{E007F}]|[\u{FE00}-\u{FE0F}]/gu, '')
+    .trim();
+}
+
 /**
  * Universal StoreIcon component
  * Renders high-end vector SVG icons from Lucide, with full legacy emoji resolution.
@@ -125,3 +132,4 @@ export default function StoreIcon({ icon, size = 16, color, style, className }) 
 
   return <IconComponent size={size} color={color} style={style} className={className} />;
 }
+

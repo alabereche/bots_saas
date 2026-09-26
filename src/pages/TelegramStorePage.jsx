@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { subscribeBots, createBot, updateBot } from '../services/firebase';
@@ -210,6 +211,29 @@ export default function TelegramStorePage() {
                 </option>
               ))}
             </select>
+          )}
+
+          {activeStore && (
+            <Link
+              to={`/bot/${activeStore.id}`}
+              style={{
+                background: 'rgba(56, 189, 248, 0.12)',
+                border: '1px solid rgba(56, 189, 248, 0.3)',
+                color: '#38bdf8',
+                borderRadius: '10px',
+                padding: '0.6rem 1.1rem',
+                fontWeight: 700,
+                fontSize: '0.88rem',
+                textDecoration: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.2s',
+              }}
+            >
+              <span>إدارة الطلبات والمحادثات</span>
+              <ArrowUpRight size={15} />
+            </Link>
           )}
 
           <button

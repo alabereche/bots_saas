@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import TelegramPhoneMockup from './TelegramPhoneMockup';
-import StoreIcon, { STORE_ICON_OPTIONS } from './StoreIcons';
+import StoreIcon, { STORE_ICON_OPTIONS, stripEmojis } from './StoreIcons';
 import { useToast } from '../../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -721,7 +721,7 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
                             </span>
                             <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                {btn.text}
+                                {stripEmojis(btn.text)}
                               </div>
                               <div style={{
                                 fontSize: '0.7rem',
@@ -1105,8 +1105,9 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
             products={bot?.products || []}
           />
 
-          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textAlign: 'center', maxWidth: '280px' }}>
-            💡 جرب النقر على الأزرار داخل شاشة الهاتف لاختبار تجربة زبائنك الحقيقية!
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textAlign: 'center', maxWidth: '280px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
+            <Sparkles size={12} color="#38bdf8" />
+            <span>جرب النقر على الأزرار داخل شاشة الهاتف لاختبار تجربة زبائنك الحقيقية!</span>
           </div>
         </div>
       </div>

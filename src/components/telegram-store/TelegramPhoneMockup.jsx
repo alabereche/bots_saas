@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import StoreIcon from './StoreIcons';
+import StoreIcon, { stripEmojis } from './StoreIcons';
 import {
   AlertTriangle,
   Megaphone,
@@ -347,9 +347,9 @@ export default function TelegramPhoneMockup({
                     {activeSubmenu ? (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                         <Folder size={12} color="#38bdf8" />
-                        <span>قائمة: {activeSubmenu.text}</span>
+                        <span>قائمة: {stripEmojis(activeSubmenu.text)}</span>
                       </span>
-                    ) : welcomeMessage}
+                    ) : stripEmojis(welcomeMessage)}
                   </div>
 
                   <div style={{
@@ -436,7 +436,7 @@ export default function TelegramPhoneMockup({
                             ) : (
                               btn.icon && <StoreIcon icon={btn.icon} size={row.length >= 3 ? 11 : 13} />
                             )}
-                            <span>{btn.text}</span>
+                            <span>{stripEmojis(btn.text)}</span>
                           </button>
                         ))}
                       </div>

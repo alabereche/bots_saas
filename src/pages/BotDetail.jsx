@@ -24,6 +24,7 @@ import AnalyticsTab from '../components/AnalyticsTab';
 import ProductCatalogManager from '../components/ProductCatalogManager';
 import ChannelsManager from '../components/ChannelsManager';
 import TelegramStoreStudio from '../components/telegram-store/TelegramStoreStudio';
+import TelegramStoreOrdersView from '../components/telegram-store/TelegramStoreOrdersView';
 
 function PlatformMiniIcon({ platform, size = 11 }) {
   switch (platform) {
@@ -125,6 +126,7 @@ export default function BotDetail() {
     })();
   }, []);
   const isPro = planData ? (planData.plan === 'pro' || planData.isTrial) : true;
+  const isTelegramStore = bot?.businessType === 'telegram_store' || bot?.telegramStore?.enabled === true;
 
   // Modals state
   const [showEditModal, setShowEditModal] = useState(false);
@@ -699,129 +701,199 @@ export default function BotDetail() {
       {/* ─── Ultra-Sleek Glassmorphic Responsive Tabs Bar ─── */}
       <div className="tabs-wrap">
         <div className="tabs-container" ref={tabsRef} onScroll={updateTabsNav}>
-        {[
-          {
-            key: 'chat',
-            label: 'المحادثات',
-            count: unreadChatCount || null,
-            icon: (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-              </svg>
-            ),
-          },
-          {
-            key: 'orders',
-            label: 'الطلبيات والتتبع',
-            count: pendingOrdersCount || null,
-            icon: (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
-                <line x1="3" y1="6" x2="21" y2="6"/>
-                <path d="M16 10a4 4 0 0 1-8 0"/>
-              </svg>
-            ),
-          },
-          {
-            key: 'leads',
-            label: 'العملاء المحتملين (CRM)',
-            count: unreadLeadsCount || null,
-            icon: (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                <circle cx="9" cy="7" r="4"/>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-              </svg>
-            ),
-          },
-          {
-            key: 'analytics',
-            label: 'التحليلات',
-            count: null,
-            icon: (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="20" x2="18" y2="10"/>
-                <line x1="12" y1="20" x2="12" y2="4"/>
-                <line x1="6" y1="20" x2="6" y2="14"/>
-              </svg>
-            ),
-          },
-          {
-            key: 'sheets',
-            label: 'ربط Google Sheets',
-            count: null,
-            icon: (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2"/>
-                <line x1="3" y1="9" x2="21" y2="9"/>
-                <line x1="3" y1="15" x2="21" y2="15"/>
-                <line x1="9" y1="3" x2="9" y2="21"/>
-                <line x1="15" y1="3" x2="15" y2="21"/>
-              </svg>
-            ),
-          },
-          {
-            key: 'catalog',
-            label: 'الكتالوج والمنتجات',
-            count: bot?.products?.length || null,
-            icon: (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="7" height="7"/>
-                <rect x="14" y="3" width="7" height="7"/>
-                <rect x="14" y="14" width="7" height="7"/>
-                <rect x="3" y="14" width="7" height="7"/>
-              </svg>
-            ),
-          },
-          ...( (bot.businessType === 'telegram_store' || bot.telegramStore?.enabled) ? [{
-            key: 'tgstore',
-            label: 'متجر تيليغرام 📱',
-            count: null,
-            icon: (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-                <line x1="8" y1="21" x2="16" y2="21"/>
-                <line x1="12" y1="17" x2="12" y2="21"/>
-                <path d="M6 8h12M6 12h8"/>
-              </svg>
-            ),
-          }] : []),
-          {
-            key: 'widget',
-            label: 'ودجت الموقع والتطبيقات',
-            count: null,
-            icon: (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-                <line x1="8" y1="21" x2="16" y2="21"/>
-                <line x1="12" y1="17" x2="12" y2="21"/>
-              </svg>
-            ),
-          },
-          {
-            key: 'channels',
-            label: 'قنوات الربط',
-            count: null,
-            icon: (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-              </svg>
-            ),
-          },
-          {
-            key: 'info',
-            label: 'الإعدادات والقدرات',
-            count: null,
-            icon: (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-              </svg>
-            ),
-          },
-        ].map(tab => (
+        {/* Dynamic Tabs based on Bot Type (System 1 vs System 2) */}
+        {(() => {
+          const isTelegramStore = bot?.businessType === 'telegram_store' || bot?.telegramStore?.enabled === true;
+
+          if (isTelegramStore) {
+            // ─── System 2: Interactive Telegram Store Dedicated Tabs ───
+            return [
+              {
+                key: 'chat',
+                label: 'المحادثات',
+                count: unreadChatCount || null,
+                icon: (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                  </svg>
+                ),
+              },
+              {
+                key: 'orders',
+                label: 'الطلبيات والإثباتات',
+                count: pendingOrdersCount || null,
+                icon: (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                    <polyline points="10 9 9 9 8 9"/>
+                  </svg>
+                ),
+              },
+              {
+                key: 'tgstore',
+                label: 'متجر تيليجرام',
+                count: null,
+                icon: (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                    <line x1="8" y1="21" x2="16" y2="21"/>
+                    <line x1="12" y1="17" x2="12" y2="21"/>
+                    <path d="M6 8h12M6 12h8"/>
+                  </svg>
+                ),
+              },
+              {
+                key: 'analytics',
+                label: 'التحليلات',
+                count: null,
+                icon: (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="20" x2="18" y2="10"/>
+                    <line x1="12" y1="20" x2="12" y2="4"/>
+                    <line x1="6" y1="20" x2="6" y2="14"/>
+                  </svg>
+                ),
+              },
+              {
+                key: 'channels',
+                label: 'قنوات الربط',
+                count: null,
+                icon: (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                  </svg>
+                ),
+              },
+              {
+                key: 'info',
+                label: 'الإعدادات والقدرات',
+                count: null,
+                icon: (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                  </svg>
+                ),
+              },
+            ];
+          }
+
+          // ─── System 1: Classic WhatsApp & Telegram AI Bots Tabs ───
+          return [
+            {
+              key: 'chat',
+              label: 'المحادثات',
+              count: unreadChatCount || null,
+              icon: (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+              ),
+            },
+            {
+              key: 'orders',
+              label: 'الطلبيات والتتبع',
+              count: pendingOrdersCount || null,
+              icon: (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+                  <line x1="3" y1="6" x2="21" y2="6"/>
+                  <path d="M16 10a4 4 0 0 1-8 0"/>
+                </svg>
+              ),
+            },
+            {
+              key: 'leads',
+              label: 'العملاء المحتملين (CRM)',
+              count: unreadLeadsCount || null,
+              icon: (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+              ),
+            },
+            {
+              key: 'analytics',
+              label: 'التحليلات',
+              count: null,
+              icon: (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="20" x2="18" y2="10"/>
+                  <line x1="12" y1="20" x2="12" y2="4"/>
+                  <line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>
+              ),
+            },
+            {
+              key: 'sheets',
+              label: 'ربط Google Sheets',
+              count: null,
+              icon: (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/>
+                  <line x1="3" y1="9" x2="21" y2="9"/>
+                  <line x1="3" y1="15" x2="21" y2="15"/>
+                  <line x1="9" y1="3" x2="9" y2="21"/>
+                  <line x1="15" y1="3" x2="15" y2="21"/>
+                </svg>
+              ),
+            },
+            {
+              key: 'catalog',
+              label: 'الكتالوج والمنتجات',
+              count: bot?.products?.length || null,
+              icon: (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="7" height="7"/>
+                  <rect x="14" y="3" width="7" height="7"/>
+                  <rect x="14" y="14" width="7" height="7"/>
+                  <rect x="3" y="14" width="7" height="7"/>
+                </svg>
+              ),
+            },
+            {
+              key: 'widget',
+              label: 'ودجت الموقع والتطبيقات',
+              count: null,
+              icon: (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                  <line x1="8" y1="21" x2="16" y2="21"/>
+                  <line x1="12" y1="17" x2="12" y2="21"/>
+                </svg>
+              ),
+            },
+            {
+              key: 'channels',
+              label: 'قنوات الربط',
+              count: null,
+              icon: (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                </svg>
+              ),
+            },
+            {
+              key: 'info',
+              label: 'الإعدادات والقدرات',
+              count: null,
+              icon: (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="3"/>
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+              ),
+            },
+          ];
+        })().map(tab => (
           <button
             key={tab.key}
             className={`tab-btn ${activeTab === tab.key ? 'tab-btn--active' : ''}`}
@@ -1068,7 +1140,28 @@ export default function BotDetail() {
                         <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginBottom: '3px', fontWeight: 600 }}>
                           {msg.role === 'user' ? (msg.userName || 'الزبون') : msg.role === 'owner' ? 'أنت' : bot.botName}
                         </div>
-                        <div>{msg.content}</div>
+                        {/* Receipt Image Preview */}
+                        {(() => {
+                          const receiptUrl = msg.receiptUrl || (typeof msg.content === 'string' && msg.content.includes('http') && (msg.content.includes('[وصل دفع]') || msg.content.includes('[صورة / وصل دفع]') || msg.content.includes('api.telegram.org')) ? msg.content.match(/https?:\/\/[^\s\n]+/)?.[0] : null);
+                          if (receiptUrl) {
+                            return (
+                              <div style={{ marginBottom: '8px', borderRadius: '10px', overflow: 'hidden', maxWidth: '280px', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
+                                <img
+                                  src={receiptUrl}
+                                  alt="وصل الدفع"
+                                  style={{ width: '100%', maxHeight: '300px', objectFit: 'cover', cursor: 'pointer', display: 'block' }}
+                                  onClick={() => window.open(receiptUrl, '_blank')}
+                                  title="انقر لفتح الوصل بالحجم الكامل"
+                                />
+                                <div style={{ background: 'rgba(15, 23, 42, 0.9)', padding: '4px 8px', fontSize: '0.7rem', color: '#38bdf8', textAlign: 'center', fontWeight: 600 }}>
+                                  صورة وصل الدفع ↗
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+                        <div>{typeof msg.content === 'string' && msg.content.startsWith('[وصل دفع]') ? '[أرسل الزبون صورة وصل دفع]' : msg.content}</div>
                         <div style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', marginTop: '4px', textAlign: 'left' }}>
                           {formatTime(msg.createdAt)}
                         </div>
@@ -1146,67 +1239,76 @@ export default function BotDetail() {
 
       {/* ─── Tab 2: Orders Tab ─── */}
       {activeTab === 'orders' && (
-        <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.1rem', flexWrap: 'wrap', gap: '8px' }}>
-            <div>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-                الطلبيات ({orders.length})
-              </h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
-                انقر على الحالة لتحديثها فوراً — وسيصل الزبون إشعار تلقائي إن كان الجرس مفعّلاً.
-              </p>
+        isTelegramStore ? (
+          <TelegramStoreOrdersView
+            orders={orders}
+            bot={bot}
+            onUpdateDelivery={(orderId, payload) => updateOrderDelivery(bot.id, orderId, 'telegram', payload)}
+            onOpenChat={(uid) => { setSelectedUserId(uid); setActiveTab('chat'); }}
+          />
+        ) : (
+          <div className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.1rem', flexWrap: 'wrap', gap: '8px' }}>
+              <div>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                  الطلبيات ({orders.length})
+                </h3>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
+                  انقر على الحالة لتحديثها فوراً — وسيصل الزبون إشعار تلقائي إن كان الجرس مفعّلاً.
+                </p>
+              </div>
+              {orders.length > 0 && (
+                <button
+                  className="btn btn-danger btn-sm"
+                  onClick={() => setShowClearOrdersModal(true)}
+                >
+                  مسح كل السجلات
+                </button>
+              )}
             </div>
-            {orders.length > 0 && (
-              <button
-                className="btn btn-danger btn-sm"
-                onClick={() => setShowClearOrdersModal(true)}
-              >
-                مسح كل السجلات
-              </button>
+
+            {orders.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-tertiary)' }}>
+                <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.2)', color: '#38bdf8', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.85rem' }}>
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="16.5" y1="9.4" x2="7.5" y2="4.21" />
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                    <line x1="12" y1="22.08" x2="12" y2="12" />
+                  </svg>
+                </div>
+                <p style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>لا توجد طلبيات مسجلة بعد</p>
+                <p style={{ fontSize: '0.85rem' }}>يقوم البوت بتسجيل الطلبيات وتوليد كود التتبع (#DZ-XXXXXX) تلقائياً بمجرد تأكيد المشتري في المحادثة.</p>
+              </div>
+            ) : (
+              <>
+                <OrdersToolbar
+                  orders={orders}
+                  voice={voiceFor(bot.businessType)}
+                  filter={orderFilter}
+                  onFilter={setOrderFilter}
+                  search={orderSearch}
+                  onSearch={setOrderSearch}
+                />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                  {visibleOrders.map(order => (
+                    <OrderDeliveryItem
+                      key={order.id}
+                      order={order}
+                      bot={bot}
+                      onUpdateDelivery={(orderId, payload) => updateOrderDelivery(bot.id, orderId, order.platform || bot.platform || 'whatsapp', payload)}
+                    />
+                  ))}
+                  {visibleOrders.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: '1.5rem 1rem', color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>
+                      لا توجد طلبيات مطابقة لهذا الفلتر أو البحث.
+                    </div>
+                  )}
+                </div>
+              </>
             )}
           </div>
-
-          {orders.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-tertiary)' }}>
-              <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.2)', color: '#38bdf8', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.85rem' }}>
-                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="16.5" y1="9.4" x2="7.5" y2="4.21" />
-                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-                  <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-                  <line x1="12" y1="22.08" x2="12" y2="12" />
-                </svg>
-              </div>
-              <p style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>لا توجد طلبيات مسجلة بعد</p>
-              <p style={{ fontSize: '0.85rem' }}>يقوم البوت بتسجيل الطلبيات وتوليد كود التتبع (#DZ-XXXXXX) تلقائياً بمجرد تأكيد المشتري في المحادثة.</p>
-            </div>
-          ) : (
-            <>
-              <OrdersToolbar
-                orders={orders}
-                voice={voiceFor(bot.businessType)}
-                filter={orderFilter}
-                onFilter={setOrderFilter}
-                search={orderSearch}
-                onSearch={setOrderSearch}
-              />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                {visibleOrders.map(order => (
-                  <OrderDeliveryItem
-                    key={order.id}
-                    order={order}
-                    bot={bot}
-                    onUpdateDelivery={(orderId, payload) => updateOrderDelivery(bot.id, orderId, order.platform || bot.platform || 'whatsapp', payload)}
-                  />
-                ))}
-                {visibleOrders.length === 0 && (
-                  <div style={{ textAlign: 'center', padding: '1.5rem 1rem', color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>
-                    لا توجد طلبيات مطابقة لهذا الفلتر أو البحث.
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
+        )
       )}
 
       {/* ─── Tab 2.5: Qualified Leads CRM Tab ─── */}

@@ -6609,3 +6609,103 @@ body {
   min-height: 100vh;
   min-height: 100svh; /* stable small-viewport reference */
 }
+
+/* ─── Telegram Store Studio Responsive System ─── */
+.tg-store-page-container {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  color: var(--text-primary);
+}
+
+.tg-studio-split-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 380px);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.tg-studio-mobile-switch {
+  display: none;
+}
+
+.tg-studio-col-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.tg-studio-col-preview {
+  position: sticky;
+  top: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+@media (max-width: 1024px) {
+  .tg-store-page-container {
+    padding: 0.85rem 0.65rem;
+  }
+
+  .tg-studio-split-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .tg-studio-mobile-switch {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-default);
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 0.5rem;
+  }
+
+  .tg-mobile-tab-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 9px;
+    border: none;
+    font-size: 0.82rem;
+    font-weight: 700;
+    font-family: inherit;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .tg-mobile-tab-btn.is-active {
+    background: var(--veil-2);
+    color: var(--color-primary);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  }
+
+  .tg-studio-col-editor {
+    width: 100%;
+  }
+
+  .tg-studio-col-preview {
+    width: 100%;
+    position: static !important;
+  }
+
+  .tg-studio-split-layout[data-mobile-view='editor'] .tg-studio-col-preview {
+    display: none !important;
+  }
+
+  .tg-studio-split-layout[data-mobile-view='preview'] .tg-studio-col-editor {
+    display: none !important;
+  }
+}

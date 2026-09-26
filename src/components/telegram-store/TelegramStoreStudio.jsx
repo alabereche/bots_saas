@@ -28,6 +28,7 @@ import {
   Check,
   Headphones,
   Gamepad2,
+  Smartphone,
 } from 'lucide-react';
 
 // 1-Click Templates
@@ -139,6 +140,7 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
 
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('buttons'); // 'buttons' | 'channels' | 'settings'
+  const [mobileView, setMobileView] = useState('editor'); // 'editor' | 'preview'
 
   // Modal State for Button Customization
   const [editingBtn, setEditingBtn] = useState(null); // { rIdx, bIdx, btn, isSubmenu, parentId }
@@ -445,15 +447,30 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
         </div>
       </div>
 
+      {/* ── Mobile View Toggle (Visible only on screens <= 1024px) ── */}
+      <div className="tg-studio-mobile-switch">
+        <button
+          type="button"
+          className={`tg-mobile-tab-btn ${mobileView === 'editor' ? 'is-active' : ''}`}
+          onClick={() => setMobileView('editor')}
+        >
+          <SlidersHorizontal size={15} />
+          <span>تخصيص المتجر والأزرار</span>
+        </button>
+        <button
+          type="button"
+          className={`tg-mobile-tab-btn ${mobileView === 'preview' ? 'is-active' : ''}`}
+          onClick={() => setMobileView('preview')}
+        >
+          <Smartphone size={15} />
+          <span>معاينة المحاكي الحي</span>
+        </button>
+      </div>
+
       {/* ── Main Studio Split Screen ── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1.4fr) minmax(320px, 380px)',
-        gap: '1.5rem',
-        alignItems: 'start',
-      }}>
+      <div className="tg-studio-split-layout" data-mobile-view={mobileView}>
         {/* ── LEFT: Studio Controls & Grid Editor ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <div className="tg-studio-col-editor">
           {/* Sub-Tabs Nav */}
           <div style={{
             display: 'flex',
@@ -462,6 +479,8 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
             padding: '6px',
             borderRadius: 'var(--radius-md, 16px)',
             border: '1px solid var(--border-default)',
+            overflowX: 'auto',
+            scrollbarWidth: 'none',
           }}>
             <button
               onClick={() => setActiveTab('buttons')}
@@ -1073,14 +1092,7 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
         </div>
 
         {/* ── RIGHT: LIVE INTERACTIVE PHONE MOCKUP (Sticky) ── */}
-        <div style={{
-          position: 'sticky',
-          top: '20px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '10px',
-        }}>
+        <div className="tg-studio-col-preview">
           <div style={{
             fontSize: '0.8rem',
             fontWeight: 700,

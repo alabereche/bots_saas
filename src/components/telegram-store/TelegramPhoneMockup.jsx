@@ -76,14 +76,17 @@ export default function TelegramPhoneMockup({
       position: 'relative',
       userSelect: 'none',
       direction: 'ltr',
+      boxSizing: 'border-box',
     }}>
       {/* ── Outer Phone Chassis ── */}
       <div style={{
         background: '#1c1c1e',
-        borderRadius: '48px',
+        borderRadius: 'min(48px, 12vw)',
         padding: '11px',
         boxShadow: '0 25px 60px -10px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.12), inset 0 0 3px rgba(255,255,255,0.25)',
         position: 'relative',
+        boxSizing: 'border-box',
+        width: '100%',
       }}>
         {/* Dynamic Island / Speaker Pill */}
         <div style={{

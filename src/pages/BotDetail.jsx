@@ -1245,6 +1245,7 @@ export default function BotDetail() {
             bot={bot}
             onUpdateDelivery={(orderId, payload) => updateOrderDelivery(bot.id, orderId, 'telegram', payload)}
             onOpenChat={(uid) => { setSelectedUserId(uid); setActiveTab('chat'); }}
+            onClearOrders={() => setShowClearOrdersModal(true)}
           />
         ) : (
           <div className="card">
@@ -1388,37 +1389,42 @@ export default function BotDetail() {
       {/* ─── Tab 6: Bot Info & Capabilities Tab ─── */}
       {activeTab === 'info' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {/* Card 0: Order Behavior Mode (Merge vs Separate) */}
-          <OrderBehaviorCard
-            bot={bot}
-            onUpdateBot={async (data) => {
-              await updateBot(id, data);
-            }}
-          />
+          {/* System 1 Physical Shipping & WhatsApp Commerce Cards (Hidden for System 2: Telegram Store) */}
+          {!isTelegramStore && (
+            <>
+              {/* Card 0: Order Behavior Mode (Merge vs Separate) */}
+              <OrderBehaviorCard
+                bot={bot}
+                onUpdateBot={async (data) => {
+                  await updateBot(id, data);
+                }}
+              />
 
-          {/* Card 0.2: Merchant Notifications Toggle */}
-          <MerchantNotificationsCard
-            bot={bot}
-            onUpdateBot={async (data) => {
-              await updateBot(id, data);
-            }}
-          />
+              {/* Card 0.2: Merchant Notifications Toggle */}
+              <MerchantNotificationsCard
+                bot={bot}
+                onUpdateBot={async (data) => {
+                  await updateBot(id, data);
+                }}
+              />
 
-          {/* Card 0.5: Abandoned Lead Recovery Settings */}
-          <AbandonedRecoveryCard
-            bot={bot}
-            onUpdateBot={async (data) => {
-              await updateBot(id, data);
-            }}
-          />
+              {/* Card 0.5: Abandoned Lead Recovery Settings */}
+              <AbandonedRecoveryCard
+                bot={bot}
+                onUpdateBot={async (data) => {
+                  await updateBot(id, data);
+                }}
+              />
 
-          {/* Card 1: Modular Capabilities */}
-          <BotCapabilitiesManager
-            bot={bot}
-            onUpdateBot={async (data) => {
-              await updateBot(id, data);
-            }}
-          />
+              {/* Card 1: Modular Capabilities */}
+              <BotCapabilitiesManager
+                bot={bot}
+                onUpdateBot={async (data) => {
+                  await updateBot(id, data);
+                }}
+              />
+            </>
+          )}
 
           {/* Card 2: Business Details */}
           <div className="card">

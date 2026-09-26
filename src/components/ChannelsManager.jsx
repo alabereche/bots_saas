@@ -413,12 +413,18 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
     }
   };
 
+  // Check if this bot is a Telegram Store (System 2)
+  const isTelegramStore = bot?.businessType === 'telegram_store' || bot?.telegramStore?.enabled === true;
+
   // Respect the channels chosen at creation. Bots created before channel
   // selection existed (no field / empty) default to both — nothing breaks.
-  const enabledChannels = Array.isArray(bot?.enabledChannels) && bot.enabledChannels.length > 0
-    ? bot.enabledChannels
-    : ['whatsapp', 'telegram'];
-  const addableChannels = ['whatsapp', 'telegram'].filter(c => !enabledChannels.includes(c));
+  // For System 2 (Telegram Store), only Telegram is enabled!
+  const enabledChannels = isTelegramStore
+    ? ['telegram']
+    : (Array.isArray(bot?.enabledChannels) && bot.enabledChannels.length > 0
+        ? bot.enabledChannels
+        : ['whatsapp', 'telegram']);
+  const addableChannels = isTelegramStore ? [] : ['whatsapp', 'telegram'].filter(c => !enabledChannels.includes(c));
 
   // Adds a channel to an existing bot — no re-creation, nothing lost
   const handleAddChannel = async (ch) => {
@@ -441,12 +447,12 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
   const connectedCount = [isWaConnected, isTgConnected].filter(Boolean).length;
   // Free plans run ONE channel per bot — the second channel card shows the
   // lock with an upgrade path (the engines refuse it server-side too).
-  const oneChannelPlan = !!(planLimits && planLimits.channelsPerBot === 1);
-  const channelLocked = !!(oneChannelPlan && enabledChannels.length >= 1);
+  const oneChannelPlan = !isTelegramStore && !!(planLimits && planLimits.channelsPerBot === 1);
+  const channelLocked = !isTelegramStore && !!(oneChannelPlan && enabledChannels.length >= 1);
   // HARD lock: with a channel linked, the OTHER channel's actions are
   // disabled until it is disconnected — upgrade to run both.
-  const tgCardLocked = oneChannelPlan && isWaConnected;
-  const waCardLocked = oneChannelPlan && isTgConnected;
+  const tgCardLocked = !isTelegramStore && oneChannelPlan && isWaConnected;
+  const waCardLocked = !isTelegramStore && oneChannelPlan && isTgConnected;
   const selectedCountry = getCountryByCode(selectedCountryCode);
   const waLinking = waStatus === 'waiting_scan' || waStatus === 'initializing';
   const ttlPercent = pairingTtlSeconds ? Math.max(0, Math.min(100, ((timeLeft || 0) / pairingTtlSeconds) * 100)) : 100;
@@ -459,13 +465,17 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <div>
             <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>قنوات التواصل النشطة</span>
+              <span>{isTelegramStore ? 'قناة المتجر (تيليغرام)' : 'قنوات التواصل النشطة'}</span>
               <span style={{ fontSize: '0.78rem', background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', padding: '2px 8px', borderRadius: '20px', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
-                {connectedCount} من 2 متصلة
+                {isTelegramStore
+                  ? (isTgConnected ? 'متصل' : 'غير متصل')
+                  : `${connectedCount} من 2 متصلة`}
               </span>
             </h2>
             <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              اربط حسابات متجرك على واتساب وتيليغرام ليعمل الذكاء الاصطناعي على استقبال الزبائن والبيع آلياً 24/7.
+              {isTelegramStore
+                ? 'اربط حساب متجرك على تيليغرام ليعمل المتجر ومحرك الذكاء الاصطناعي على استقبال الزبائن وتأكيد طلباتهم آلياً 24/7.'
+                : 'اربط حسابات متجرك على واتساب وتيليغرام ليعمل الذكاء الاصطناعي على استقبال الزبائن والبيع آلياً 24/7.'}
             </p>
           </div>
 
@@ -478,8 +488,8 @@ export default function ChannelsManager({ bot, onUpdateBot }) {
         </div>
       </div>
 
-      {/* Grid of 2 Channels */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' }}>
+      {/* Grid of Channels */}
+      <div style={{ display: 'grid', gridTemplateColumns: isTelegramStore ? '1fr' : 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' }}>
         
         {/* 1. WhatsApp Card — shown only if enabled for this bot */}
         {enabledChannels.includes('whatsapp') && (

@@ -25,9 +25,29 @@ const TEMPLATE_ICONS = {
   realestate: (
     <svg viewBox="0 0 24 24" {...stroke} width="30" height="30"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M9 22V12h6v10"/><path d="M3 9h18"/></svg>
   ),
+  tgstore: (
+    <svg viewBox="0 0 24 24" {...stroke} width="30" height="30"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><path d="M6 8h12M6 12h8"/></svg>
+  ),
 };
 
 const TEMPLATES = [
+  {
+    id: 'tpl-tgstore',
+    type: 'telegram_store',
+    icon: TEMPLATE_ICONS.tgstore,
+    color: '#0ea5e9',
+    name: 'متجر تيليغرام رقمي تفاعلي 🛍️ (PRO)',
+    tagline: 'أزرار تفاعلية، اشتراك إجباري، وقناة لوغز تلقائية للمبيعات',
+    preset: {
+      description: 'متجر تيليغرام رسمي للخدمات والاشتراكات الرقمية وشحن الألعاب. تسليم فوري ومضمون مع دعم فني مستمر وإثباتات دفع حية.',
+      services: 'Gemini Advanced 18 Months — 1500 دج\nSpotify Premium 3M — 800 دج\nDuolingo Super 12M — 990 دج\nFree Fire 520 جوهرة — 1100 دج\n(يمكنك تخصيص الأزرار والأسعار بالكامل من استوديو المتجر)',
+      workingHours: 'متوفر على مدار الساعة 24/7',
+      location: 'متجر رقمي أونلاين — تسليم فوري لجميع المشتركين',
+      contact: 'الدفع عبر BaridiMob / CCP',
+      responseStyle: 'concise',
+      customInstructions: 'هذا البوت يعمل كمتجر أزرار تيليغرام تفاعلي. أجب باختصار شديد بالدارجة الجزائرية، ووجّه الزبون دائماً للضغط على أزرار المتجر المناسبة للشراء والدفع.',
+    },
+  },
   {
     id: 'tpl-shop',
     type: 'shop',

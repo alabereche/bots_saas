@@ -23,6 +23,7 @@ import { auth } from '../services/firebase';
 import AnalyticsTab from '../components/AnalyticsTab';
 import ProductCatalogManager from '../components/ProductCatalogManager';
 import ChannelsManager from '../components/ChannelsManager';
+import TelegramStoreStudio from '../components/telegram-store/TelegramStoreStudio';
 
 function PlatformMiniIcon({ platform, size = 11 }) {
   switch (platform) {
@@ -65,6 +66,7 @@ async function engineHeaders(json = true) {
 }
 
 const businessTypeLabels = {
+  telegram_store: 'متجر تيليغرام رقمي 🛍️',
   shop: 'متجر إلكتروني / تجارة',
   support: 'خدمة عملاء ودعم فني',
   agency: 'شركة / وكالة خدمات',
@@ -106,6 +108,23 @@ export default function BotDetail() {
   const replyInputRef = useRef(null);
   // Fires the 'bot missing' notice exactly once per bot id
   const missingBotHandledRef = useRef(false);
+
+  // Pro Subscription status for Telegram Store & premium features
+  const [planData, setPlanData] = useState(null);
+  useEffect(() => {
+    (async () => {
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        if (token) {
+          const res = await fetch(`${WHATSAPP_ENGINE_URL}/api/billing/plan`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) setPlanData(await res.json());
+        }
+      } catch { /* offline fallback */ }
+    })();
+  }, []);
+  const isPro = planData ? (planData.plan === 'pro' || planData.isTrial) : true;
 
   // Modals state
   const [showEditModal, setShowEditModal] = useState(false);
@@ -756,6 +775,19 @@ export default function BotDetail() {
             ),
           },
           {
+            key: 'tgstore',
+            label: 'متجر تيليغرام 📱',
+            count: null,
+            icon: (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                <line x1="8" y1="21" x2="16" y2="21"/>
+                <line x1="12" y1="17" x2="12" y2="21"/>
+                <path d="M6 8h12M6 12h8"/>
+              </svg>
+            ),
+          },
+          {
             key: 'widget',
             label: 'ودجت الموقع والتطبيقات',
             count: null,
@@ -1216,6 +1248,18 @@ export default function BotDetail() {
           onUpdateBot={async (data) => {
             await updateBot(id, data);
           }}
+        />
+      )}
+
+      {/* ─── Tab: Telegram Store Studio ─── */}
+      {activeTab === 'tgstore' && (
+        <TelegramStoreStudio
+          bot={bot}
+          onUpdateBot={async (data) => {
+            await updateBot(id, data);
+            setBot(prev => ({ ...prev, ...data }));
+          }}
+          isPro={isPro}
         />
       )}
 

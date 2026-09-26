@@ -50,6 +50,7 @@ export default function Dashboard() {
     assistant: 'مساعد شخصي',
     custom: 'نشاط مخصص',
     shop: 'متجر ومبيعات',
+    telegram_store: 'متجر تيليغرام رقمي 🛍️',
   };
 
   const displayName = user?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || 'مستخدم';
@@ -241,7 +242,22 @@ export default function Dashboard() {
                     </div>
 
                     <div className="bot-item-titles">
-                      <div className="bot-item-name">{bot.botName || bot.businessName}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div className="bot-item-name">{bot.botName || bot.businessName}</div>
+                        {(bot.businessType === 'telegram_store' || bot.telegramStore?.enabled) && (
+                          <span style={{
+                            background: 'rgba(14, 165, 233, 0.15)',
+                            color: '#38bdf8',
+                            border: '1px solid rgba(14, 165, 233, 0.3)',
+                            fontSize: '0.68rem',
+                            fontWeight: 700,
+                            padding: '1px 6px',
+                            borderRadius: '6px',
+                          }}>
+                            متجر 🛍️
+                          </span>
+                        )}
+                      </div>
                       <div className="bot-item-cat">{businessTypeLabels[bot.businessType] || bot.businessType || 'نشاط تجاري'}</div>
                     </div>
 

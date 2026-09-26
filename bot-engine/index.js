@@ -8,7 +8,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import crypto from 'crypto';
-import { Bot, InputFile } from 'grammy';
+import { Bot, InputFile, InlineKeyboard } from 'grammy';
 import admin from 'firebase-admin';
 import fs from 'fs';
 import path from 'path';
@@ -993,6 +993,166 @@ function extractProductMedia(rawReply, productsList = []) {
   return { cleanReply, mediaItems, useReplyOnFirst, showcasedNames };
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Telegram Digital Store & Interactive Studio Backend Helpers
+// ═══════════════════════════════════════════════════════════════
+
+function buildStoreKeyboard(rows = []) {
+  const keyboard = new InlineKeyboard();
+  if (!Array.isArray(rows) || rows.length === 0) return keyboard;
+
+  rows.forEach((row, rIdx) => {
+    if (!Array.isArray(row) || row.length === 0) return;
+    row.forEach((btn) => {
+      if (!btn || !btn.id) return;
+      const label = `${btn.icon ? btn.icon + ' ' : ''}${btn.text || 'زر'}`;
+      if (btn.action === 'url' && btn.url) {
+        const link = btn.url.startsWith('http') ? btn.url : `https://${btn.url}`;
+        keyboard.url(label, link);
+      } else if (btn.action === 'submenu') {
+        keyboard.text(label, `tgstore_sub_${btn.id}`);
+      } else if (btn.action === 'product') {
+        keyboard.text(label, `tgstore_prod_${btn.id}`);
+      } else if (btn.action === 'wallet') {
+        keyboard.text(label, 'tgstore_wallet');
+      } else if (btn.action === 'rules') {
+        keyboard.text(label, 'tgstore_rules');
+      } else if (btn.action === 'custom_message') {
+        keyboard.text(label, `tgstore_msg_${btn.id}`);
+      } else {
+        keyboard.text(label, `tgstore_btn_${btn.id}`);
+      }
+    });
+    if (rIdx < rows.length - 1) {
+      keyboard.row();
+    }
+  });
+
+  return keyboard;
+}
+
+function findStoreButton(rows = [], targetId) {
+  if (!Array.isArray(rows) || !targetId) return null;
+  for (const row of rows) {
+    if (!Array.isArray(row)) continue;
+    for (const btn of row) {
+      if (!btn) continue;
+      if (String(btn.id) === String(targetId)) return btn;
+      if (Array.isArray(btn.subButtons)) {
+        const subMatch = findStoreButton(btn.subButtons, targetId);
+        if (subMatch) return subMatch;
+      }
+    }
+  }
+  return null;
+}
+
+async function checkUserSubscription(ctx, channelIdentifier) {
+  try {
+    if (!channelIdentifier || typeof channelIdentifier !== 'string') return true;
+    let target = channelIdentifier.trim();
+    if (target.startsWith('https://t.me/')) {
+      target = target.replace('https://t.me/', '@');
+    }
+    if (!target.startsWith('@') && !target.startsWith('-100') && !/^\d+$/.test(target)) {
+      target = `@${target}`;
+    }
+    const member = await ctx.api.getChatMember(target, ctx.from.id);
+    const validStatuses = ['creator', 'administrator', 'member', 'restricted'];
+    return validStatuses.includes(member.status);
+  } catch (err) {
+    // Fail-open: if bot is not admin in channel or username is invalid, don't lock customer out
+    console.warn('[Telegram Store] checkUserSubscription notice (fail-open):', err.message);
+    return true;
+  }
+}
+
+async function broadcastToLogsChannel(api, channelId, itemTitle, price, buyerName, storeName) {
+  try {
+    if (!channelId || typeof channelId !== 'string') return;
+    let target = channelId.trim();
+    if (target.startsWith('https://t.me/')) {
+      target = target.replace('https://t.me/', '@');
+    }
+    if (!target.startsWith('@') && !target.startsWith('-100') && !/^\d+$/.test(target)) {
+      target = `@${target}`;
+    }
+
+    const logText =
+      `📢 *عملية شراء جديدة ناجحة! 🛍️⚡*\n` +
+      `━━━━━━━━━━━━━━━━━━\n` +
+      `📦 *المنتج:* ${itemTitle}\n` +
+      `💰 *القيمة:* ${price ? price + ' دج' : 'مدفوع'}\n` +
+      `👤 *المشتري:* ${buyerName || 'زبون مميز'}\n` +
+      `🏪 *المتجر:* ${storeName || 'المتجر الرسمي'}\n` +
+      `⚡ *الحالة:* تم الحجز وجاري التسليم الفوري ✅\n` +
+      `━━━━━━━━━━━━━━━━━━\n` +
+      `🔥 شكراً لثقتكم المستمرة بنا!`;
+
+    await api.sendMessage(target, logText, { parse_mode: 'Markdown' });
+    console.log(`[Telegram Store] Broadcasted order log to channel ${target}`);
+  } catch (err) {
+    console.warn('[Telegram Store] Broadcast to logs channel failed:', err.message);
+  }
+}
+
+async function handleStoreStart(ctx, currentConfig) {
+  const storeConfig = currentConfig.telegramStore || {};
+  const isForceSub = storeConfig.forceSubscribeEnabled !== false && !!storeConfig.forceSubscribeChannel;
+
+  if (isForceSub) {
+    const isSubscribed = await checkUserSubscription(ctx, storeConfig.forceSubscribeChannel);
+    if (!isSubscribed) {
+      const channelRaw = storeConfig.forceSubscribeChannel.trim();
+      const channelLink = channelRaw.startsWith('http')
+        ? channelRaw
+        : `https://t.me/${channelRaw.replace(/^@/, '')}`;
+
+      const subKeyboard = new InlineKeyboard()
+        .url('📢 اضغط هنا للانضمام للقناة', channelLink)
+        .row()
+        .text('تحقق من الانضمام ✅', 'tgstore_check_sub');
+
+      const notice =
+        `👋 أهلاً بك في متجر *${currentConfig.businessName || currentConfig.botName}*!\n\n` +
+        `⚠️ *تنبيه:* للانضمام واستخدام المتجر وتصفح العروض الحصرية، يجب أولاً الاشتراك في قناتنا الرسمية للإثباتات واللوغز.\n\n` +
+        `👇 اشترك بالقناة عبر الزر أدناه ثم اضغط على «تحقق من الانضمام» للدخول:`;
+
+      await ctx.reply(notice, { reply_markup: subKeyboard, parse_mode: 'Markdown' }).catch(async () => {
+        await ctx.reply(notice, { reply_markup: subKeyboard });
+      });
+      return;
+    }
+  }
+
+  await sendStoreMainMenu(ctx, currentConfig);
+}
+
+async function sendStoreMainMenu(ctx, currentConfig) {
+  const storeConfig = currentConfig.telegramStore || {};
+  const welcome = storeConfig.welcomeMessage ||
+    `مرحباً بك في متجر *${currentConfig.businessName || currentConfig.botName}*! 💎\nاختر الخدمة أو المنتج الذي تريده لتأكيد طلبك فوراً:`;
+  const keyboard = buildStoreKeyboard(storeConfig.rows || []);
+
+  const banner = storeConfig.bannerUrl ? resolveInputMedia(storeConfig.bannerUrl) : null;
+
+  if (banner) {
+    await ctx.replyWithPhoto(banner, {
+      caption: welcome,
+      reply_markup: keyboard,
+      parse_mode: 'Markdown',
+    }).catch(async (err) => {
+      console.warn('[Telegram Store] Banner send failed, fallback to text:', err.message);
+      await ctx.reply(welcome, { reply_markup: keyboard, parse_mode: 'Markdown' }).catch(() => {
+        ctx.reply(welcome, { reply_markup: keyboard });
+      });
+    });
+  } else {
+    await ctx.reply(welcome, { reply_markup: keyboard, parse_mode: 'Markdown' }).catch(() => {
+      ctx.reply(welcome, { reply_markup: keyboard });
+    });
+  }
+}
 
 async function startBot(config) {
   if (activeBots.has(config.id)) return;
@@ -1011,21 +1171,186 @@ async function startBot(config) {
     activeBots.set(config.id, { bot, config });
 
     bot.command('start', async (ctx) => {
+      const liveEntry = activeBots.get(config.id);
+      const currentConfig = (liveEntry && liveEntry.config) ? liveEntry.config : config;
+      const storeConfig = currentConfig.telegramStore;
+      const isStoreMode = storeConfig?.enabled === true || currentConfig.businessType === 'telegram_store';
+
+      if (isStoreMode) {
+        return handleStoreStart(ctx, currentConfig);
+      }
+
       const greeting = config.responseStyle === 'formal'
         ? `مرحباً بك. أنا ${config.botName}، مساعدك الآلي من ${config.businessName}. كيف يمكنني مساعدتك اليوم؟`
         : `أهلاً وسهلاً بك. أنا ${config.botName} من ${config.businessName}. كيف يمكنني مساعدتك اليوم؟`;
       await ctx.reply(greeting);
     });
 
+    bot.on('callback_query:data', async (ctx) => {
+      const data = ctx.callbackQuery?.data;
+      if (!data || !data.startsWith('tgstore_')) return;
+
+      const liveEntry = activeBots.get(config.id);
+      const currentConfig = (liveEntry && liveEntry.config) ? liveEntry.config : config;
+      const storeConfig = currentConfig.telegramStore || {};
+
+      try {
+        if (data === 'tgstore_check_sub') {
+          const isSub = await checkUserSubscription(ctx, storeConfig.forceSubscribeChannel);
+          if (isSub) {
+            await ctx.answerCallbackQuery({ text: '🎉 تم التحقق بنجاح! مرحباً بك في المتجر.' }).catch(() => {});
+            await sendStoreMainMenu(ctx, currentConfig);
+          } else {
+            await ctx.answerCallbackQuery({
+              text: '⚠️ لم تشترك بعد في القناة! يرجى الاشتراك أولاً ثم الضغط للتحقق.',
+              show_alert: true,
+            }).catch(() => {});
+          }
+          return;
+        }
+
+        await ctx.answerCallbackQuery().catch(() => {});
+
+        if (data === 'tgstore_main') {
+          await sendStoreMainMenu(ctx, currentConfig);
+          return;
+        }
+
+        if (data === 'tgstore_wallet') {
+          const walletText = storeConfig.walletInfo ||
+            '💳 *معلومات وطرق الدفع المعتمدة:*\n\n• بريدي موب (BaridiMob)\n• الحساب البريدي الجاري (CCP)\n\n📌 بعد التحويل، يرجى إرسال صورة وصل الدفع هنا في المحادثة مباشرة!';
+          const kb = new InlineKeyboard().text('🔙 العودة للقائمة الرئيسية', 'tgstore_main');
+          await ctx.reply(walletText, { reply_markup: kb, parse_mode: 'Markdown' }).catch(() => {
+            ctx.reply(walletText, { reply_markup: kb });
+          });
+          return;
+        }
+
+        if (data === 'tgstore_rules') {
+          const rules = storeConfig.rulesText ||
+            '📜 *قوانين وشروط المتجر والضمان:*\n\n1. جميع المنتجات والحسابات أصلية ومضمونة.\n2. التسليم يتم فور مراجعة وصل الدفع.\n3. الدعم متوفر لمساعدتك في أي وقت.';
+          const kb = new InlineKeyboard().text('🔙 العودة للقائمة الرئيسية', 'tgstore_main');
+          await ctx.reply(rules, { reply_markup: kb, parse_mode: 'Markdown' }).catch(() => {
+            ctx.reply(rules, { reply_markup: kb });
+          });
+          return;
+        }
+
+        if (data.startsWith('tgstore_sub_')) {
+          const subId = data.replace('tgstore_sub_', '');
+          const btn = findStoreButton(storeConfig.rows, subId);
+          if (btn && Array.isArray(btn.subButtons)) {
+            const subKb = buildStoreKeyboard(btn.subButtons);
+            subKb.row().text('🔙 العودة للقائمة الرئيسية', 'tgstore_main');
+            const subTitle = `📂 *${btn.text || 'قائمة المنتجات'}*\nاختر من الخيارات التالية:`;
+            await ctx.reply(subTitle, { reply_markup: subKb, parse_mode: 'Markdown' }).catch(() => {
+              ctx.reply(subTitle, { reply_markup: subKb });
+            });
+          }
+          return;
+        }
+
+        if (data.startsWith('tgstore_prod_')) {
+          const prodId = data.replace('tgstore_prod_', '');
+          const btn = findStoreButton(storeConfig.rows, prodId);
+          if (btn) {
+            const priceStr = btn.productPrice ? `${btn.productPrice} دج` : 'سعر خاص';
+            const prodText =
+              `💎 *${btn.text}*\n` +
+              `━━━━━━━━━━━━━━━━━━\n` +
+              `💰 *السعر:* ${priceStr}\n` +
+              (btn.customMessage ? `\n📝 ${btn.customMessage}\n` : '') +
+              `\n⚡ للتأكيد الفوري اضغط على زر «شراء الآن» أدناه:`;
+
+            const prodKb = new InlineKeyboard()
+              .text('🛒 شراء الآن (تأكيد الطلب)', `tgstore_buy_${btn.id}`)
+              .row()
+              .text('💳 طرق الدفع', 'tgstore_wallet')
+              .text('🔙 رجوع', 'tgstore_main');
+
+            await ctx.reply(prodText, { reply_markup: prodKb, parse_mode: 'Markdown' }).catch(() => {
+              ctx.reply(prodText, { reply_markup: prodKb });
+            });
+          }
+          return;
+        }
+
+        if (data.startsWith('tgstore_msg_')) {
+          const msgId = data.replace('tgstore_msg_', '');
+          const btn = findStoreButton(storeConfig.rows, msgId);
+          if (btn) {
+            const msgText = btn.customMessage || btn.text || 'مرحباً بك!';
+            const kb = new InlineKeyboard().text('🔙 العودة للقائمة الرئيسية', 'tgstore_main');
+            await ctx.reply(msgText, { reply_markup: kb, parse_mode: 'Markdown' }).catch(() => {
+              ctx.reply(msgText, { reply_markup: kb });
+            });
+          }
+          return;
+        }
+
+        if (data.startsWith('tgstore_buy_')) {
+          const buyId = data.replace('tgstore_buy_', '');
+          const btn = findStoreButton(storeConfig.rows, buyId);
+          const itemTitle = btn ? btn.text : 'منتج رقمي';
+          const itemPrice = btn ? btn.productPrice : '';
+          const customerName = ctx.from.first_name || ctx.from.username || 'زبون تيليغرام';
+
+          // 1. Register order in Firestore
+          saveOrderToFirestore({
+            botId: currentConfig.id,
+            ownerUserId: currentConfig.userId,
+            platform: 'telegram',
+            customerId: String(ctx.from.id),
+            customerName: customerName,
+            phone: '',
+            address: '',
+            product: itemTitle,
+            price: itemPrice,
+            notes: 'طلب عبر متجر تيليغرام التفاعلي (بانتظار تأكيد الوصل)',
+            orderSummary: `طلب شراء ${itemTitle} بقيمة ${itemPrice || 'غير محدد'} دج`,
+          }, 'separate').catch(() => {});
+
+          // 2. Broadcast anonymous log to proof channel
+          if (storeConfig.logsChannelId) {
+            const anonName = (ctx.from.first_name || 'عميل').slice(0, 3) + '***';
+            broadcastToLogsChannel(ctx.api, storeConfig.logsChannelId, itemTitle, itemPrice, anonName, currentConfig.businessName);
+          }
+
+          // 3. Confirm to customer
+          const confirmText =
+            `✅ *تم تسجيل رغبتك في شراء:*\n` +
+            `📦 *${itemTitle}*\n` +
+            `💰 *المبلغ المطلوب:* ${itemPrice ? itemPrice + ' دج' : 'حسب الاتفاق'}\n\n` +
+            `💳 *خطوات إتمام الدفع والتسليم الفوري:*\n` +
+            `1. قم بتحويل المبلغ عبر وسائل الدفع المعتمدة (اضغط زر طرق الدفع أدناه).\n` +
+            `2. *أرسل صورة وصل الدفع (Reçu / Capture)* هنا مباشرة في هذه المحادثة.\n` +
+            `3. فور استلام الوصل سيتم التحقق وتسليمك الطلب بأسرع وقت! 🚀`;
+
+          const confirmKb = new InlineKeyboard()
+            .text('💳 عرض وسائل الدفع (BaridiMob / CCP)', 'tgstore_wallet')
+            .row()
+            .text('🔙 العودة للمتجر', 'tgstore_main');
+
+          await ctx.reply(confirmText, { reply_markup: confirmKb, parse_mode: 'Markdown' }).catch(() => {
+            ctx.reply(confirmText, { reply_markup: confirmKb });
+          });
+          return;
+        }
+      } catch (cbErr) {
+        console.error('[Telegram Store] Callback error:', cbErr.message);
+      }
+    });
+
     async function runTelegramIncoming(ctx) {
       const isVoice = !!(ctx.message.voice || ctx.message.audio);
+      const isPhoto = !!(ctx.message.photo && ctx.message.photo.length > 0);
       const userMessage = (ctx.message.text || ctx.message.caption || '').trim();
       const userId = ctx.from.id;
       const userName = ctx.from.first_name || ctx.from.username || 'زبون تيليغرام';
       const takeoverKey = `${config.id}_${userId}`;
 
-      // Skip empty non-audio messages
-      if (!userMessage && !isVoice) {
+      // Skip empty non-audio / non-photo messages
+      if (!userMessage && !isVoice && !isPhoto) {
         return;
       }
 
@@ -1071,7 +1396,7 @@ async function startBot(config) {
         }
       }
 
-      const displayMessage = userMessage || (isVoice ? '[رسالة صوتية]' : '');
+      const displayMessage = userMessage || (isVoice ? '[رسالة صوتية]' : (isPhoto ? '[صورة / وصل دفع]' : ''));
 
       // Save user message immediately
       saveMessage(config.id, config.userId, userId, userName, displayMessage, 'user', 'telegram', userAvatar);
@@ -1091,6 +1416,44 @@ async function startBot(config) {
       // Retrieve latest live config from activeBots
       const liveEntry = activeBots.get(config.id);
       const currentConfig = (liveEntry && liveEntry.config) ? liveEntry.config : config;
+      const storeConfig = currentConfig.telegramStore || {};
+      const isStoreMode = storeConfig.enabled === true || currentConfig.businessType === 'telegram_store';
+
+      // ─── Fast-Path Payment Receipt Detection (0 LLM Calls) ───────
+      if (isPhoto && isStoreMode) {
+        const receiptReply =
+          `🧾 *تم استلام صورة وصل التحويل بنجاح!* 💎\n\n` +
+          `جاري مراجعة الوصل والتأكد من بيانات الدفع من طرف المشرفين.\n` +
+          `سيتم تسليم طلبك في أقرب وقت ممكن بعد المراجعة.\n\n` +
+          `🙏 شكراً لثقتكم واختياركم لنا!`;
+
+        await ctx.reply(receiptReply, { parse_mode: 'Markdown' }).catch(() => {
+          ctx.reply(receiptReply);
+        });
+        saveMessage(currentConfig.id, currentConfig.userId, userId, userName, receiptReply, 'bot');
+        incrementMessageCount(currentConfig.id);
+
+        createNotification({
+          userId: currentConfig.userId,
+          botId: currentConfig.id,
+          type: 'order',
+          title: `🧾 وصل دفع جديد من ${userName}`,
+          body: `أرسل الزبون وصل دفع في البوت ${currentConfig.botName}. يرجى مراجعة المحادثة والتسليم.`,
+          meta: { customerId: String(userId) },
+        }).catch(() => {});
+
+        console.log(`[Telegram Store] 🧾 Receipt acknowledged for ${userName} (${userId}) — 0 LLM calls`);
+        return;
+      }
+
+      // If photo in standard bot without caption
+      if (isPhoto && !userMessage) {
+        const photoReply = 'شكراً لإرسال الصورة! هل يمكنك توضيح استفسارك أو طلبك بخصوصها؟ 🙏';
+        await ctx.reply(photoReply);
+        saveMessage(currentConfig.id, currentConfig.userId, userId, userName, photoReply, 'bot');
+        incrementMessageCount(currentConfig.id);
+        return;
+      }
 
       // ─── Fast-Path Tracking Engine (0 LLM Calls) ────────────────
       const trackingEnabled = currentConfig.features
@@ -1258,11 +1621,12 @@ async function startBot(config) {
     const TG_DEBOUNCE_MS = parseInt(process.env.TG_MESSAGE_DEBOUNCE_MS || '4000', 10);
     const TG_MAX_WAIT_MS = parseInt(process.env.TG_MESSAGE_MAX_WAIT_MS || '10000', 10);
 
-    bot.on(['message:text', 'message:voice', 'message:audio'], async (ctx) => {
+    bot.on(['message:text', 'message:voice', 'message:audio', 'message:photo'], async (ctx) => {
       const isVoice = !!(ctx.message.voice || ctx.message.audio);
+      const isPhoto = !!(ctx.message.photo && ctx.message.photo.length > 0);
       const text = (ctx.message.text || ctx.message.caption || '').trim();
 
-      if (!isVoice && text) {
+      if (!isVoice && !isPhoto && text) {
         const key = `${config.id}:${ctx.from.id}`;
         let g = tgDebounce.get(key);
         if (!g) { g = { frags: [], ctx: null, timer: null, firstAt: Date.now() }; tgDebounce.set(key, g); }

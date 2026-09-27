@@ -6646,6 +6646,168 @@ body {
   min-width: 0;
 }
 
+/* Sub-tabs Navigation Strip */
+.tg-subtabs-nav {
+  display: flex;
+  gap: 8px;
+  background: var(--bg-card, #111110);
+  padding: 6px;
+  border-radius: var(--radius-md, 16px);
+  border: 1px solid var(--border-default);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.tg-subtabs-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.tg-subtab-btn {
+  flex: 1 0 auto;
+  min-width: max-content;
+  white-space: nowrap;
+  padding: 9px 16px;
+  border-radius: 10px;
+  border: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.tg-subtab-btn.is-active-buttons {
+  background: var(--color-primary-subtle, rgba(16, 185, 129, 0.15)) !important;
+  color: #34d399 !important;
+  font-weight: 700;
+}
+
+.tg-subtab-btn.is-active-channels {
+  background: rgba(14, 165, 233, 0.15) !important;
+  color: #38bdf8 !important;
+  font-weight: 700;
+}
+
+.tg-subtab-btn.is-active-settings {
+  background: rgba(245, 158, 11, 0.15) !important;
+  color: #fbbf24 !important;
+  font-weight: 700;
+}
+
+.tg-tab-text-mobile {
+  display: none;
+}
+.tg-tab-text-full {
+  display: inline;
+}
+
+/* Row Buttons Grid inside Studio */
+.tg-row-buttons-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+/* Button Card inside Row */
+.tg-row-btn-card {
+  background: var(--veil-1, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+.tg-row-btn-card:hover {
+  background: var(--veil-2, rgba(255, 255, 255, 0.06));
+  border-color: var(--border-bright, rgba(16, 185, 129, 0.3));
+  transform: translateY(-1px);
+}
+
+.tg-row-btn-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.tg-row-btn-icon-wrapper {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: #34d399;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.tg-row-btn-text-group {
+  min-width: 0;
+  overflow: hidden;
+  flex: 1;
+}
+
+.tg-row-btn-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tg-row-btn-subtitle {
+  font-size: 0.74rem;
+  color: var(--color-primary, #10b981);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tg-row-btn-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.tg-row-btn-delete {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #fb7185;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+.tg-row-btn-delete:hover {
+  background: rgba(244, 63, 94, 0.15);
+  border-color: rgba(244, 63, 94, 0.3);
+}
+
 @media (max-width: 1024px) {
   .tg-store-page-container {
     padding: 0.85rem 0.65rem;
@@ -6709,3 +6871,37 @@ body {
     display: none !important;
   }
 }
+
+@media (max-width: 640px) {
+  .tg-hide-mobile {
+    display: none !important;
+  }
+
+  .tg-tab-text-mobile {
+    display: inline;
+  }
+  .tg-tab-text-full {
+    display: none;
+  }
+
+  .tg-subtabs-nav {
+    padding: 4px;
+    gap: 5px;
+  }
+
+  .tg-subtab-btn {
+    padding: 8px 10px;
+    font-size: 0.78rem;
+    gap: 5px;
+  }
+
+  .tg-row-buttons-grid {
+    grid-template-columns: 1fr !important; /* Full width per button on mobile! */
+    gap: 8px;
+  }
+
+  .tg-row-btn-card {
+    padding: 8px 10px;
+  }
+}
+

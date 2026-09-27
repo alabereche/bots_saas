@@ -134,7 +134,7 @@ export default function TelegramStorePage() {
   const activeStore = stores.find(s => s.id === selectedStoreId) || stores[0];
 
   return (
-    <div style={{ maxWidth: '1440px', margin: '0 auto', padding: '1.5rem', color: 'var(--text-primary)' }}>
+    <div className="tg-store-page-container">
       {/* ─── Page Header ─── */}
       <div style={{
         display: 'flex',
@@ -142,9 +142,9 @@ export default function TelegramStorePage() {
         justifyContent: 'space-between',
         flexWrap: 'wrap',
         gap: '1rem',
-        marginBottom: '1.75rem',
+        marginBottom: '1.25rem',
         borderBottom: '1px solid var(--border-subtle)',
-        paddingBottom: '1.25rem',
+        paddingBottom: '1rem',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <div style={{
@@ -162,7 +162,7 @@ export default function TelegramStorePage() {
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h1 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+              <h1 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
                 استوديو متجر تيليغرام
               </h1>
               <span style={{
@@ -182,7 +182,7 @@ export default function TelegramStorePage() {
                 PRO
               </span>
             </div>
-            <p style={{ margin: '3px 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+            <p className="tg-hide-mobile" style={{ margin: '3px 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
               صمّم متجر أزرار تفاعلي مستقل، مع قناة اللوغز المباشرة والاشتراك الإجباري ومحاكي حي فوري
             </p>
           </div>

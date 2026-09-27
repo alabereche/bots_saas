@@ -380,7 +380,7 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
                 PRO
               </span>
             </div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: '3px 0 0' }}>
+            <p className="tg-hide-mobile" style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: '3px 0 0' }}>
               صمّم متجر أزرار حقيقي لتيليغرام مع اشتراك إجباري وقناة بث لوغز تلقائية.
             </p>
           </div>
@@ -472,83 +472,35 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
         {/* ── LEFT: Studio Controls & Grid Editor ── */}
         <div className="tg-studio-col-editor">
           {/* Sub-Tabs Nav */}
-          <div style={{
-            display: 'flex',
-            gap: '8px',
-            background: 'var(--bg-card, #111110)',
-            padding: '6px',
-            borderRadius: 'var(--radius-md, 16px)',
-            border: '1px solid var(--border-default)',
-            overflowX: 'auto',
-            scrollbarWidth: 'none',
-          }}>
+          <div className="tg-subtabs-nav">
             <button
+              type="button"
               onClick={() => setActiveTab('buttons')}
-              style={{
-                flex: 1,
-                padding: '8px 14px',
-                borderRadius: '10px',
-                border: 'none',
-                background: activeTab === 'buttons' ? 'var(--color-primary-subtle, rgba(16, 185, 129, 0.15))' : 'transparent',
-                color: activeTab === 'buttons' ? '#34d399' : 'var(--text-secondary)',
-                fontWeight: activeTab === 'buttons' ? 700 : 500,
-                fontSize: '0.85rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                transition: 'all 0.2s',
-              }}
+              className={`tg-subtab-btn ${activeTab === 'buttons' ? 'is-active-buttons' : ''}`}
             >
               <SlidersHorizontal size={15} />
-              <span>شبكة الأزرار التفاعلية</span>
+              <span className="tg-tab-text-full">شبكة الأزرار التفاعلية</span>
+              <span className="tg-tab-text-mobile">شبكة الأزرار</span>
             </button>
 
             <button
+              type="button"
               onClick={() => setActiveTab('channels')}
-              style={{
-                flex: 1,
-                padding: '8px 14px',
-                borderRadius: '10px',
-                border: 'none',
-                background: activeTab === 'channels' ? 'rgba(14, 165, 233, 0.15)' : 'transparent',
-                color: activeTab === 'channels' ? '#38bdf8' : 'var(--text-secondary)',
-                fontWeight: activeTab === 'channels' ? 700 : 500,
-                fontSize: '0.85rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                transition: 'all 0.2s',
-              }}
+              className={`tg-subtab-btn ${activeTab === 'channels' ? 'is-active-channels' : ''}`}
             >
               <Megaphone size={15} />
-              <span>قناة اللوغز والاشتراك الإجباري</span>
+              <span className="tg-tab-text-full">قناة اللوغز والاشتراك الإجباري</span>
+              <span className="tg-tab-text-mobile">اللوغز والاشتراك</span>
             </button>
 
             <button
+              type="button"
               onClick={() => setActiveTab('settings')}
-              style={{
-                flex: 1,
-                padding: '8px 14px',
-                borderRadius: '10px',
-                border: 'none',
-                background: activeTab === 'settings' ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
-                color: activeTab === 'settings' ? '#fbbf24' : 'var(--text-secondary)',
-                fontWeight: activeTab === 'settings' ? 700 : 500,
-                fontSize: '0.85rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                transition: 'all 0.2s',
-              }}
+              className={`tg-subtab-btn ${activeTab === 'settings' ? 'is-active-settings' : ''}`}
             >
               <Settings size={15} />
-              <span>البانر والمحفظة والقوانين</span>
+              <span className="tg-tab-text-full">البانر والمحفظة والقوانين</span>
+              <span className="tg-tab-text-mobile">البانر والمحفظة</span>
             </button>
           </div>
 
@@ -667,15 +619,16 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
                           <ArrowDown size={13} />
                         </button>
                         <button
+                          type="button"
                           onClick={() => addButtonToRow(rIdx)}
                           title="إضافة زر إضافي بجانب هذا الصف (حد أقصى 3)"
                           style={{
-                            background: 'rgba(14, 165, 233, 0.1)',
-                            border: '1px solid rgba(14, 165, 233, 0.25)',
+                            background: 'rgba(16, 185, 129, 0.12)',
+                            border: '1px solid rgba(16, 185, 129, 0.25)',
                             borderRadius: '6px',
-                            color: '#38bdf8',
+                            color: '#34d399',
                             cursor: 'pointer',
-                            padding: '3px 8px',
+                            padding: '4px 9px',
                             fontSize: '0.78rem',
                             fontWeight: 700,
                             display: 'inline-flex',
@@ -687,6 +640,7 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
                           <span>زر بجانبه</span>
                         </button>
                         <button
+                          type="button"
                           onClick={() => deleteRow(rIdx)}
                           title="حذف هذا الصف بالكامل"
                           style={{
@@ -707,49 +661,23 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
                     </div>
 
                     {/* Row Buttons Grid */}
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <div className="tg-row-buttons-grid">
                       {row.map((btn, bIdx) => (
                         <div
                           key={btn.id || bIdx}
-                          style={{
-                            flex: 1,
-                            minWidth: '130px',
-                            background: 'rgba(24, 36, 59, 0.45)',
-                            border: '1px solid rgba(14, 165, 233, 0.2)',
-                            borderRadius: '10px',
-                            padding: '10px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            gap: '8px',
-                          }}
+                          className="tg-row-btn-card"
+                          onClick={() => openEditModal(rIdx, bIdx)}
+                          title="انقر لتعديل بيانات الزر"
                         >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-                            <span style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              width: '24px',
-                              height: '24px',
-                              borderRadius: '6px',
-                              background: 'rgba(14, 165, 233, 0.15)',
-                              color: '#38bdf8',
-                              flexShrink: 0,
-                            }}>
-                              <StoreIcon icon={btn.icon} size={14} />
+                          <div className="tg-row-btn-main">
+                            <span className="tg-row-btn-icon-wrapper">
+                              <StoreIcon icon={btn.icon} size={15} />
                             </span>
-                            <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                            <div className="tg-row-btn-text-group">
+                              <div className="tg-row-btn-title">
                                 {stripEmojis(btn.text)}
                               </div>
-                              <div style={{
-                                fontSize: '0.7rem',
-                                color: '#0ea5e9',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '3px',
-                                marginTop: '2px',
-                              }}>
+                              <div className="tg-row-btn-subtitle">
                                 {btn.action === 'product' && (
                                   <>
                                     <ShoppingBag size={11} />
@@ -784,17 +712,15 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
                             </div>
                           </div>
 
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <div className="tg-row-btn-actions" onClick={(e) => e.stopPropagation()}>
                             <button
+                              type="button"
                               onClick={() => openEditModal(rIdx, bIdx)}
+                              className="btn btn-secondary btn-sm"
                               style={{
-                                background: 'rgba(255,255,255,0.08)',
-                                border: 'none',
-                                borderRadius: '6px',
-                                color: 'var(--text-primary)',
                                 padding: '4px 8px',
                                 fontSize: '0.75rem',
-                                cursor: 'pointer',
+                                borderRadius: '6px',
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: '4px',
@@ -805,16 +731,12 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
                             </button>
                             {row.length > 1 && (
                               <button
+                                type="button"
                                 onClick={() => removeButtonFromRow(rIdx, bIdx)}
-                                style={{
-                                  background: 'transparent',
-                                  border: 'none',
-                                  color: '#fb7185',
-                                  cursor: 'pointer',
-                                  fontSize: '0.8rem',
-                                }}
+                                className="tg-row-btn-delete"
+                                title="حذف الزر من الصف"
                               >
-                                ✕
+                                <X size={14} />
                               </button>
                             )}
                           </div>

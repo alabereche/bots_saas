@@ -29,7 +29,52 @@ import {
   Headphones,
   Gamepad2,
   Smartphone,
+  Clock,
+  Coins,
+  DollarSign,
 } from 'lucide-react';
+
+// Default dynamic payment methods
+export const DEFAULT_PAYMENT_METHODS = [
+  {
+    id: 'binance',
+    name: '🔸 الدفع عبر Binance',
+    details: 'معرف الدفع (Binance Pay ID): 123456789\nأو تحويل USDT على شبكة BEP20:\n0x1234567890abcdef1234567890abcdef12345678',
+    enabled: true,
+  },
+  {
+    id: 'baridimob',
+    name: '💳 بريدي موب (BaridiMob)',
+    details: 'RIP: 00799999000123456789\nالاسم: MOHAMED ALGERIA',
+    enabled: true,
+  },
+  {
+    id: 'ccp',
+    name: '📬 الحساب البريدي الجاري (CCP)',
+    details: 'رقم الحساب: 1234567 مفتاح 89\nالاسم: محمد الجزائري',
+    enabled: true,
+  },
+  {
+    id: 'usdt',
+    name: '₮ العملات الرقمية USDT (TRC20)',
+    details: 'العنوان: TXYz1234567890abcdef1234567890abcdef\nالشبكة: TRC20 (Tron)',
+    enabled: false,
+  },
+];
+
+export function parsePaymentMethods(storeConfig) {
+  if (!storeConfig) return DEFAULT_PAYMENT_METHODS;
+  if (storeConfig.paymentMethodsJson) {
+    try {
+      const parsed = JSON.parse(storeConfig.paymentMethodsJson);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch { /* fallback */ }
+  }
+  if (Array.isArray(storeConfig.paymentMethods) && storeConfig.paymentMethods.length > 0) {
+    return storeConfig.paymentMethods;
+  }
+  return DEFAULT_PAYMENT_METHODS;
+}
 
 // 1-Click Templates
 export const STORE_TEMPLATES = {
@@ -133,6 +178,8 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
   const [logsChannelId, setLogsChannelId] = useState(initialStore.logsChannelId || '');
   const [walletInfo, setWalletInfo] = useState(initialStore.walletInfo || STORE_TEMPLATES.subscriptions.walletInfo);
   const [rulesText, setRulesText] = useState(initialStore.rulesText || STORE_TEMPLATES.subscriptions.rulesText);
+  const [paymentTimeoutMinutes, setPaymentTimeoutMinutes] = useState(initialStore.paymentTimeoutMinutes ?? 15);
+  const [paymentMethods, setPaymentMethods] = useState(() => parsePaymentMethods(initialStore));
   const [rows, setRows] = useState(() => {
     const parsed = parseStoreRows(initialStore);
     return (parsed && parsed.length > 0) ? parsed : STORE_TEMPLATES.subscriptions.rows;
@@ -166,6 +213,9 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
       if (s.logsChannelId !== undefined) setLogsChannelId(s.logsChannelId);
       if (s.walletInfo) setWalletInfo(s.walletInfo);
       if (s.rulesText) setRulesText(s.rulesText);
+      if (s.paymentTimeoutMinutes !== undefined) setPaymentTimeoutMinutes(s.paymentTimeoutMinutes);
+      const parsedMethods = parsePaymentMethods(s);
+      if (parsedMethods && parsedMethods.length > 0) setPaymentMethods(parsedMethods);
       const parsed = parseStoreRows(s);
       if (parsed && parsed.length > 0) setRows(parsed);
     }
@@ -285,6 +335,34 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
     toast.success('تم تحديث الزر بنجاح!');
   };
 
+  // Payment methods operations
+  const addPaymentMethod = () => {
+    const newMethod = {
+      id: `pm_${Date.now()}`,
+      name: 'طريقة دفع جديدة',
+      details: 'اكتب هنا تفاصيل الحساب، رقم المعرف، أو عنوان المحفظة والتعليمات...',
+      enabled: true,
+    };
+    setPaymentMethods([...paymentMethods, newMethod]);
+    toast.success('تمت إضافة طريقة دفع جديدة');
+  };
+
+  const updatePaymentMethod = (id, field, value) => {
+    setPaymentMethods(paymentMethods.map(m => m.id === id ? { ...m, [field]: value } : m));
+  };
+
+  const removePaymentMethod = (id) => {
+    if (paymentMethods.length <= 1) {
+      toast.error('يجب أن تحتوي قائمة الدفع على طريقة واحدة على الأقل');
+      return;
+    }
+    setPaymentMethods(paymentMethods.filter(m => m.id !== id));
+  };
+
+  const togglePaymentMethod = (id) => {
+    setPaymentMethods(paymentMethods.map(m => m.id === id ? { ...m, enabled: !m.enabled } : m));
+  };
+
   // Save the complete studio config to Firebase
   const handleSaveStore = async () => {
     setSaving(true);
@@ -299,6 +377,14 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
         logsChannelId: logsChannelId.trim(),
         walletInfo: walletInfo.trim(),
         rulesText: rulesText.trim(),
+        paymentTimeoutMinutes: Number(paymentTimeoutMinutes) || 15,
+        paymentMethodsJson: JSON.stringify(paymentMethods),
+        paymentMethods: paymentMethods.map(m => ({
+          id: m.id || `pm_${Date.now()}`,
+          name: (m.name || '').trim(),
+          details: (m.details || '').trim(),
+          enabled: !!m.enabled,
+        })),
         rowsJson,
         updatedAt: new Date().toISOString(),
       };
@@ -491,6 +577,16 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
               <Megaphone size={15} />
               <span className="tg-tab-text-full">قناة اللوغز والاشتراك الإجباري</span>
               <span className="tg-tab-text-mobile">اللوغز والاشتراك</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('payments')}
+              className={`tg-subtab-btn ${activeTab === 'payments' ? 'is-active-payments' : ''}`}
+            >
+              <CreditCard size={15} />
+              <span className="tg-tab-text-full">طرق الدفع والشحن والمؤقت</span>
+              <span className="tg-tab-text-mobile">طرق الدفع</span>
             </button>
 
             <button
@@ -890,7 +986,194 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
             </div>
           )}
 
-          {/* TAB 3: Banner, Wallet & Rules */}
+          {/* TAB: Payment Methods & Timer Studio */}
+          {activeTab === 'payments' && (
+            <div style={{
+              background: 'var(--bg-card, #111110)',
+              border: '1px solid var(--border-default)',
+              borderRadius: 'var(--radius-md, 16px)',
+              padding: '1.25rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.25rem',
+            }}>
+              <div>
+                <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                  <CreditCard size={18} color="#c084fc" />
+                  <span>طرق الدفع والشحن ومؤقت إغلاق الصفقات</span>
+                </h3>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', margin: '4px 0 0' }}>
+                  حدد بحرية تامة وسائل الدفع المقبولة في متجرك ومهلة المؤقت التنازلي لإتمام التحويل قبل إغلاق الطلب.
+                </p>
+              </div>
+
+              {/* 1. Payment Countdown Timer */}
+              <div className="tg-field-card">
+                <div className="tg-field-header">
+                  <div className="tg-field-title-group">
+                    <span className="tg-field-icon-badge" style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc' }}>
+                      <Clock size={16} />
+                    </span>
+                    <div>
+                      <h4 className="tg-field-title" style={{ color: '#c084fc' }}>
+                        مؤقت مهلة الدفع التنازلي (بالدقائق)
+                      </h4>
+                      <p className="tg-field-hint">
+                        المدة الزمنية الممنوحة للزبون لإتمام التحويل وإرسال الوصل أو معرف الدفع قبل غلق الصفقة تلقائياً
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <input
+                      type="number"
+                      min="1"
+                      max="180"
+                      value={paymentTimeoutMinutes}
+                      onChange={(e) => setPaymentTimeoutMinutes(Math.max(1, parseInt(e.target.value) || 15))}
+                      className="tg-input"
+                      style={{ width: '90px', textAlign: 'center', fontWeight: 700, fontSize: '1rem', color: '#c084fc' }}
+                    />
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>دقيقة</span>
+                  </div>
+
+                  {/* Preset quick buttons */}
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {[5, 10, 15, 30, 45, 60].map(mins => (
+                      <button
+                        key={mins}
+                        type="button"
+                        onClick={() => setPaymentTimeoutMinutes(mins)}
+                        className="btn btn-secondary btn-sm"
+                        style={{
+                          fontSize: '0.75rem',
+                          padding: '4px 10px',
+                          borderRadius: '8px',
+                          borderColor: paymentTimeoutMinutes === mins ? '#c084fc' : undefined,
+                          color: paymentTimeoutMinutes === mins ? '#c084fc' : undefined,
+                          background: paymentTimeoutMinutes === mins ? 'rgba(168, 85, 247, 0.15)' : undefined,
+                        }}
+                      >
+                        {mins} دقيقة
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ fontSize: '0.74rem', color: 'var(--text-tertiary)', display: 'inline-flex', alignItems: 'center', gap: '5px', marginTop: '6px' }}>
+                  <HelpCircle size={13} color="#a855f7" />
+                  <span>عند انتهاء الوقت تُغلق الصفقة ويُعرض للزبون زر «🔄 إعادة فتح الصفقة» إذا كان قد حوّل بالفعل.</span>
+                </div>
+              </div>
+
+              {/* 2. Custom Payment Methods List */}
+              <div className="tg-field-card">
+                <div className="tg-field-header" style={{ marginBottom: '0.75rem' }}>
+                  <div className="tg-field-title-group">
+                    <span className="tg-field-icon-badge tg-field-icon-badge--emerald">
+                      <CreditCard size={16} />
+                    </span>
+                    <div>
+                      <h4 className="tg-field-title">
+                        وسائل الدفع والشحن المتاحة ({paymentMethods.length})
+                      </h4>
+                      <p className="tg-field-hint">
+                        تظهر كأزرار تفاعلية أنيقة عند اختيار الزبون للباقة أو المنتج لإتمام الشراء
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={addPaymentMethod}
+                    className="btn btn-primary btn-sm"
+                    style={{ gap: '5px', fontSize: '0.78rem', borderRadius: '8px' }}
+                  >
+                    <Plus size={14} />
+                    <span>إضافة وسيلة دفع</span>
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {paymentMethods.map((method, idx) => (
+                    <div key={method.id || idx} className="tg-payment-method-card">
+                      {/* Top Header of Card */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '220px' }}>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-tertiary)', width: '20px' }}>
+                            #{idx + 1}
+                          </span>
+                          <input
+                            type="text"
+                            value={method.name}
+                            onChange={(e) => updatePaymentMethod(method.id, 'name', e.target.value)}
+                            placeholder="اسم الزر في تيليغرام (مثال: 🔸 الدفع عبر Binance)"
+                            className="tg-input"
+                            style={{ flex: 1, fontWeight: 700, fontSize: '0.86rem' }}
+                          />
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 600, color: method.enabled ? '#34d399' : 'var(--text-muted)', cursor: 'pointer' }}>
+                            <input
+                              type="checkbox"
+                              checked={method.enabled}
+                              onChange={() => togglePaymentMethod(method.id)}
+                              style={{ accentColor: '#10b981' }}
+                            />
+                            <span>{method.enabled ? 'مفعّلة' : 'معطّلة'}</span>
+                          </label>
+
+                          <button
+                            type="button"
+                            onClick={() => removePaymentMethod(method.id)}
+                            style={{ background: 'transparent', border: 'none', color: '#f87171', cursor: 'pointer', padding: '4px' }}
+                            title="حذف وسيلة الدفع"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Instructions / Account details textarea */}
+                      <div>
+                        <label style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
+                          بيانات الحساب / رقم المحفظة / التعليمات (تظهر للزبون عند النقر):
+                        </label>
+                        <textarea
+                          rows="3"
+                          value={method.details}
+                          onChange={(e) => updatePaymentMethod(method.id, 'details', e.target.value)}
+                          placeholder="مثال:&#10;معرف الدفع (Binance Pay ID): 123456789&#10;أو RIP: 00799999000123456789 (الاسم: ...)"
+                          className="tg-textarea"
+                          style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
+                        />
+                      </div>
+
+                      {/* Mini Live Preview Badge */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-tertiary)', borderTop: '1px solid var(--border-subtle)', paddingTop: '6px' }}>
+                        <span>معاينة الزر كما يراه الزبون:</span>
+                        <div style={{
+                          background: 'rgba(255, 255, 255, 0.06)',
+                          border: '1px solid rgba(255, 255, 255, 0.12)',
+                          borderRadius: '6px',
+                          padding: '3px 10px',
+                          color: 'var(--text-primary)',
+                          fontWeight: 700,
+                        }}>
+                          {method.name || 'زر بدون اسم'}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: Banner, Wallet & Rules */}
           {activeTab === 'settings' && (
             <div style={{
               background: 'var(--bg-card, #111110)',
@@ -1082,6 +1365,8 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
             forceSubscribeChannel={forceSubscribeEnabled ? forceSubscribeChannel : ''}
             walletInfo={walletInfo}
             rulesText={rulesText}
+            paymentMethods={paymentMethods}
+            paymentTimeoutMinutes={paymentTimeoutMinutes}
             products={bot?.products || []}
           />
 

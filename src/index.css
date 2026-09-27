@@ -6695,10 +6695,32 @@ body {
   font-weight: 700;
 }
 
+.tg-subtab-btn.is-active-payments {
+  background: rgba(168, 85, 247, 0.15) !important;
+  color: #c084fc !important;
+  font-weight: 700;
+}
+
 .tg-subtab-btn.is-active-settings {
   background: rgba(245, 158, 11, 0.15) !important;
   color: #fbbf24 !important;
   font-weight: 700;
+}
+
+.tg-payment-method-card {
+  background: var(--veil-1, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: all 0.2s ease;
+}
+
+.tg-payment-method-card:hover {
+  border-color: rgba(168, 85, 247, 0.3);
+  background: rgba(168, 85, 247, 0.02);
 }
 
 .tg-tab-text-mobile {

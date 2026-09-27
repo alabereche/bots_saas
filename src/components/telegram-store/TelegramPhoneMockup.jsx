@@ -12,6 +12,8 @@ import {
   FileText,
   RotateCcw,
   Bot,
+  Clock,
+  ExternalLink,
 } from 'lucide-react';
 
 /**
@@ -28,11 +30,14 @@ export default function TelegramPhoneMockup({
   forceSubscribeChannel = '',
   walletInfo = '',
   rulesText = '',
+  paymentMethods = [],
+  paymentTimeoutMinutes = 15,
   products = [],
 }) {
   const [activeSubmenu, setActiveSubmenu] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [mockView, setMockView] = useState('menu'); // 'menu' | 'product' | 'wallet' | 'rules' | 'force_sub'
+  const [selectedMethod, setSelectedMethod] = useState(null);
+  const [mockView, setMockView] = useState('menu'); // 'menu' | 'product' | 'checkout' | 'payment_details' | 'wallet' | 'rules' | 'force_sub'
 
   // Time display
   const currentTime = new Date().toLocaleTimeString('ar-DZ', { hour: '2-digit', minute: '2-digit', hour12: false }) || '21:30';
@@ -479,7 +484,7 @@ export default function TelegramPhoneMockup({
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                     <button
-                      onClick={() => alert(`طلب تجريبي لمنتج: ${selectedProduct.name}`)}
+                      onClick={() => setMockView('checkout')}
                       style={{
                         background: '#10b981',
                         border: 'none',
@@ -496,7 +501,7 @@ export default function TelegramPhoneMockup({
                       }}
                     >
                       <CreditCard size={12} />
-                      <span>شراء الآن وتأكيد الطلب</span>
+                      <span>شراء الآن (اختيار وسيلة الدفع)</span>
                     </button>
                     <button
                       onClick={() => setMockView('menu')}
@@ -518,6 +523,197 @@ export default function TelegramPhoneMockup({
                       <span>رجوع للقائمة</span>
                     </button>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* Checkout / Order Summary with Payment Methods Simulation (Matching Screenshot) */}
+            {mockView === 'checkout' && selectedProduct && (
+              <div style={{
+                background: '#182533',
+                borderRadius: '14px 14px 4px 14px',
+                overflow: 'hidden',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                border: '1px solid rgba(14,165,233,0.3)',
+              }}>
+                {selectedProduct.imageUrl && (
+                  <img
+                    src={selectedProduct.imageUrl}
+                    alt={selectedProduct.name}
+                    style={{ width: '100%', height: '100px', objectFit: 'cover' }}
+                  />
+                )}
+                <div style={{ padding: '10px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 800, color: '#fff', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span>🛒</span>
+                    <span>طلب جديد</span>
+                  </div>
+
+                  <div style={{ fontSize: '10.5px', color: '#c5d3e0', lineHeight: 1.6, marginBottom: '10px' }}>
+                    <div>🧾 <strong>الطلب:</strong> #53880</div>
+                    <div>📦 <strong>المنتج:</strong> {selectedProduct.name}</div>
+                    <div>🔢 <strong>الكمية:</strong> 1</div>
+                    <div>💰 <strong>المجموع:</strong> {selectedProduct.price} دج</div>
+                    <div>🏷️ <strong>المرجع:</strong> BF3195BC277D</div>
+                    <div style={{ color: '#c084fc' }}>⏳ <strong>مهلة الدفع:</strong> {paymentTimeoutMinutes} دقيقة</div>
+                    <div style={{ marginTop: '6px', fontWeight: 700, color: '#38bdf8' }}>💳 اختر طريقة الدفع:</div>
+                  </div>
+
+                  {/* Payment Methods Buttons */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    {(paymentMethods.filter(m => m.enabled !== false).length > 0
+                      ? paymentMethods.filter(m => m.enabled !== false)
+                      : [
+                          { id: 'binance', name: '🔸 الدفع عبر Binance', details: 'معرف الدفع: 123456789' },
+                          { id: 'baridi', name: '💳 بريدي موب BaridiMob', details: 'RIP: 00799999000123456789' },
+                          { id: 'ccp', name: '📬 الحساب البريدي CCP', details: 'رقم الحساب: 1234567 مفتاح 89' },
+                        ]
+                    ).map((method, mIdx) => (
+                      <button
+                        key={method.id || mIdx}
+                        onClick={() => {
+                          setSelectedMethod(method);
+                          setMockView('payment_details');
+                        }}
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.08)',
+                          border: '1px solid rgba(255, 255, 255, 0.12)',
+                          borderRadius: '8px',
+                          color: '#fff',
+                          padding: '7px 10px',
+                          fontSize: '10.5px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          textAlign: 'center',
+                          transition: 'all 0.15s',
+                        }}
+                      >
+                        {method.name}
+                      </button>
+                    ))}
+
+                    <button
+                      onClick={() => setMockView('menu')}
+                      style={{
+                        background: 'rgba(248, 113, 113, 0.15)',
+                        border: '1px solid rgba(248, 113, 113, 0.25)',
+                        borderRadius: '8px',
+                        color: '#f87171',
+                        padding: '6px 10px',
+                        fontSize: '10.5px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        marginTop: '3px',
+                      }}
+                    >
+                      ❌ إلغاء الطلب
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Payment Details with Countdown Timer View */}
+            {mockView === 'payment_details' && selectedMethod && (
+              <div style={{
+                background: '#182533',
+                borderRadius: '14px 14px 4px 14px',
+                padding: '11px',
+                border: '1px solid rgba(192, 132, 252, 0.35)',
+              }}>
+                <div style={{ fontSize: '12px', fontWeight: 800, color: '#c084fc', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <CreditCard size={14} />
+                  <span>{selectedMethod.name}</span>
+                </div>
+
+                <div style={{
+                  background: 'rgba(168, 85, 247, 0.12)',
+                  border: '1px solid rgba(168, 85, 247, 0.25)',
+                  borderRadius: '8px',
+                  padding: '6px 10px',
+                  marginBottom: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  fontSize: '11px',
+                  color: '#c084fc',
+                  fontWeight: 700,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <Clock size={13} />
+                    <span>مؤقت الدفع:</span>
+                  </div>
+                  <span style={{ fontFamily: 'monospace', fontSize: '12px' }}>{paymentTimeoutMinutes}:00</span>
+                </div>
+
+                <div style={{ fontSize: '10.5px', color: '#e0e6ed', lineHeight: 1.5, marginBottom: '8px' }}>
+                  <div>🧾 <strong>رقم الطلب:</strong> #53880</div>
+                  <div>💰 <strong>المبلغ المطلوب:</strong> {selectedProduct?.price || '1000'} دج</div>
+                </div>
+
+                <div style={{
+                  background: 'rgba(0,0,0,0.3)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '7px',
+                  padding: '7px 9px',
+                  marginBottom: '9px',
+                  fontFamily: 'monospace',
+                  fontSize: '10px',
+                  color: '#38bdf8',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-all',
+                }}>
+                  {selectedMethod.details || 'تفاصيل الحساب...'}
+                </div>
+
+                <div style={{ fontSize: '9.5px', color: '#94a3b8', lineHeight: 1.4, marginBottom: '9px' }}>
+                  📌 <strong>تعليمات:</strong> حول المبلغ قبل انتهاء المؤقت ثم أرسل صورة الوصل أو معرف الدفع (Binance Pay ID) هنا مباشرة لتأكيد طلبك!
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <button
+                    onClick={() => alert(`محاكاة: الزبون يضغط على فحص حالة الدفع. متبقي ${paymentTimeoutMinutes} دقيقة.`)}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      borderRadius: '7px',
+                      color: '#fff',
+                      padding: '6px',
+                      fontSize: '10.5px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    🔄 فحص حالة الدفع والمؤقت
+                  </button>
+                  <button
+                    onClick={() => setMockView('checkout')}
+                    style={{
+                      background: '#2b5278',
+                      border: 'none',
+                      borderRadius: '7px',
+                      color: '#fff',
+                      padding: '6px',
+                      fontSize: '10.5px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    🔙 تغيير وسيلة الدفع
+                  </button>
+                  <button
+                    onClick={() => setMockView('menu')}
+                    style={{
+                      background: 'transparent',
+                      border: '1px solid rgba(248, 113, 113, 0.25)',
+                      borderRadius: '7px',
+                      color: '#f87171',
+                      padding: '5px',
+                      fontSize: '10px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ❌ إلغاء الطلب
+                  </button>
                 </div>
               </div>
             )}

@@ -11,6 +11,7 @@ import {
   Image as ImageIcon,
   RotateCcw,
   Eye,
+  Hash,
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { auth } from '../../services/firebase';
@@ -83,7 +84,8 @@ export default function TelegramStoreOrdersView({
       const matchProd = (order.product || '').toLowerCase().includes(q);
       const matchPhone = (order.phone || '').toLowerCase().includes(q);
       const matchNotes = (order.notes || '').toLowerCase().includes(q);
-      if (!matchName && !matchCode && !matchProd && !matchPhone && !matchNotes) return false;
+      const matchRef = (order.paymentReference || '').toLowerCase().includes(q);
+      if (!matchName && !matchCode && !matchProd && !matchPhone && !matchNotes && !matchRef) return false;
     }
 
     return true;
@@ -326,6 +328,11 @@ export default function TelegramStoreOrdersView({
                 const isCancelled = statusKey === 'cancelled';
                 const initial = (order.customerName || 'ز').charAt(0);
                 const receiptImg = order.receiptUrl || (typeof order.notes === 'string' && order.notes.includes('http') ? order.notes.match(/https?:\/\/[^\s]+/)?.[0] : null);
+                const paymentRef = order.paymentReference || (
+                  typeof order.notes === 'string' && (order.notes.startsWith('معرف العملية / البروف: ') || order.notes.startsWith('معرف الدفع / إثبات نصي: '))
+                    ? order.notes.replace(/^(معرف العملية \/ البروف: |معرف الدفع \/ إثبات نصي: )/, '').trim()
+                    : null
+                );
 
                 return (
                   <div key={order.id} className="ocard" data-status={statusKey}>
@@ -423,8 +430,65 @@ export default function TelegramStoreOrdersView({
                         </div>
                       )}
 
-                      {/* Notes (if text) */}
-                      {order.notes && !order.notes.startsWith('http') && (
+                      {/* Text Payment Reference (Binance Pay ID / TxID / Baridi / Ref) */}
+                      {paymentRef && (
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '8px',
+                          padding: '0.45rem 0.75rem',
+                          borderRadius: '10px',
+                          background: 'rgba(234, 179, 8, 0.08)',
+                          border: '1px solid rgba(234, 179, 8, 0.28)',
+                          marginTop: '0.35rem',
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', minWidth: 0 }}>
+                            <div style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: '24px',
+                              height: '24px',
+                              borderRadius: '6px',
+                              background: 'rgba(234, 179, 8, 0.18)',
+                              color: '#eab308',
+                              flexShrink: 0,
+                            }}>
+                              <Hash size={14} />
+                            </div>
+                            <div style={{ minWidth: 0 }}>
+                              <span style={{ fontWeight: 700, color: '#eab308', display: 'block', fontSize: '0.72rem' }}>
+                                معرف الدفع / Binance Pay ID:
+                              </span>
+                              <code style={{
+                                fontFamily: 'monospace',
+                                fontSize: '0.84rem',
+                                fontWeight: 700,
+                                color: 'var(--text-primary)',
+                                direction: 'ltr',
+                                display: 'inline-block',
+                                wordBreak: 'break-all',
+                              }}>
+                                {paymentRef}
+                              </code>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            style={{ padding: '0.25rem 0.65rem', fontSize: '0.75rem', height: 'auto', gap: '4px', flexShrink: 0 }}
+                            onClick={() => copyToClipboard(paymentRef, 'ref-' + order.id)}
+                            title="نسخ المعرف"
+                          >
+                            {copiedCode === 'ref-' + order.id ? <Check size={12} color="#10b981" /> : <Copy size={12} />}
+                            <span>{copiedCode === 'ref-' + order.id ? 'تم النسخ' : 'نسخ'}</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Notes (if text and not already shown as paymentRef) */}
+                      {order.notes && !order.notes.startsWith('http') && (!paymentRef || !order.notes.includes(paymentRef)) && (
                         <span className="osummary">
                           {order.notes}
                         </span>
@@ -493,12 +557,14 @@ export default function TelegramStoreOrdersView({
                               className="btn btn-danger btn-sm"
                               onClick={() => {
                                 setRejectingOrder(order);
-                                setRejectReason('الوصل غير واضح أو المبلغ المحول غير مطابق، يرجى إعادة إرسال الوصل الصحيح.');
+                                setRejectReason(paymentRef
+                                  ? 'معرف العملية أو التحويل غير مطابق أو لم يتم العثور على المبلغ، يرجى التحقق وإعادة الإرسال.'
+                                  : 'الوصل غير واضح أو المبلغ المحول غير مطابق، يرجى إعادة إرسال الوصل الصحيح.');
                               }}
                               style={{ gap: '6px' }}
                             >
                               <XCircle size={14} />
-                              <span>رفض الوصل</span>
+                              <span>{paymentRef && !receiptImg ? 'رفض المعرف' : 'رفض الوصل'}</span>
                             </button>
                           </>
                         )}
@@ -559,6 +625,14 @@ export default function TelegramStoreOrdersView({
               <div>الزبون: <strong style={{ color: 'var(--text-primary)' }}>{deliveringOrder.customerName || 'زبون تيليغرام'}</strong></div>
               <div>المنتج: <strong style={{ color: 'var(--color-primary)' }}>{deliveringOrder.product}</strong></div>
               {deliveringOrder.trackingCode && <div>رقم الطلب: <strong style={{ color: 'var(--text-primary)' }}>#{deliveringOrder.trackingCode}</strong></div>}
+              {deliveringOrder.paymentReference && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px' }}>
+                  <span>معرف الدفع:</span>
+                  <code style={{ color: '#eab308', background: 'rgba(234, 179, 8, 0.12)', padding: '1px 6px', borderRadius: '4px', fontFamily: 'monospace', fontWeight: 700, direction: 'ltr' }}>
+                    {deliveringOrder.paymentReference}
+                  </code>
+                </div>
+              )}
             </div>
 
             <form onSubmit={handleConfirmDelivery}>

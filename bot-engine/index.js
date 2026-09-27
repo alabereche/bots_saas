@@ -1256,7 +1256,7 @@ async function startBot(config) {
 
         if (data === 'tgstore_wallet') {
           const walletText = storeConfig.walletInfo ||
-            '*معلومات وطرق الدفع المعتمدة:*\n\n• بريدي موب (BaridiMob)\n• الحساب البريدي الجاري (CCP)\n\nبعد التحويل، يرجى إرسال صورة وصل الدفع هنا في المحادثة مباشرة!';
+            '*معلومات وطرق الدفع المعتمدة:*\n\n• بريدي موب (BaridiMob)\n• بينانس (Binance Pay / USDT)\n• الحساب البريدي الجاري (CCP)\n\nبعد التحويل، يرجى إرسال صورة وصل الدفع أو معرف العملية (Binance Pay ID / TxID) هنا في المحادثة مباشرة لتأكيد طلبك فوراً!';
           const kb = new InlineKeyboard().text('العودة للقائمة الرئيسية', 'tgstore_main');
           await ctx.reply(walletText, { reply_markup: kb, parse_mode: 'Markdown' }).catch(() => {
             ctx.reply(walletText, { reply_markup: kb });
@@ -1333,20 +1333,31 @@ async function startBot(config) {
           const itemPrice = btn ? btn.productPrice : '';
           const customerName = ctx.from.first_name || ctx.from.username || 'زبون تيليغرام';
 
-          // 1. Register order in Firestore
-          saveOrderToFirestore({
-            botId: currentConfig.id,
-            ownerUserId: currentConfig.userId,
-            platform: 'telegram',
-            customerId: String(ctx.from.id),
-            customerName: customerName,
-            phone: '',
-            address: '',
-            product: itemTitle,
-            price: itemPrice,
-            notes: 'طلب عبر متجر تيليغرام التفاعلي (بانتظار تأكيد الوصل)',
-            orderSummary: `طلب شراء ${itemTitle} بقيمة ${itemPrice || 'غير محدد'} دج`,
-          }, 'separate').catch(() => {});
+          // 1. Register order in Firestore & retrieve trackingCode
+          let trackingCode = '';
+          try {
+            const newOrder = await saveOrderToFirestore({
+              botId: currentConfig.id,
+              ownerUserId: currentConfig.userId,
+              platform: 'telegram',
+              customerId: String(ctx.from.id),
+              customerName: customerName,
+              phone: ctx.from.username ? `@${ctx.from.username}` : '',
+              address: '',
+              product: itemTitle,
+              price: itemPrice,
+              orderType: 'telegram_store',
+              deliveryStatus: 'pending',
+              orderStatus: 'pending_verification',
+              notes: 'طلب عبر متجر تيليغرام التفاعلي (بانتظار إثبات الدفع)',
+              orderSummary: `طلب شراء ${itemTitle} بقيمة ${itemPrice || 'غير محدد'} دج`,
+            }, 'separate');
+            if (newOrder && newOrder.trackingCode) {
+              trackingCode = newOrder.trackingCode;
+            }
+          } catch (orderSaveErr) {
+            console.warn('[Telegram Store] Buy order save notice:', orderSaveErr.message);
+          }
 
           // 2. Broadcast anonymous log to proof channel
           if (storeConfig.logsChannelId) {
@@ -1356,16 +1367,19 @@ async function startBot(config) {
 
           // 3. Confirm to customer
           const confirmText =
-            `✅ *تم تسجيل رغبتك في شراء:*\n` +
-            `📦 *${itemTitle}*\n` +
-            `💰 *المبلغ المطلوب:* ${itemPrice ? itemPrice + ' دج' : 'حسب الاتفاق'}\n\n` +
+            `✅ *تم تسجيل طلبك بنجاح!*\n` +
+            `━━━━━━━━━━━━━━━━━━\n` +
+            `📦 *المنتج:* ${itemTitle}\n` +
+            (trackingCode ? `🔖 *رقم الطلب:* #${trackingCode}\n` : '') +
+            `💰 *المبلغ المطلوب:* ${itemPrice ? itemPrice + ' دج' : 'حسب الاتفاق'}\n` +
+            `━━━━━━━━━━━━━━━━━━\n\n` +
             `💳 *خطوات إتمام الدفع والتسليم الفوري:*\n` +
-            `1. قم بتحويل المبلغ عبر وسائل الدفع المعتمدة (اضغط زر طرق الدفع أدناه).\n` +
-            `2. *أرسل صورة وصل الدفع (Reçu / Capture)* هنا مباشرة في هذه المحادثة.\n` +
-            `3. فور استلام الوصل سيتم التحقق وتسليمك الطلب بأسرع وقت! 🚀`;
+            `1. قم بتحويل المبلغ عبر إحدى وسائل الدفع (اضغط زر طرق الدفع أدناه).\n` +
+            `2. *أرسل صورة الوصل أو معرف الدفع (Binance Pay ID / TxID)* هنا في هذه المحادثة مباشرة.\n` +
+            `3. فور إرسال الإثبات، سيتم التحقق وتسليمك بيانات الطلب بأسرع وقت! 🚀`;
 
           const confirmKb = new InlineKeyboard()
-            .text('💳 عرض وسائل الدفع (BaridiMob / CCP)', 'tgstore_wallet')
+            .text('💳 وسائل الدفع (BaridiMob / Binance / CCP)', 'tgstore_wallet')
             .row()
             .text('🔙 العودة للمتجر', 'tgstore_main');
 
@@ -1457,96 +1471,239 @@ async function startBot(config) {
       const storeConfig = currentConfig.telegramStore || {};
       const isStoreMode = storeConfig.enabled === true || currentConfig.businessType === 'telegram_store';
 
-      // ─── Fast-Path Payment Receipt Detection (0 LLM Calls) ───────
-      if (isPhoto && isStoreMode) {
-        let receiptUrl = '';
-        try {
-          const photos = ctx.message.photo;
-          if (photos && photos.length > 0) {
-            const highestPhoto = photos[photos.length - 1];
-            const fileInfo = await ctx.api.getFile(highestPhoto.file_id).catch(() => null);
-            if (fileInfo && fileInfo.file_path) {
-              receiptUrl = `https://api.telegram.org/file/bot${currentConfig.telegramToken.trim()}/${fileInfo.file_path}`;
+      // ═════════════════════════════════════════════════════════════════
+      // ─── TELEGRAM STORE MODE (System 2): Pure Deterministic Engine ──
+      // 0 LLM Calls — Zero Token Waste — No AI Hallucinations
+      // ═════════════════════════════════════════════════════════════════
+      if (isStoreMode) {
+        // 1. Photo Receipt Detection
+        if (isPhoto) {
+          let receiptUrl = '';
+          try {
+            const photos = ctx.message.photo;
+            if (photos && photos.length > 0) {
+              const highestPhoto = photos[photos.length - 1];
+              const fileInfo = await ctx.api.getFile(highestPhoto.file_id).catch(() => null);
+              if (fileInfo && fileInfo.file_path) {
+                receiptUrl = `https://api.telegram.org/file/bot${currentConfig.telegramToken.trim()}/${fileInfo.file_path}`;
+              }
             }
+          } catch (photoErr) {
+            console.warn('[Telegram Store] Failed to fetch receipt URL:', photoErr.message);
           }
-        } catch (photoErr) {
-          console.warn('[Telegram Store] Failed to fetch receipt URL:', photoErr.message);
+
+          // Link with latest pending order or create one in Firestore
+          let linkedTrackingCode = '';
+          try {
+            const existingOrderSnap = await db.collection('orders')
+              .where('botId', '==', currentConfig.id)
+              .where('customerId', '==', String(userId))
+              .limit(5)
+              .get();
+
+            if (existingOrderSnap && !existingOrderSnap.empty) {
+              const sorted = existingOrderSnap.docs.slice().sort((a, b) => (b.data().createdAt || '').localeCompare(a.data().createdAt || ''));
+              const orderDoc = sorted[0];
+              const oData = orderDoc.data();
+              linkedTrackingCode = oData.trackingCode || '';
+              await orderDoc.ref.update({
+                receiptUrl: receiptUrl || null,
+                proofType: 'photo_receipt',
+                hasProof: true,
+                deliveryStatus: 'pending',
+                orderStatus: 'pending_verification',
+                updatedAt: new Date().toISOString(),
+              });
+            } else {
+              const newOrder = await saveOrderToFirestore({
+                botId: currentConfig.id,
+                ownerUserId: currentConfig.userId,
+                platform: 'telegram',
+                customerId: String(userId),
+                customerName: userName,
+                phone: ctx.from.username ? `@${ctx.from.username}` : '',
+                address: '',
+                product: 'طلب مباشر (وصل تحويل)',
+                price: '',
+                orderType: 'telegram_store',
+                receiptUrl: receiptUrl || null,
+                proofType: 'photo_receipt',
+                hasProof: true,
+                deliveryStatus: 'pending',
+                orderStatus: 'pending_verification',
+                notes: 'أرسل الزبون وصل دفع في المحادثة',
+                orderSummary: 'وصل تحويل عبر متجر تيليغرام',
+              }, 'separate');
+              if (newOrder) linkedTrackingCode = newOrder.trackingCode;
+            }
+          } catch (linkErr) {
+            console.warn('[Telegram Store] Order link error:', linkErr.message);
+          }
+
+          const userMsgContent = receiptUrl ? `[وصل دفع]\n${receiptUrl}` : '[صورة / وصل دفع]';
+          saveMessage(currentConfig.id, currentConfig.userId, userId, userName, userMsgContent, 'user', 'telegram', userAvatar, receiptUrl);
+
+          const receiptReply =
+            `✅ *تم استلام صورة وصل التحويل بنجاح!*\n\n` +
+            (linkedTrackingCode ? `🔖 *رقم الطلب الخاص بك:* #${linkedTrackingCode}\n` : '') +
+            `⏳ *الحالة:* جاري مراجعة الوصل وبيانات الدفع من طرف المشرفين.\n` +
+            `🚀 سيتم تسليم طلبك في أقرب وقت ممكن بعد المراجعة.\n\n` +
+            `شكراً لثقتكم واختياركم لنا!`;
+
+          const kb = new InlineKeyboard().text('🔙 العودة لقائمة المتجر', 'tgstore_main');
+          await ctx.reply(receiptReply, { reply_markup: kb, parse_mode: 'Markdown' }).catch(() => {
+            ctx.reply(receiptReply, { reply_markup: kb });
+          });
+          saveMessage(currentConfig.id, currentConfig.userId, userId, userName, receiptReply, 'bot');
+          incrementMessageCount(currentConfig.id);
+
+          createNotification({
+            userId: currentConfig.userId,
+            botId: currentConfig.id,
+            type: 'order',
+            title: `وصل دفع جديد من ${userName}`,
+            body: `أرسل الزبون وصل دفع ${linkedTrackingCode ? `للطلب #${linkedTrackingCode}` : ''}. يرجى مراجعته وتسليمه من لوحة التحكم.`,
+            meta: { customerId: String(userId) },
+          }).catch(() => {});
+
+          console.log(`[Telegram Store] Receipt acknowledged & saved for ${userName} (${userId}) — 0 LLM calls`);
+          return;
         }
 
-        // Link with latest pending order or create one in Firestore
-        let linkedTrackingCode = '';
+        // 2. Order Tracking check
+        if (userMessage && isTrackingIntent(userMessage)) {
+          const explicitCode = extractTrackingCode(userMessage);
+          const orders = await findOrdersForTracking(currentConfig.id, userId, explicitCode);
+          let trackingReply = '';
+          if (orders.length === 1) {
+            trackingReply = formatSingleOrderCard(orders[0], 'telegram_store');
+          } else if (orders.length > 1) {
+            trackingReply = formatMultipleOrdersList(orders, 'telegram_store');
+          } else {
+            trackingReply = formatNoOrdersFound(explicitCode);
+          }
+          await ctx.reply(trackingReply, { parse_mode: 'Markdown' }).catch(() => ctx.reply(trackingReply));
+          saveMessage(currentConfig.id, currentConfig.userId, userId, userName, trackingReply, 'bot');
+          incrementMessageCount(currentConfig.id);
+          return;
+        }
+
+        // 3. Text Payment Proof Detection (Binance Pay ID / TxID / Numbers / References)
+        let hasPendingOrder = false;
+        let pendingOrderDoc = null;
         try {
-          const existingOrderSnap = await db.collection('orders')
+          const snap = await db.collection('orders')
             .where('botId', '==', currentConfig.id)
             .where('customerId', '==', String(userId))
-            .orderBy('createdAt', 'desc')
-            .limit(1)
+            .limit(5)
             .get();
-
-          if (existingOrderSnap && !existingOrderSnap.empty) {
-            const orderDoc = existingOrderSnap.docs[0];
-            const oData = orderDoc.data();
-            linkedTrackingCode = oData.trackingCode || '';
-            await orderDoc.ref.update({
-              receiptUrl: receiptUrl || null,
-              proofType: 'photo_receipt',
-              hasProof: true,
-              deliveryStatus: 'pending',
-              orderStatus: 'pending_verification',
-              updatedAt: new Date().toISOString(),
-            });
-          } else {
-            const newOrder = await saveOrderToFirestore({
-              botId: currentConfig.id,
-              ownerUserId: currentConfig.userId,
-              platform: 'telegram',
-              customerId: String(userId),
-              customerName: userName,
-              phone: ctx.from.username ? `@${ctx.from.username}` : '',
-              address: '',
-              product: 'طلب مباشر (وصل تحويل)',
-              price: '',
-              orderType: 'telegram_store',
-              receiptUrl: receiptUrl || null,
-              proofType: 'photo_receipt',
-              hasProof: true,
-              deliveryStatus: 'pending',
-              orderStatus: 'pending_verification',
-              notes: 'أرسل الزبون وصل دفع في المحادثة',
-              orderSummary: 'وصل تحويل عبر متجر تيليغرام',
-            }, 'separate');
-            if (newOrder) linkedTrackingCode = newOrder.trackingCode;
+          if (snap && !snap.empty) {
+            const sorted = snap.docs.slice().sort((a, b) => (b.data().createdAt || '').localeCompare(a.data().createdAt || ''));
+            const o = sorted[0].data();
+            const orderAgeHours = (Date.now() - new Date(o.createdAt).getTime()) / (1000 * 60 * 60);
+            if (orderAgeHours < 48 && (o.deliveryStatus === 'pending' || !o.hasProof || o.orderStatus === 'pending_verification')) {
+              hasPendingOrder = true;
+              pendingOrderDoc = sorted[0];
+            }
           }
-        } catch (linkErr) {
-          console.warn('[Telegram Store] Order link error:', linkErr.message);
+        } catch (findErr) {
+          console.warn('[Telegram Store] Pending order check error:', findErr.message);
         }
 
-        const userMsgContent = receiptUrl ? `[وصل دفع]\n${receiptUrl}` : '[صورة / وصل دفع]';
-        saveMessage(currentConfig.id, currentConfig.userId, userId, userName, userMsgContent, 'user', 'telegram', userAvatar, receiptUrl);
+        const cleanNums = userMessage.replace(/[^\d]/g, '');
+        const isNumericRef = cleanNums.length >= 5;
+        const hasPaymentKeywords = /(binance|txid|tx_id|hash|pay|ccp|barid|baridimob|وصل|تحويل|مرجع|معرف|معرّف|رقم|دفعت|حولت|إثبات|اثبات)/i.test(userMessage);
+        const isBriefGreeting = /^(سلام|السلام عليكم|مرحبا|مرحباً|أهلاً|اهلا|الو|صباح الخير|مساء الخير|hi|hello|hey)$/i.test(userMessage.trim());
 
-        const receiptReply =
-          `*تم استلام صورة وصل التحويل بنجاح!*\n\n` +
-          (linkedTrackingCode ? `رقم الطلب الخاص بك: #${linkedTrackingCode}\n` : '') +
-          `جاري مراجعة الوصل وبيانات الدفع من طرف المشرفين.\n` +
-          `سيتم تسليم طلبك في أقرب وقت ممكن بعد المراجعة.\n\n` +
-          `شكراً لثقتكم واختياركم لنا!`;
+        const isPaymentProof = !isBriefGreeting && (hasPendingOrder || isNumericRef || hasPaymentKeywords);
 
-        await ctx.reply(receiptReply, { parse_mode: 'Markdown' }).catch(() => {
-          ctx.reply(receiptReply);
+        if (isPaymentProof) {
+          let linkedTrackingCode = '';
+          try {
+            if (pendingOrderDoc) {
+              const oData = pendingOrderDoc.data();
+              linkedTrackingCode = oData.trackingCode || '';
+              await pendingOrderDoc.ref.update({
+                paymentReference: userMessage,
+                proofType: 'text_reference',
+                hasProof: true,
+                deliveryStatus: 'pending',
+                orderStatus: 'pending_verification',
+                notes: `معرف الدفع / إثبات نصي: ${userMessage}`,
+                updatedAt: new Date().toISOString(),
+              });
+            } else {
+              const newOrder = await saveOrderToFirestore({
+                botId: currentConfig.id,
+                ownerUserId: currentConfig.userId,
+                platform: 'telegram',
+                customerId: String(userId),
+                customerName: userName,
+                phone: ctx.from.username ? `@${ctx.from.username}` : '',
+                address: '',
+                product: 'طلب مباشر (إثبات دفع نصي / بينانس)',
+                price: '',
+                orderType: 'telegram_store',
+                paymentReference: userMessage,
+                proofType: 'text_reference',
+                hasProof: true,
+                deliveryStatus: 'pending',
+                orderStatus: 'pending_verification',
+                notes: `معرف العملية / البروف: ${userMessage}`,
+                orderSummary: `إثبات دفع نصي: ${userMessage.slice(0, 100)}`,
+              }, 'separate');
+              if (newOrder) linkedTrackingCode = newOrder.trackingCode;
+            }
+          } catch (saveErr) {
+            console.warn('[Telegram Store] Save text proof error:', saveErr.message);
+          }
+
+          const receiptReply =
+            `✅ *تم تسجيل وتوثيق إثبات الدفع بنجاح!*\n\n` +
+            (linkedTrackingCode ? `🔖 *رقم الطلب الخاص بك:* #${linkedTrackingCode}\n` : '') +
+            `📝 *معرف العملية / البروف المسجل:*\n\`${userMessage}\`\n\n` +
+            `⏳ *الحالة:* جاري التحقق من المعاملة وبيانات الدفع من طرف المشرفين.\n` +
+            `🚀 سيتم تسليم الطلب والبيانات في هذه المحادثة فور المراجعة.\n\n` +
+            `شكراً لثقتكم واختياركم لنا!`;
+
+          const kb = new InlineKeyboard().text('🔙 العودة لقائمة المتجر', 'tgstore_main');
+          await ctx.reply(receiptReply, { reply_markup: kb, parse_mode: 'Markdown' }).catch(() => {
+            ctx.reply(receiptReply, { reply_markup: kb });
+          });
+          saveMessage(currentConfig.id, currentConfig.userId, userId, userName, receiptReply, 'bot');
+          incrementMessageCount(currentConfig.id);
+
+          createNotification({
+            userId: currentConfig.userId,
+            botId: currentConfig.id,
+            type: 'order',
+            title: `إثبات دفع نصي (Binance/Ref) من ${userName}`,
+            body: `أرسل الزبون معرف الدفع: ${userMessage} ${linkedTrackingCode ? `للطلب #${linkedTrackingCode}` : ''}. يرجى مراجعته وتسليمه من لوحة التحكم.`,
+            meta: { customerId: String(userId) },
+          }).catch(() => {});
+
+          if (storeConfig.logsChannelId) {
+            const anonName = (ctx.from.first_name || 'عميل').slice(0, 3) + '***';
+            broadcastToLogsChannel(ctx.api, storeConfig.logsChannelId, 'طلب عبر بينانس / دفع إلكتروني', '', anonName, currentConfig.businessName);
+          }
+
+          console.log(`[Telegram Store] Text payment proof registered for ${userName} (${userId}): "${userMessage}" — 0 LLM calls`);
+          return;
+        }
+
+        // 4. Any other message in Store Mode: Direct to Store Buttons (0 LLM Calls)
+        const storePrompt =
+          `مرحباً بك في متجر *${currentConfig.businessName || currentConfig.botName}*!\n\n` +
+          `• إذا قمت بالتحويل، يرجى إرسال *صورة الوصل* أو *معرف الطلب (Binance Pay ID / CCP Ref)* هنا مباشرة لتأكيد طلبك.\n` +
+          `• لتصفح العروض وشراء الباقات أو شحن المحفظة، يرجى استخدام أزرار المتجر أدناه 👇`;
+
+        const keyboard = buildStoreKeyboard(storeConfig);
+        await ctx.reply(storePrompt, { reply_markup: keyboard, parse_mode: 'Markdown' }).catch(() => {
+          ctx.reply(storePrompt, { reply_markup: keyboard });
         });
-        saveMessage(currentConfig.id, currentConfig.userId, userId, userName, receiptReply, 'bot');
+        saveMessage(currentConfig.id, currentConfig.userId, userId, userName, storePrompt, 'bot');
         incrementMessageCount(currentConfig.id);
-
-        createNotification({
-          userId: currentConfig.userId,
-          botId: currentConfig.id,
-          type: 'order',
-          title: `وصل دفع جديد من ${userName}`,
-          body: `أرسل الزبون وصل دفع ${linkedTrackingCode ? `للطلب #${linkedTrackingCode}` : ''}. يرجى مراجعته وتسليمه من لوحة التحكم.`,
-          meta: { customerId: String(userId) },
-        }).catch(() => {});
-
-        console.log(`[Telegram Store] Receipt acknowledged & saved for ${userName} (${userId}) — 0 LLM calls`);
+        console.log(`[Telegram Store] Guided user ${userName} (${userId}) to store keyboard — 0 LLM calls`);
         return;
       }
 

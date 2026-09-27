@@ -812,20 +812,20 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
               </div>
 
               {/* Force Subscribe Channel */}
-              <div style={{
-                background: 'rgba(255,255,255,0.02)',
-                border: '1px solid rgba(14, 165, 233, 0.2)',
-                borderRadius: '12px',
-                padding: '14px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#38bdf8' }}>
-                    1. قناة الاشتراك الإجباري (Force Subscribe)
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+              <div className="tg-field-card">
+                <div className="tg-field-header">
+                  <div className="tg-field-title-group">
+                    <span className="tg-field-icon-badge tg-field-icon-badge--sky">
+                      <Megaphone size={16} />
+                    </span>
+                    <div>
+                      <h4 className="tg-field-title" style={{ color: '#38bdf8' }}>
+                        1. قناة الاشتراك الإجباري (Force Subscribe)
+                      </h4>
+                      <p className="tg-field-hint">لن يفتح المتجر للزبون حتى ينضم لهذه القناة أولاً ويتحقق البوت من اشتراكه</p>
+                    </div>
+                  </div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 700, color: forceSubscribeEnabled ? '#38bdf8' : 'var(--text-secondary)', cursor: 'pointer' }}>
                     <input
                       type="checkbox"
                       checked={forceSubscribeEnabled}
@@ -835,72 +835,56 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
                     تفعيل الشرط
                   </label>
                 </div>
-                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0 }}>
-                  لن يفتح المتجر للزبون حتى ينضم لهذه القناة أولاً ويتحقق البوت من اشتراكه.
-                </p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>@</span>
+
+                <div className="tg-input-group">
+                  <span className="tg-input-addon">@</span>
                   <input
                     type="text"
                     placeholder="اسم_القناة (مثال: my_store_channel)"
                     value={forceSubscribeChannel}
                     onChange={(e) => setForceSubscribeChannel(e.target.value)}
-                    style={{
-                      flex: 1,
-                      background: 'var(--bg-app)',
-                      border: '1px solid var(--border-default)',
-                      borderRadius: '8px',
-                      padding: '8px 12px',
-                      color: 'var(--text-primary)',
-                      fontSize: '0.85rem',
-                      direction: 'ltr',
-                    }}
+                    className="tg-input"
+                    style={{ direction: 'ltr' }}
                   />
                 </div>
-                <div style={{ fontSize: '0.72rem', color: '#f59e0b', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+
+                <div style={{ fontSize: '0.74rem', color: '#f59e0b', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                   <HelpCircle size={13} />
                   <span>ملاحظة: يجب إضافة البوت كـ Administrator في قناتك ليتمكن من فحص اشتراك الأعضاء.</span>
                 </div>
               </div>
 
               {/* Logs Channel */}
-              <div style={{
-                background: 'rgba(255,255,255,0.02)',
-                border: '1px solid rgba(16, 185, 129, 0.2)',
-                borderRadius: '12px',
-                padding: '14px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px',
-              }}>
-                <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#34d399' }}>
-                  2. قناة بث اللوغز والمبيعات الحية (Live Logs Channel)
-                </label>
-                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0 }}>
-                  قناة بث للقراءة فقط ينشر فيها البوت تلقائياً: *"تم شراء Spotify Premium | تم التسليم بنجاح"*.
-                </p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>@</span>
+              <div className="tg-field-card">
+                <div className="tg-field-header">
+                  <div className="tg-field-title-group">
+                    <span className="tg-field-icon-badge tg-field-icon-badge--emerald">
+                      <CheckCircle2 size={16} />
+                    </span>
+                    <div>
+                      <h4 className="tg-field-title" style={{ color: '#34d399' }}>
+                        2. قناة بث اللوغز والمبيعات الحية (Live Logs Channel)
+                      </h4>
+                      <p className="tg-field-hint">قناة بث للقراءة فقط ينشر فيها البوت تلقائياً إثباتات الشراء والتسليم لبناء الثقة</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="tg-input-group">
+                  <span className="tg-input-addon">@</span>
                   <input
                     type="text"
                     placeholder="اسم_قناة_اللوغز (مثال: my_store_logs)"
                     value={logsChannelId}
                     onChange={(e) => setLogsChannelId(e.target.value)}
-                    style={{
-                      flex: 1,
-                      background: 'var(--bg-app)',
-                      border: '1px solid var(--border-default)',
-                      borderRadius: '8px',
-                      padding: '8px 12px',
-                      color: 'var(--text-primary)',
-                      fontSize: '0.85rem',
-                      direction: 'ltr',
-                    }}
+                    className="tg-input"
+                    style={{ direction: 'ltr' }}
                   />
                 </div>
-                <div style={{ fontSize: '0.72rem', color: '#34d399', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+
+                <div style={{ fontSize: '0.74rem', color: '#34d399', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                   <CheckCircle2 size={13} color="#34d399" />
-                  <span>ينشر البوت العمليات بشكل مجهول الهوية لحماية خصوصية زبائنك وبناء ثقة هائلة للجدد!</span>
+                  <span>ينشر البوت العمليات بشكل مجهول الهوية لحماية خصوصية زبائنك وبناء مصداقية عالية للمشترين الجدد!</span>
                 </div>
               </div>
             </div>
@@ -912,101 +896,163 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
               background: 'var(--bg-card, #111110)',
               border: '1px solid var(--border-default)',
               borderRadius: 'var(--radius-md, 16px)',
-              padding: '1.5rem',
+              padding: '1.25rem',
               display: 'flex',
               flexDirection: 'column',
-              gap: '1.25rem',
+              gap: '1rem',
             }}>
-              {/* Banner Image URL */}
-              <div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '5px' }}>
-                  <Image size={15} />
-                  <span>صورة بانر المتجر (تظهر في رأس قائمة الأزرار)</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="https://... رابط صورة عريض عالي الدقة"
-                  value={bannerUrl}
-                  onChange={(e) => setBannerUrl(e.target.value)}
-                  style={{
-                    width: '100%',
-                    background: 'var(--bg-app)',
-                    border: '1px solid var(--border-default)',
-                    borderRadius: '8px',
-                    padding: '8px 12px',
-                    color: 'var(--text-primary)',
-                    fontSize: '0.85rem',
-                    direction: 'ltr',
-                  }}
-                />
+              {/* 1. Banner Image */}
+              <div className="tg-field-card">
+                <div className="tg-field-header">
+                  <div className="tg-field-title-group">
+                    <span className="tg-field-icon-badge tg-field-icon-badge--emerald">
+                      <Image size={16} />
+                    </span>
+                    <div>
+                      <h4 className="tg-field-title">صورة بانر المتجر (Store Banner)</h4>
+                      <p className="tg-field-hint">رابط صورة عريض يظهر في رأس رسالة الترحيب أعلى شبكة الأزرار</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    placeholder="https://... رابط صورة عريض عالي الدقة"
+                    value={bannerUrl}
+                    onChange={(e) => setBannerUrl(e.target.value)}
+                    className="tg-input"
+                    style={{ direction: 'ltr', paddingLeft: bannerUrl ? '36px' : '14px' }}
+                  />
+                  {bannerUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setBannerUrl('')}
+                      style={{
+                        position: 'absolute',
+                        left: '10px',
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        padding: '4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}
+                      title="مسح الرابط"
+                    >
+                      <X size={15} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Live Banner Preview Box */}
+                {bannerUrl && bannerUrl.startsWith('http') && (
+                  <div className="tg-banner-preview-card">
+                    <img
+                      src={bannerUrl}
+                      alt="Banner Preview"
+                      className="tg-banner-preview-img"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        const fallback = e.target.parentElement.querySelector('.tg-banner-error');
+                        if (fallback) fallback.style.display = 'flex';
+                      }}
+                    />
+                    <div
+                      className="tg-banner-error"
+                      style={{
+                        display: 'none',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--text-muted)',
+                        fontSize: '0.8rem',
+                        gap: '6px',
+                        width: '100%',
+                        height: '100%',
+                      }}
+                    >
+                      <HelpCircle size={15} color="#f59e0b" />
+                      <span>تعذر تحميل الصورة من هذا الرابط</span>
+                    </div>
+                    <div className="tg-banner-badge">
+                      <Sparkles size={11} color="#34d399" />
+                      <span>معاينة البانر في تيليغرام</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Welcome Greeting */}
-              <div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '5px' }}>
-                  <MessageSquare size={15} />
-                  <span>رسالة الترحيب الأولى للمتجر</span>
-                </label>
+              {/* 2. Welcome Greeting */}
+              <div className="tg-field-card">
+                <div className="tg-field-header">
+                  <div className="tg-field-title-group">
+                    <span className="tg-field-icon-badge tg-field-icon-badge--emerald">
+                      <MessageSquare size={16} />
+                    </span>
+                    <div>
+                      <h4 className="tg-field-title">رسالة الترحيب الأولى للمتجر</h4>
+                      <p className="tg-field-hint">الرسالة النصية التي يرسلها البوت تلقائياً للزبون مع أزرار المتجر فور فتح المحادثة</p>
+                    </div>
+                  </div>
+                </div>
+
                 <textarea
-                  rows="3"
+                  rows="4"
                   value={welcomeMessage}
                   onChange={(e) => setWelcomeMessage(e.target.value)}
-                  style={{
-                    width: '100%',
-                    background: 'var(--bg-app)',
-                    border: '1px solid var(--border-default)',
-                    borderRadius: '8px',
-                    padding: '8px 12px',
-                    color: 'var(--text-primary)',
-                    fontSize: '0.85rem',
-                    lineHeight: 1.6,
-                  }}
+                  placeholder="مرحباً بك في متجرنا الرقمي..."
+                  className="tg-textarea"
                 />
               </div>
 
-              {/* Wallet Info */}
-              <div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 700, color: '#38bdf8', marginBottom: '5px' }}>
-                  <CreditCard size={15} color="#38bdf8" />
-                  <span>معلومات شحن المحفظة والحسابات البنكية (BaridiMob / CCP)</span>
-                </label>
+              {/* 3. Wallet Info */}
+              <div className="tg-field-card">
+                <div className="tg-field-header">
+                  <div className="tg-field-title-group">
+                    <span className="tg-field-icon-badge tg-field-icon-badge--sky">
+                      <CreditCard size={16} />
+                    </span>
+                    <div>
+                      <h4 className="tg-field-title" style={{ color: '#38bdf8' }}>
+                        معلومات شحن المحفظة والحسابات البنكية (BaridiMob / CCP)
+                      </h4>
+                      <p className="tg-field-hint">تظهر للزبون عند النقر على زر "شحن المحفظة" لإيداع الرصيد وإرسال إشعار الدفع</p>
+                    </div>
+                  </div>
+                </div>
+
                 <textarea
-                  rows="3"
+                  rows="4"
                   value={walletInfo}
                   onChange={(e) => setWalletInfo(e.target.value)}
-                  style={{
-                    width: '100%',
-                    background: 'var(--bg-app)',
-                    border: '1px solid var(--border-default)',
-                    borderRadius: '8px',
-                    padding: '8px 12px',
-                    color: 'var(--text-primary)',
-                    fontSize: '0.85rem',
-                    lineHeight: 1.6,
-                  }}
+                  placeholder="طرق الدفع والشحن المتوفرة:&#10;• بريدي موب (BaridiMob): 00799999...&#10;• CCP: 123456...&#10;بعد التحويل، أرسل صورة الوصل هنا مباشرة!"
+                  className="tg-textarea"
                 />
               </div>
 
-              {/* Rules Text */}
-              <div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 700, color: '#f59e0b', marginBottom: '5px' }}>
-                  <FileText size={15} color="#f59e0b" />
-                  <span>شروط وضمان المتجر</span>
-                </label>
+              {/* 4. Rules Text */}
+              <div className="tg-field-card">
+                <div className="tg-field-header">
+                  <div className="tg-field-title-group">
+                    <span className="tg-field-icon-badge tg-field-icon-badge--amber">
+                      <FileText size={16} />
+                    </span>
+                    <div>
+                      <h4 className="tg-field-title" style={{ color: '#fbbf24' }}>
+                        شروط وضمان المتجر
+                      </h4>
+                      <p className="tg-field-hint">القوانين والضمانات التي يقرؤها الزبون عند الضغط على زر "شروط البيع والضمان"</p>
+                    </div>
+                  </div>
+                </div>
+
                 <textarea
-                  rows="3"
+                  rows="4"
                   value={rulesText}
                   onChange={(e) => setRulesText(e.target.value)}
-                  style={{
-                    width: '100%',
-                    background: 'var(--bg-app)',
-                    border: '1px solid var(--border-default)',
-                    borderRadius: '8px',
-                    padding: '8px 12px',
-                    color: 'var(--text-primary)',
-                    fontSize: '0.85rem',
-                    lineHeight: 1.6,
-                  }}
+                  placeholder="شروط وضمان المتجر:&#10;1. جميع الاشتراكات أصلية ومضمونة طوال مدة الاشتراك.&#10;2. التسليم يتم تلقائياً وفورياً..."
+                  className="tg-textarea"
                 />
               </div>
             </div>
@@ -1155,15 +1201,7 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
                 placeholder="مثال: Spotify Premium 3M - 800 دج"
                 value={btnFormData.text}
                 onChange={(e) => setBtnFormData({ ...btnFormData, text: e.target.value })}
-                style={{
-                  width: '100%',
-                  background: 'var(--bg-app)',
-                  border: '1px solid var(--border-default)',
-                  borderRadius: '8px',
-                  padding: '8px 12px',
-                  color: 'var(--text-primary)',
-                  fontSize: '0.85rem',
-                }}
+                className="tg-input"
               />
             </div>
 
@@ -1175,15 +1213,7 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
               <select
                 value={btnFormData.action}
                 onChange={(e) => setBtnFormData({ ...btnFormData, action: e.target.value })}
-                style={{
-                  width: '100%',
-                  background: 'var(--bg-app)',
-                  border: '1px solid var(--border-default)',
-                  borderRadius: '8px',
-                  padding: '8px 12px',
-                  color: 'var(--text-primary)',
-                  fontSize: '0.85rem',
-                }}
+                className="tg-input"
               >
                 <option value="product">عرض وشراء منتج / باقة</option>
                 <option value="wallet">شحن الرصيد ومعلومات الدفع</option>
@@ -1205,15 +1235,7 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
                     placeholder="مثال: 1000"
                     value={btnFormData.productPrice}
                     onChange={(e) => setBtnFormData({ ...btnFormData, productPrice: e.target.value })}
-                    style={{
-                      width: '100%',
-                      background: 'var(--bg-app)',
-                      border: '1px solid var(--border-default)',
-                      borderRadius: '8px',
-                      padding: '8px 10px',
-                      color: 'var(--text-primary)',
-                      fontSize: '0.85rem',
-                    }}
+                    className="tg-input"
                   />
                 </div>
               </div>
@@ -1229,16 +1251,8 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
                   placeholder="https://t.me/..."
                   value={btnFormData.url}
                   onChange={(e) => setBtnFormData({ ...btnFormData, url: e.target.value })}
-                  style={{
-                    width: '100%',
-                    background: 'var(--bg-app)',
-                    border: '1px solid var(--border-default)',
-                    borderRadius: '8px',
-                    padding: '8px 10px',
-                    color: 'var(--text-primary)',
-                    fontSize: '0.85rem',
-                    direction: 'ltr',
-                  }}
+                  className="tg-input"
+                  style={{ direction: 'ltr' }}
                 />
               </div>
             )}

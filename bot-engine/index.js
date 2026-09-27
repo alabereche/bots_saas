@@ -1083,6 +1083,82 @@ function generateOrderReference() {
   return ref;
 }
 
+const ICON_EMOJI_FALLBACK = {
+  gemini: '⚡',
+  chatgpt: '🤖',
+  claude: '🟣',
+  midjourney: '🎨',
+  cursor: '💻',
+  deepseek: '🐋',
+  perplexity: '🌐',
+  copilot: '🤖',
+  mistral: '🌪️',
+  elevenlabs: '🎙️',
+  sora: '🎬',
+  runway: '🎥',
+  stability: '✨',
+  groq: '⚡',
+  spotify: '🎵',
+  netflix: '🎬',
+  youtube: '▶️',
+  discord: '💬',
+  canva: '🎨',
+  duolingo: '🦉',
+  telegram: '✈️',
+  apple: '🍏',
+  googleplay: '▶️',
+  playstation: '🎮',
+  xbox: '🎮',
+  steam: '🕹️',
+  binance: '🔸',
+  usdt: '₮',
+  zap: '⚡',
+  gem: '💎',
+  wallet: '💼',
+  creditcard: '💳',
+  shoppingbag: '🛍️',
+  package: '📦',
+  star: '⭐',
+  flame: '🔥',
+  film: '🎬',
+  music: '🎵',
+  tv: '📺',
+  smartphone: '📱',
+  lock: '🔒',
+  rocket: '🚀',
+  tag: '🏷️',
+  coins: '🪙',
+  shieldcheck: '🛡️',
+  award: '🏆',
+  sparkles: '✨',
+  bot: '🤖',
+  headset: '🎧',
+  gamepad: '🎮',
+  message: '💬',
+};
+
+function formatStoreButtonLabel(btn) {
+  if (!btn) return 'زر';
+  const rawText = (btn.text || '').trim();
+  if (!rawText) return 'زر';
+
+  // Check if button text already contains an emoji
+  const hasEmoji = /\p{Extended_Pictographic}/u.test(rawText);
+  if (hasEmoji) return rawText;
+
+  // If btn has an icon configured, prepend matching emoji for Telegram
+  if (btn.icon) {
+    let iconKey = String(btn.icon).toLowerCase().trim();
+    if (iconKey.startsWith('si:')) iconKey = iconKey.replace('si:', '');
+    const emoji = ICON_EMOJI_FALLBACK[iconKey];
+    if (emoji) {
+      return `${emoji} ${rawText}`;
+    }
+  }
+
+  return rawText;
+}
+
 function buildStoreKeyboard(rowsInput = []) {
   const keyboard = new InlineKeyboard();
   const rows = parseStoreRows(rowsInput);
@@ -1092,7 +1168,7 @@ function buildStoreKeyboard(rowsInput = []) {
     if (!Array.isArray(row) || row.length === 0) return;
     row.forEach((btn) => {
       if (!btn || !btn.id) return;
-      const label = btn.text || 'زر';
+      const label = formatStoreButtonLabel(btn);
       if (btn.action === 'url' && btn.url) {
         const link = btn.url.startsWith('http') ? btn.url : `https://${btn.url}`;
         keyboard.url(label, link);

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import TelegramPhoneMockup from './TelegramPhoneMockup';
-import StoreIcon, { STORE_ICON_OPTIONS, stripEmojis } from './StoreIcons';
+import StoreIcon, { stripEmojis } from './StoreIcons';
+import StoreIconPicker from './StoreIconPicker';
 import { useToast } from '../../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -1415,65 +1416,15 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
               </button>
             </div>
 
-            {/* Quick SVG Icon Picker */}
+            {/* Ultra-Modern Brand & AI Icon Picker */}
             <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                أيقونة الزر (SVG Vector Icon):
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                شعار / أيقونة الزر (Official Vector Brands & AI):
               </label>
-              <div style={{
-                display: 'flex',
-                gap: '6px',
-                flexWrap: 'wrap',
-                maxHeight: '130px',
-                overflowY: 'auto',
-                padding: '6px',
-                background: 'rgba(0,0,0,0.25)',
-                borderRadius: '10px',
-                border: '1px solid rgba(255,255,255,0.06)',
-              }}>
-                <button
-                  type="button"
-                  onClick={() => setBtnFormData({ ...btnFormData, icon: '' })}
-                  title="بدون أيقونة"
-                  style={{
-                    background: !btnFormData.icon ? 'rgba(16, 185, 129, 0.25)' : 'rgba(255,255,255,0.06)',
-                    border: !btnFormData.icon ? '1px solid #10b981' : '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '8px',
-                    fontSize: '0.75rem',
-                    padding: '6px 10px',
-                    color: !btnFormData.icon ? '#34d399' : 'var(--text-secondary)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  بدون أيقونة
-                </button>
-                {STORE_ICON_OPTIONS.map(({ id, label, Icon }) => {
-                  const isSelected = btnFormData.icon === id;
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => setBtnFormData({ ...btnFormData, icon: id })}
-                      title={label}
-                      style={{
-                        background: isSelected ? 'rgba(14, 165, 233, 0.3)' : 'rgba(255,255,255,0.05)',
-                        border: isSelected ? '1px solid #0ea5e9' : '1px solid rgba(255,255,255,0.08)',
-                        borderRadius: '8px',
-                        padding: '7px 10px',
-                        color: isSelected ? '#38bdf8' : '#e2e8f0',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '5px',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      <Icon size={16} />
-                    </button>
-                  );
-                })}
-              </div>
+              <StoreIconPicker
+                selectedIcon={btnFormData.icon}
+                onSelectIcon={(newIcon) => setBtnFormData({ ...btnFormData, icon: newIcon })}
+              />
             </div>
 
             {/* Button Text */}

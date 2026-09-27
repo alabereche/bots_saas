@@ -687,20 +687,6 @@ export default function TelegramPhoneMockup({
                     🔄 فحص حالة الدفع والمؤقت
                   </button>
                   <button
-                    onClick={() => setMockView('checkout')}
-                    style={{
-                      background: '#2b5278',
-                      border: 'none',
-                      borderRadius: '7px',
-                      color: '#fff',
-                      padding: '6px',
-                      fontSize: '10.5px',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    🔙 تغيير وسيلة الدفع
-                  </button>
-                  <button
                     onClick={() => setMockView('menu')}
                     style={{
                       background: 'transparent',

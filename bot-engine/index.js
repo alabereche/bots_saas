@@ -1297,7 +1297,9 @@ async function startBot(config) {
           return;
         }
 
-        await ctx.answerCallbackQuery().catch(() => {});
+        if (!data.startsWith('tgstore_chk_')) {
+          await ctx.answerCallbackQuery().catch(() => {});
+        }
 
         if (data === 'tgstore_main') {
           await sendStoreMainMenu(ctx, currentConfig);
@@ -1569,8 +1571,6 @@ async function startBot(config) {
           const payActionKb = new InlineKeyboard()
             .text('🔄 فحص حالة المؤقت والدفع', `tgstore_chk_${orderId}`)
             .row()
-            .text('🔙 تغيير وسيلة الدفع', `tgstore_rsl_${orderId}`)
-            .row()
             .text('❌ إلغاء الطلب', `tgstore_cnl_${orderId}`);
 
           await ctx.reply(payText, { reply_markup: payActionKb, parse_mode: 'Markdown' }).catch(() => {
@@ -1584,14 +1584,37 @@ async function startBot(config) {
           const orderId = data.replace('tgstore_chk_', '');
           let orderData = null;
           let orderDocRef = null;
-          try {
-            const snap = await db.collection('orders').doc(orderId).get();
-            if (snap.exists) {
-              orderData = snap.data();
-              orderDocRef = snap.ref;
-            }
-          } catch {}
 
+          if (orderId && !orderId.startsWith('tmp_')) {
+            try {
+              const snap = await db.collection('orders').doc(orderId).get();
+              if (snap.exists) {
+                orderData = snap.data();
+                orderDocRef = snap.ref;
+              }
+            } catch (err) {
+              console.warn('[Telegram Store] Fetch order by id error:', err.message);
+            }
+          }
+
+          if (!orderData) {
+            try {
+              const qSnap = await db.collection('orders')
+                .where('botId', '==', currentConfig.id)
+                .where('customerId', '==', String(ctx.from.id))
+                .limit(5)
+                .get();
+              if (qSnap && !qSnap.empty) {
+                const sorted = qSnap.docs.slice().sort((a, b) => (b.data().createdAt || '').localeCompare(a.data().createdAt || ''));
+                orderData = sorted[0].data();
+                orderDocRef = sorted[0].ref;
+              }
+            } catch (err) {
+              console.warn('[Telegram Store] Fetch order by customerId error:', err.message);
+            }
+          }
+
+          const resolvedOrderId = orderDocRef ? orderDocRef.id : orderId;
           const timeoutMinutes = orderData?.paymentTimeoutMinutes || parseInt(storeConfig.paymentTimeoutMinutes, 10) || 15;
           const expiresAtMs = orderData?.expiresAt ? new Date(orderData.expiresAt).getTime() : 0;
           const remainingMs = expiresAtMs ? (expiresAtMs - Date.now()) : 0;
@@ -1602,17 +1625,18 @@ async function startBot(config) {
               await orderDocRef.update({ orderStatus: 'expired', updatedAt: new Date().toISOString() }).catch(() => {});
             }
             await ctx.answerCallbackQuery({
-              text: 'انتهت مهلة الدفع لهذه الصفقة! يمكنك إعادة فتحها بالزر أدناه.',
+              text: '⌛ انتهت مهلة الدفع لهذه الصفقة! يمكنك إعادة فتحها بالزر أدناه.',
               show_alert: true,
             }).catch(() => {});
 
             const expiredText =
               `⌛ *انتهت مهلة الدفع لهذه الصفقة!*\n` +
               `━━━━━━━━━━━━━━━━━━\n` +
-              `إذا كنت قد دفعت، اضغط أدناه لإعادة فتح الصفقة وإرسال إثبات الدفع:`;
+              `لقد انقضت مهلة الـ ${timeoutMinutes} دقيقة المحددة.\n` +
+              `إذا كنت قد دفعت، اضغط أدناه لإعادة فتح الصفقة وإرسال إثبات الدفع فوراً:`;
 
             const expiredKb = new InlineKeyboard()
-              .text('🔄 إعادة فتح الصفقة', `tgstore_rop_${orderId}`)
+              .text('🔄 إعادة فتح الصفقة', `tgstore_rop_${resolvedOrderId}`)
               .row()
               .text('🔙 العودة لقائمة المتجر', 'tgstore_main');
 
@@ -1620,11 +1644,33 @@ async function startBot(config) {
               ctx.reply(expiredText, { reply_markup: expiredKb });
             });
           } else {
-            const remainingMinutes = Math.max(1, Math.ceil(remainingMs / (60 * 1000)));
+            const totalSec = Math.max(0, Math.floor(remainingMs / 1000));
+            const mins = Math.floor(totalSec / 60);
+            const secs = totalSec % 60;
+            const timeStr = mins > 0 ? `${mins} دقيقة و ${secs} ثانية` : `${secs} ثانية`;
+
             await ctx.answerCallbackQuery({
-              text: `⏳ مؤقت الدفع: متبقي ${remainingMinutes} دقيقة! يرجى إرسال الوصل أو معرف الدفع لتأكيد طلبك فوراً.`,
+              text: `⏳ مؤقت الدفع: متبقي ${timeStr}!`,
               show_alert: true,
             }).catch(() => {});
+
+            const statusKb = new InlineKeyboard()
+              .text('🔄 فحص حالة المؤقت والدفع', `tgstore_chk_${resolvedOrderId}`)
+              .row()
+              .text('❌ إلغاء الطلب', `tgstore_cnl_${resolvedOrderId}`);
+
+            const statusMsg =
+              `⏳ *فحص مؤقت الدفع للطلب #${orderData?.trackingCode || ''}:*\n` +
+              `━━━━━━━━━━━━━━━━━━\n` +
+              `⏰ *الوقت المتبقي:* ⏳ *${timeStr}*\n` +
+              (orderData?.product ? `📦 *المنتج:* ${orderData.product}\n` : '') +
+              (orderData?.price ? `💰 *المبلغ:* ${orderData.price}${orderData.price.includes('$') || orderData.price.includes('دج') ? '' : '$'}\n` : '') +
+              `━━━━━━━━━━━━━━━━━━\n` +
+              `🚀 يرجى التحويل وإرسال صورة الوصل أو معرف العملية هنا مباشرة لتأكيد طلبك قبل انتهاء الوقت!`;
+
+            await ctx.reply(statusMsg, { reply_markup: statusKb, parse_mode: 'Markdown' }).catch(() => {
+              ctx.reply(statusMsg, { reply_markup: statusKb });
+            });
           }
           return;
         }

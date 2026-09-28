@@ -6650,13 +6650,14 @@ body {
 .tg-subtabs-nav {
   display: flex;
   gap: 8px;
-  background: var(--bg-card, #111110);
+  background: #141722 !important;
   padding: 6px;
   border-radius: var(--radius-md, 16px);
-  border: 1px solid var(--border-default);
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 .tg-subtabs-nav::-webkit-scrollbar {
   display: none;
@@ -6668,7 +6669,7 @@ body {
   white-space: nowrap;
   padding: 9px 16px;
   border-radius: 10px;
-  border: none;
+  border: 1px solid transparent;
   font-size: 0.85rem;
   font-weight: 600;
   font-family: inherit;
@@ -6679,54 +6680,65 @@ body {
   gap: 7px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.04);
   color: var(--text-secondary);
 }
 
+.tg-subtab-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
 .tg-subtab-btn.is-active-buttons {
-  background: var(--color-primary-subtle, rgba(16, 185, 129, 0.15)) !important;
+  background: rgba(16, 185, 129, 0.2) !important;
   color: #34d399 !important;
+  border-color: rgba(16, 185, 129, 0.45) !important;
   font-weight: 700;
 }
 
 .tg-subtab-btn.is-active-channels {
-  background: rgba(14, 165, 233, 0.15) !important;
+  background: rgba(14, 165, 233, 0.2) !important;
   color: #38bdf8 !important;
+  border-color: rgba(14, 165, 233, 0.45) !important;
   font-weight: 700;
 }
 
 .tg-subtab-btn.is-active-payments {
-  background: rgba(168, 85, 247, 0.15) !important;
+  background: rgba(168, 85, 247, 0.2) !important;
   color: #c084fc !important;
+  border-color: rgba(168, 85, 247, 0.45) !important;
   font-weight: 700;
 }
 
 .tg-subtab-btn.is-active-settings {
-  background: rgba(245, 158, 11, 0.15) !important;
+  background: rgba(245, 158, 11, 0.2) !important;
   color: #fbbf24 !important;
+  border-color: rgba(245, 158, 11, 0.45) !important;
   font-weight: 700;
 }
 
 .tg-subtab-btn.is-active-menu {
-  background: rgba(16, 185, 129, 0.15) !important;
+  background: rgba(16, 185, 129, 0.2) !important;
   color: #34d399 !important;
+  border-color: rgba(16, 185, 129, 0.45) !important;
   font-weight: 700;
 }
 
 .tg-payment-method-card {
-  background: var(--veil-1, rgba(255, 255, 255, 0.03));
-  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  background: #161922 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
   border-radius: 12px;
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
   gap: 10px;
   transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .tg-payment-method-card:hover {
-  border-color: rgba(168, 85, 247, 0.3);
-  background: rgba(168, 85, 247, 0.02);
+  border-color: rgba(168, 85, 247, 0.45) !important;
+  background: #1c202d !important;
 }
 
 .tg-tab-text-mobile {
@@ -6745,8 +6757,8 @@ body {
 
 /* Button Card inside Row */
 .tg-row-btn-card {
-  background: var(--veil-1, rgba(255, 255, 255, 0.03));
-  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  background: #161922 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
   border-radius: 12px;
   padding: 10px 12px;
   display: flex;
@@ -6755,10 +6767,11 @@ body {
   gap: 10px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 .tg-row-btn-card:hover {
-  background: var(--veil-2, rgba(255, 255, 255, 0.06));
-  border-color: var(--border-bright, rgba(16, 185, 129, 0.3));
+  background: #1d212d !important;
+  border-color: rgba(16, 185, 129, 0.4) !important;
   transform: translateY(-1px);
 }
 
@@ -6900,31 +6913,39 @@ body {
   }
 }
 
-@media (max-width: 640px) {
-  .tg-hide-mobile {
-    display: none !important;
-  }
-
-  .tg-tab-text-mobile {
-    display: inline;
-  }
-  .tg-tab-text-full {
-    display: none;
-  }
-
+@media (max-width: 768px) {
   .tg-subtabs-nav {
-    padding: 4px;
-    gap: 5px;
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+    padding: 8px !important;
+    background: #141722 !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    border-radius: 14px !important;
+    overflow: visible !important;
   }
 
   .tg-subtab-btn {
-    padding: 8px 10px;
-    font-size: 0.78rem;
-    gap: 5px;
+    width: 100% !important;
+    min-width: 0 !important;
+    white-space: nowrap !important;
+    padding: 10px 8px !important;
+    font-size: 0.82rem !important;
+    border-radius: 10px !important;
+    background: #1c202c !important;
+    color: #cbd5e1 !important;
+    justify-content: center !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  }
+
+  /* 5th button (Menu) spans full width across both columns! */
+  .tg-subtab-btn:nth-child(5) {
+    grid-column: span 2 !important;
+    font-weight: 700 !important;
   }
 
   .tg-row-buttons-grid {
-    grid-template-columns: 1fr !important; /* Full width per button on mobile! */
+    grid-template-columns: 1fr !important;
     gap: 8px;
   }
 
@@ -6933,23 +6954,40 @@ body {
   }
 }
 
-/* ─── Telegram Store Form Elements & Input Cards ─── */
+@media (max-width: 640px) {
+  .tg-hide-mobile {
+    display: none !important;
+  }
+
+  .tg-store-header-bar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+
+  .tg-store-header-actions {
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+}
+
+/* ─── Telegram Store Form Elements & Input Cards (100% Solid Opaque) ─── */
 .tg-field-card {
-  background: var(--veil-1, rgba(255, 255, 255, 0.03));
-  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
-  border-radius: 14px;
-  padding: 14px 16px;
+  background: #141722 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 16px;
+  padding: 16px 18px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
 }
 
 .tg-field-card:focus-within {
-  border-color: rgba(16, 185, 129, 0.35);
-  background: var(--veil-2, rgba(255, 255, 255, 0.05));
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  border-color: rgba(16, 185, 129, 0.5) !important;
+  background: #171b28 !important;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6) !important;
 }
 
 .tg-field-header {
@@ -6967,9 +7005,9 @@ body {
 }
 
 .tg-field-icon-badge {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6977,45 +7015,45 @@ body {
 }
 
 .tg-field-icon-badge--emerald {
-  background: rgba(16, 185, 129, 0.12);
+  background: rgba(16, 185, 129, 0.16);
   color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
 .tg-field-icon-badge--sky {
-  background: rgba(14, 165, 233, 0.12);
+  background: rgba(14, 165, 233, 0.16);
   color: #38bdf8;
-  border: 1px solid rgba(14, 165, 233, 0.25);
+  border: 1px solid rgba(14, 165, 233, 0.3);
 }
 
 .tg-field-icon-badge--amber {
-  background: rgba(245, 158, 11, 0.12);
+  background: rgba(245, 158, 11, 0.16);
   color: #fbbf24;
-  border: 1px solid rgba(245, 158, 11, 0.25);
+  border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 .tg-field-title {
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 700;
-  color: var(--text-primary);
+  color: #f8fafc !important;
   margin: 0;
 }
 
 .tg-field-hint {
-  font-size: 0.77rem;
-  color: var(--text-secondary);
-  line-height: 1.45;
+  font-size: 0.8rem;
+  color: #cbd5e1 !important;
+  line-height: 1.5;
   margin: 0;
 }
 
 .tg-input,
 .tg-textarea {
   width: 100%;
-  background: rgba(0, 0, 0, 0.38);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #0b0d13 !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
   border-radius: 11px;
   padding: 11px 14px;
-  color: var(--text-primary);
+  color: #f8fafc !important;
   font-family: inherit;
   font-size: 0.88rem;
   line-height: 1.6;
@@ -7026,9 +7064,9 @@ body {
 
 .tg-input:focus,
 .tg-textarea:focus {
-  border-color: var(--color-primary, #10b981);
-  background: rgba(0, 0, 0, 0.58);
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+  border-color: #38bdf8 !important;
+  background: #0f121a !important;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2) !important;
 }
 
 .tg-textarea {

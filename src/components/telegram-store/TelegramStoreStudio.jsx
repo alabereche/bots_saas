@@ -438,9 +438,9 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
       position: 'relative',
     }}>
       {/* ── Top Header & Actions ── */}
-      <div style={{
-        background: 'var(--bg-card, #111110)',
-        border: '1px solid var(--border-default, rgba(230, 227, 211, 0.14))',
+      <div className="tg-store-header-bar" style={{
+        background: '#141722',
+        border: '1px solid rgba(255, 255, 255, 0.12)',
         borderRadius: 'var(--radius-lg, 22px)',
         padding: '1.25rem 1.5rem',
         display: 'flex',
@@ -448,7 +448,7 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
         justifyContent: 'space-between',
         flexWrap: 'wrap',
         gap: '1rem',
-        boxShadow: 'var(--shadow-card)',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{
@@ -490,14 +490,14 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
                 PRO
               </span>
             </div>
-            <p className="tg-hide-mobile" style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: '3px 0 0' }}>
+            <p className="tg-hide-mobile" style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '3px 0 0' }}>
               صمّم متجر أزرار حقيقي لتيليغرام مع اشتراك إجباري وقناة بث لوغز تلقائية.
             </p>
           </div>
         </div>
 
         {/* Action Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div className="tg-store-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           {/* Main Toggle */}
           <label style={{
             display: 'flex',
@@ -506,8 +506,8 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
             cursor: 'pointer',
             padding: '0.45rem 0.9rem',
             borderRadius: '999px',
-            background: enabled ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.05)',
-            border: enabled ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(255,255,255,0.1)',
+            background: enabled ? 'rgba(16, 185, 129, 0.15)' : '#1a1e29',
+            border: enabled ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(255,255,255,0.12)',
             transition: 'all 0.2s',
           }}>
             <input
@@ -558,7 +558,10 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
       </div>
 
       {/* ── Mobile View Toggle (Visible only on screens <= 1024px) ── */}
-      <div className="tg-studio-mobile-switch">
+      <div className="tg-studio-mobile-switch" style={{
+        background: '#141722',
+        border: '1px solid rgba(255, 255, 255, 0.12)',
+      }}>
         <button
           type="button"
           className={`tg-mobile-tab-btn ${mobileView === 'editor' ? 'is-active' : ''}`}
@@ -589,8 +592,7 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
               className={`tg-subtab-btn ${activeTab === 'buttons' ? 'is-active-buttons' : ''}`}
             >
               <SlidersHorizontal size={15} />
-              <span className="tg-tab-text-full">شبكة الأزرار التفاعلية</span>
-              <span className="tg-tab-text-mobile">شبكة الأزرار</span>
+              <span>شبكة الأزرار</span>
             </button>
 
             <button
@@ -599,8 +601,7 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
               className={`tg-subtab-btn ${activeTab === 'channels' ? 'is-active-channels' : ''}`}
             >
               <Megaphone size={15} />
-              <span className="tg-tab-text-full">قناة اللوغز والاشتراك الإجباري</span>
-              <span className="tg-tab-text-mobile">اللوغز والاشتراك</span>
+              <span>اللوغز والاشتراك</span>
             </button>
 
             <button
@@ -609,8 +610,7 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
               className={`tg-subtab-btn ${activeTab === 'payments' ? 'is-active-payments' : ''}`}
             >
               <CreditCard size={15} />
-              <span className="tg-tab-text-full">طرق الدفع والشحن والمؤقت</span>
-              <span className="tg-tab-text-mobile">طرق الدفع</span>
+              <span>طرق الدفع والشحن</span>
             </button>
 
             <button
@@ -619,8 +619,7 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
               className={`tg-subtab-btn ${activeTab === 'settings' ? 'is-active-settings' : ''}`}
             >
               <Settings size={15} />
-              <span className="tg-tab-text-full">البانر والمحفظة والقوانين</span>
-              <span className="tg-tab-text-mobile">البانر والمحفظة</span>
+              <span>البانر والقوانين</span>
             </button>
 
             <button
@@ -629,8 +628,7 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
               className={`tg-subtab-btn ${activeTab === 'menu_nav' ? 'is-active-menu' : ''}`}
             >
               <LayoutGrid size={15} />
-              <span className="tg-tab-text-full">قائمة Menu والأزرار السفلية</span>
-              <span className="tg-tab-text-mobile">قائمة Menu</span>
+              <span>قائمة Menu السفلية</span>
             </button>
           </div>
 
@@ -639,8 +637,8 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {/* Preset Templates Strip */}
               <div style={{
-                background: 'var(--bg-card, #111110)',
-                border: '1px solid var(--border-default)',
+                background: '#141722',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
                 borderRadius: 'var(--radius-md, 16px)',
                 padding: '12px 16px',
                 display: 'flex',
@@ -1380,8 +1378,8 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               {/* 1. Master Toggle for Persistent Bottom Keyboard */}
               <div className="tg-field-card" style={{
-                border: bottomKeyboardEnabled ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--border-default)',
-                background: bottomKeyboardEnabled ? 'rgba(16, 185, 129, 0.03)' : 'var(--bg-card, #111110)',
+                border: bottomKeyboardEnabled ? '1px solid rgba(16, 185, 129, 0.5)' : '1px solid rgba(255, 255, 255, 0.12)',
+                background: bottomKeyboardEnabled ? '#0f241a' : '#141722',
                 transition: 'all 0.25s ease',
               }}>
                 <div className="tg-field-header" style={{ marginBottom: 0 }}>
@@ -1399,9 +1397,9 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
                           padding: '2px 8px',
                           borderRadius: '999px',
                           fontWeight: 700,
-                          background: bottomKeyboardEnabled ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.12)',
+                          background: bottomKeyboardEnabled ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.15)',
                           color: bottomKeyboardEnabled ? '#34d399' : '#f87171',
-                          border: bottomKeyboardEnabled ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
+                          border: bottomKeyboardEnabled ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(239, 68, 68, 0.35)',
                         }}>
                           {bottomKeyboardEnabled ? 'مفعّلة ونشطة' : 'معطّلة'}
                         </span>
@@ -1480,14 +1478,14 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
                   display: 'grid',
                   gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
                   gap: '12px',
-                  background: 'rgba(255,255,255,0.02)',
+                  background: '#0d1017',
                   padding: '14px',
                   borderRadius: '12px',
-                  border: '1px solid var(--border-subtle)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
                 }}>
                   {/* Row 1 - Btn 1 */}
                   <div>
-                    <label style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                    <label style={{ fontSize: '0.8rem', color: '#f1f5f9', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
                       الزر 1 (الصف الأول - اليمين):
                     </label>
                     <input
@@ -1498,14 +1496,14 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
                       className="tg-input"
                       disabled={!bottomKeyboardEnabled}
                     />
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
+                    <span style={{ fontSize: '0.73rem', color: '#94a3b8', display: 'block', marginTop: '4px', fontWeight: 500 }}>
                       يعرض قائمة المنتجات والكتالوج فوراً
                     </span>
                   </div>
 
                   {/* Row 1 - Btn 2 */}
                   <div>
-                    <label style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                    <label style={{ fontSize: '0.8rem', color: '#f1f5f9', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
                       الزر 2 (الصف الأول - اليسار):
                     </label>
                     <input
@@ -1516,14 +1514,14 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
                       className="tg-input"
                       disabled={!bottomKeyboardEnabled}
                     />
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
+                    <span style={{ fontSize: '0.73rem', color: '#94a3b8', display: 'block', marginTop: '4px', fontWeight: 500 }}>
                       يعيد فتح رسالة الترحيب والبانر الرئيسي
                     </span>
                   </div>
 
                   {/* Row 2 - Btn 3 */}
                   <div>
-                    <label style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                    <label style={{ fontSize: '0.8rem', color: '#f1f5f9', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
                       الزر 3 (الصف الثاني - اليمين):
                     </label>
                     <input
@@ -1534,14 +1532,14 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
                       className="tg-input"
                       disabled={!bottomKeyboardEnabled}
                     />
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
+                    <span style={{ fontSize: '0.73rem', color: '#94a3b8', display: 'block', marginTop: '4px', fontWeight: 500 }}>
                       يعرض الحسابات البنكية ومعلومات الشحن
                     </span>
                   </div>
 
                   {/* Row 2 - Btn 4 */}
                   <div>
-                    <label style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                    <label style={{ fontSize: '0.8rem', color: '#f1f5f9', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
                       الزر 4 (الصف الثاني - اليسار):
                     </label>
                     <input
@@ -1552,7 +1550,7 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
                       className="tg-input"
                       disabled={!bottomKeyboardEnabled}
                     />
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
+                    <span style={{ fontSize: '0.73rem', color: '#94a3b8', display: 'block', marginTop: '4px', fontWeight: 500 }}>
                       يفتح خيارات المساعدة والتواصل المباشر
                     </span>
                   </div>
@@ -1583,7 +1581,7 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
                     top: '50%',
                     transform: 'translateY(-50%)',
                     right: '12px',
-                    color: 'var(--text-muted)',
+                    color: '#94a3b8',
                     fontWeight: 700,
                   }}>@</span>
                   <input
@@ -1612,8 +1610,8 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
 
               {/* 4. Native Telegram Menu Commands Preview */}
               <div className="tg-field-card" style={{
-                background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.6) 100%)',
-                border: '1px solid rgba(56, 189, 248, 0.2)',
+                background: '#0c1524',
+                border: '1px solid rgba(56, 189, 248, 0.35)',
               }}>
                 <div className="tg-field-header">
                   <div className="tg-field-title-group">
@@ -1627,7 +1625,7 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
                         </h4>
                         <span style={{
                           fontSize: '0.68rem',
-                          background: 'rgba(56, 189, 248, 0.15)',
+                          background: 'rgba(56, 189, 248, 0.2)',
                           color: '#38bdf8',
                           padding: '2px 8px',
                           borderRadius: '6px',
@@ -1663,24 +1661,24 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        padding: '8px 12px',
-                        background: 'rgba(255, 255, 255, 0.03)',
-                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                        padding: '9px 14px',
+                        background: '#152032',
+                        border: '1px solid rgba(56, 189, 248, 0.18)',
                         borderRadius: '8px',
-                        fontSize: '0.8rem',
+                        fontSize: '0.82rem',
                       }}
                     >
                       <code style={{
                         color: '#38bdf8',
                         fontWeight: 700,
                         direction: 'ltr',
-                        background: 'rgba(56, 189, 248, 0.1)',
-                        padding: '2px 6px',
-                        borderRadius: '4px',
+                        background: 'rgba(56, 189, 248, 0.15)',
+                        padding: '3px 8px',
+                        borderRadius: '5px',
                       }}>
                         {item.cmd}
                       </code>
-                      <span style={{ color: 'var(--text-secondary)', fontSize: '0.78rem' }}>
+                      <span style={{ color: '#e2e8f0', fontSize: '0.8rem', fontWeight: 500 }}>
                         {item.desc}
                       </span>
                     </div>

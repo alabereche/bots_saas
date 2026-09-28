@@ -33,11 +33,18 @@ export default function TelegramPhoneMockup({
   paymentMethods = [],
   paymentTimeoutMinutes = 15,
   products = [],
+  bottomKeyboardEnabled = true,
+  bottomBtn1 = '🛍️ المنتجات',
+  bottomBtn2 = '🚀 الرئيسية',
+  bottomBtn3 = '💳 طرق الدفع',
+  bottomBtn4 = '💬 الدعم',
+  supportUsername = '',
 }) {
   const [activeSubmenu, setActiveSubmenu] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedMethod, setSelectedMethod] = useState(null);
-  const [mockView, setMockView] = useState('menu'); // 'menu' | 'product' | 'checkout' | 'payment_details' | 'wallet' | 'rules' | 'force_sub'
+  const [mockView, setMockView] = useState('menu'); // 'menu' | 'product' | 'checkout' | 'payment_details' | 'wallet' | 'rules' | 'support' | 'force_sub'
+  const [showCommandsPopup, setShowCommandsPopup] = useState(false);
 
   // Time display
   const currentTime = new Date().toLocaleTimeString('ar-DZ', { hour: '2-digit', minute: '2-digit', hour12: false }) || '21:30';
@@ -779,49 +786,267 @@ export default function TelegramPhoneMockup({
                 </button>
               </div>
             )}
+            {/* Support / Help Simulation View */}
+            {mockView === 'support' && (
+              <div style={{
+                background: '#182533',
+                borderRadius: '14px 14px 4px 14px',
+                padding: '11px',
+                border: '1px solid rgba(56, 189, 248, 0.35)',
+              }}>
+                <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#38bdf8', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Bot size={14} color="#38bdf8" />
+                  <span>خدمة العملاء والدعم الفني</span>
+                </div>
+                <div style={{ fontSize: '10px', color: '#d1d8e0', lineHeight: 1.6, whiteSpace: 'pre-line', marginBottom: '10px' }}>
+                  {supportUsername
+                    ? `فريق الدعم الفني متواجد لمساعدتك والإجابة على أي استفسار.\n\n👤 تواصل مباشرة: @${supportUsername.replace('@', '')}`
+                    : `فريق الدعم الفني متواجد لمساعدتك والإجابة على استفساراتك حول الطلبات والتسليم في أي وقت.`}
+                </div>
+                <button
+                  onClick={() => setMockView('menu')}
+                  style={{
+                    width: '100%',
+                    background: '#2b5278',
+                    border: 'none',
+                    borderRadius: '7px',
+                    color: '#fff',
+                    padding: '6px',
+                    fontSize: '10.5px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '5px',
+                  }}
+                >
+                  <ArrowRight size={12} />
+                  <span>رجوع للقائمة</span>
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* 4. Bottom Chat Input Mockup */}
+          {/* ── Telegram Commands Popup (Triggered by Menu Button) ── */}
+          {showCommandsPopup && (
+            <div style={{
+              background: '#182533',
+              borderTop: '1px solid rgba(255,255,255,0.1)',
+              borderBottom: '1px solid rgba(255,255,255,0.06)',
+              padding: '6px 8px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '2px',
+              animation: 'fadeIn 0.15s ease',
+            }}>
+              <div style={{ fontSize: '9.5px', fontWeight: 700, color: '#38bdf8', padding: '2px 4px 4px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                قائمة أوامر البوت الرسمية (Bot Commands):
+              </div>
+              {[
+                { cmd: '/start', desc: '🚀 القائمة الرئيسية', view: 'menu' },
+                { cmd: '/products', desc: '🛍️ المنتجات والعروض', view: 'menu' },
+                { cmd: '/wallet', desc: '💳 طرق الدفع والمحفظة', view: 'wallet' },
+                { cmd: '/rules', desc: '📜 قوانين وشروط المتجر', view: 'rules' },
+                { cmd: '/support', desc: '💬 الدعم الفني والمساعدة', view: 'support' },
+              ].map((c) => (
+                <div
+                  key={c.cmd}
+                  onClick={() => {
+                    setMockView(c.view);
+                    setActiveSubmenu(null);
+                    setShowCommandsPopup(false);
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '4px 6px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    background: 'transparent',
+                    transition: 'background 0.1s',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <span style={{ fontSize: '10px', fontWeight: 700, color: '#38bdf8', direction: 'ltr' }}>{c.cmd}</span>
+                  <span style={{ fontSize: '9.5px', color: '#c5d3e0' }}>{c.desc}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* 4. Bottom Persistent Reply Keyboard (Telegram Native Bottom Keyboard) */}
+          {bottomKeyboardEnabled !== false && (
+            <div style={{
+              background: '#0e1621',
+              padding: '5px 8px',
+              borderTop: '1px solid #131c26',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px',
+            }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
+                <button
+                  type="button"
+                  onClick={() => { setMockView('menu'); setActiveSubmenu(null); }}
+                  title="نقر تجريبي"
+                  style={{
+                    background: '#1d2733',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '8px',
+                    color: '#e5eaf0',
+                    fontSize: '10.5px',
+                    fontWeight: 700,
+                    padding: '6px 4px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                  }}
+                >
+                  {bottomBtn1 || '🛍️ المنتجات'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setMockView('menu'); setActiveSubmenu(null); }}
+                  title="نقر تجريبي"
+                  style={{
+                    background: '#1d2733',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '8px',
+                    color: '#e5eaf0',
+                    fontSize: '10.5px',
+                    fontWeight: 700,
+                    padding: '6px 4px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                  }}
+                >
+                  {bottomBtn2 || '🚀 الرئيسية'}
+                </button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
+                <button
+                  type="button"
+                  onClick={() => setMockView('wallet')}
+                  title="نقر تجريبي"
+                  style={{
+                    background: '#1d2733',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '8px',
+                    color: '#e5eaf0',
+                    fontSize: '10.5px',
+                    fontWeight: 700,
+                    padding: '6px 4px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                  }}
+                >
+                  {bottomBtn3 || '💳 طرق الدفع'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMockView('support')}
+                  title="نقر تجريبي"
+                  style={{
+                    background: '#1d2733',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '8px',
+                    color: '#e5eaf0',
+                    fontSize: '10.5px',
+                    fontWeight: 700,
+                    padding: '6px 4px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                  }}
+                >
+                  {bottomBtn4 || '💬 الدعم'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 5. Bottom Chat Input Mockup with Telegram Blue Menu Button */}
           <div style={{
             background: '#17212b',
-            padding: '7px 10px',
+            padding: '6px 8px',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
+            gap: '6px',
             borderTop: '1px solid #131c26',
             direction: 'rtl',
           }}>
+            {/* Telegram Blue Menu Button */}
+            <button
+              type="button"
+              onClick={() => setShowCommandsPopup(!showCommandsPopup)}
+              title="زر قائمة الأوامر (Menu)"
+              style={{
+                background: showCommandsPopup ? '#1d6fa5' : '#2481cc',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '4px 8px',
+                color: '#fff',
+                fontSize: '10px',
+                fontWeight: 800,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '3px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+              }}
+            >
+              <span>Menu</span>
+            </button>
+
             <div style={{
               flex: 1,
               background: '#0e1621',
-              borderRadius: '18px',
-              padding: '6px 12px',
+              borderRadius: '16px',
+              padding: '5px 10px',
               color: '#6c7883',
-              fontSize: '11px',
+              fontSize: '10.5px',
               textAlign: 'right',
             }}>
               اكتب رسالة أو اختر زراً...
             </div>
+
             {/* Reset simulation view shortcut */}
             {(mockView !== 'menu' || activeSubmenu) && (
               <button
-                onClick={() => { setMockView('menu'); setActiveSubmenu(null); }}
+                onClick={() => { setMockView('menu'); setActiveSubmenu(null); setShowCommandsPopup(false); }}
                 title="إعادة ضبط المحاكي للقائمة الرئيسية"
                 style={{
                   background: 'rgba(255,255,255,0.1)',
                   border: 'none',
                   borderRadius: '50%',
-                  width: '26px',
-                  height: '26px',
+                  width: '24px',
+                  height: '24px',
                   color: '#fff',
                   cursor: 'pointer',
-                  fontSize: '10px',
+                  fontSize: '9px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <RotateCcw size={12} />
+                <RotateCcw size={11} />
               </button>
             )}
           </div>

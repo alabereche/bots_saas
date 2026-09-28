@@ -21,6 +21,9 @@ import {
   Folder,
   CreditCard,
   FileText,
+  LayoutGrid,
+  Menu,
+  Command,
   ExternalLink,
   Save,
   Image,
@@ -181,13 +184,19 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
   const [rulesText, setRulesText] = useState(initialStore.rulesText || STORE_TEMPLATES.subscriptions.rulesText);
   const [paymentTimeoutMinutes, setPaymentTimeoutMinutes] = useState(initialStore.paymentTimeoutMinutes ?? 15);
   const [paymentMethods, setPaymentMethods] = useState(() => parsePaymentMethods(initialStore));
+  const [bottomKeyboardEnabled, setBottomKeyboardEnabled] = useState(initialStore.bottomKeyboardEnabled ?? true);
+  const [supportUsername, setSupportUsername] = useState(initialStore.supportUsername || '');
+  const [bottomBtn1, setBottomBtn1] = useState(initialStore.bottomKeyboardRows?.[0]?.[0] || '🛍️ المنتجات');
+  const [bottomBtn2, setBottomBtn2] = useState(initialStore.bottomKeyboardRows?.[0]?.[1] || '🚀 الرئيسية');
+  const [bottomBtn3, setBottomBtn3] = useState(initialStore.bottomKeyboardRows?.[1]?.[0] || '💳 طرق الدفع');
+  const [bottomBtn4, setBottomBtn4] = useState(initialStore.bottomKeyboardRows?.[1]?.[1] || '💬 الدعم');
   const [rows, setRows] = useState(() => {
     const parsed = parseStoreRows(initialStore);
     return (parsed && parsed.length > 0) ? parsed : STORE_TEMPLATES.subscriptions.rows;
   });
 
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState('buttons'); // 'buttons' | 'channels' | 'settings'
+  const [activeTab, setActiveTab] = useState('buttons'); // 'buttons' | 'channels' | 'payments' | 'settings' | 'menu_nav'
   const [mobileView, setMobileView] = useState('editor'); // 'editor' | 'preview'
 
   // Modal State for Button Customization
@@ -215,6 +224,14 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
       if (s.walletInfo) setWalletInfo(s.walletInfo);
       if (s.rulesText) setRulesText(s.rulesText);
       if (s.paymentTimeoutMinutes !== undefined) setPaymentTimeoutMinutes(s.paymentTimeoutMinutes);
+      if (s.bottomKeyboardEnabled !== undefined) setBottomKeyboardEnabled(s.bottomKeyboardEnabled);
+      if (s.supportUsername !== undefined) setSupportUsername(s.supportUsername);
+      if (Array.isArray(s.bottomKeyboardRows) && s.bottomKeyboardRows.length > 0) {
+        if (s.bottomKeyboardRows[0]?.[0]) setBottomBtn1(s.bottomKeyboardRows[0][0]);
+        if (s.bottomKeyboardRows[0]?.[1]) setBottomBtn2(s.bottomKeyboardRows[0][1]);
+        if (s.bottomKeyboardRows[1]?.[0]) setBottomBtn3(s.bottomKeyboardRows[1][0]);
+        if (s.bottomKeyboardRows[1]?.[1]) setBottomBtn4(s.bottomKeyboardRows[1][1]);
+      }
       const parsedMethods = parsePaymentMethods(s);
       if (parsedMethods && parsedMethods.length > 0) setPaymentMethods(parsedMethods);
       const parsed = parseStoreRows(s);
@@ -386,6 +403,12 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
           details: (m.details || '').trim(),
           enabled: !!m.enabled,
         })),
+        bottomKeyboardEnabled: !!bottomKeyboardEnabled,
+        supportUsername: supportUsername.trim().replace(/^@/, ''),
+        bottomKeyboardRows: [
+          [bottomBtn1.trim() || '🛍️ المنتجات', bottomBtn2.trim() || '🚀 الرئيسية'],
+          [bottomBtn3.trim() || '💳 طرق الدفع', bottomBtn4.trim() || '💬 الدعم'],
+        ],
         rowsJson,
         updatedAt: new Date().toISOString(),
       };
@@ -598,6 +621,16 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
               <Settings size={15} />
               <span className="tg-tab-text-full">البانر والمحفظة والقوانين</span>
               <span className="tg-tab-text-mobile">البانر والمحفظة</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('menu_nav')}
+              className={`tg-subtab-btn ${activeTab === 'menu_nav' ? 'is-active-menu' : ''}`}
+            >
+              <LayoutGrid size={15} />
+              <span className="tg-tab-text-full">قائمة Menu والأزرار السفلية</span>
+              <span className="tg-tab-text-mobile">قائمة Menu</span>
             </button>
           </div>
 
@@ -1341,6 +1374,321 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
               </div>
             </div>
           )}
+
+          {/* TAB 5: Native Menu & Bottom Keyboard Customizer */}
+          {activeTab === 'menu_nav' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {/* 1. Master Toggle for Persistent Bottom Keyboard */}
+              <div className="tg-field-card" style={{
+                border: bottomKeyboardEnabled ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--border-default)',
+                background: bottomKeyboardEnabled ? 'rgba(16, 185, 129, 0.03)' : 'var(--bg-card, #111110)',
+                transition: 'all 0.25s ease',
+              }}>
+                <div className="tg-field-header" style={{ marginBottom: 0 }}>
+                  <div className="tg-field-title-group">
+                    <span className="tg-field-icon-badge tg-field-icon-badge--emerald">
+                      <LayoutGrid size={18} />
+                    </span>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <h4 className="tg-field-title" style={{ color: '#34d399', margin: 0 }}>
+                          الأزرار السفلية الدائمة (Persistent Reply Keyboard)
+                        </h4>
+                        <span style={{
+                          fontSize: '0.7rem',
+                          padding: '2px 8px',
+                          borderRadius: '999px',
+                          fontWeight: 700,
+                          background: bottomKeyboardEnabled ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.12)',
+                          color: bottomKeyboardEnabled ? '#34d399' : '#f87171',
+                          border: bottomKeyboardEnabled ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
+                        }}>
+                          {bottomKeyboardEnabled ? 'مفعّلة ونشطة' : 'معطّلة'}
+                        </span>
+                      </div>
+                      <p className="tg-field-hint" style={{ marginTop: '4px' }}>
+                        أزرار مثبتة بشكل دائم فوق لوحة المفاتيح في تيليغرام تمنح زبائنك تجربة استخدام فائقة السلاسة دون الحاجة لكتابة أوامر أو إعادة تدوير الرسائل.
+                      </p>
+                    </div>
+                  </div>
+
+                  <label className="toggle-switch" style={{ position: 'relative', display: 'inline-block', width: '48px', height: '26px', flexShrink: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={bottomKeyboardEnabled}
+                      onChange={(e) => setBottomKeyboardEnabled(e.target.checked)}
+                      style={{ opacity: 0, width: 0, height: 0 }}
+                    />
+                    <span style={{
+                      position: 'absolute',
+                      cursor: 'pointer',
+                      top: 0, left: 0, right: 0, bottom: 0,
+                      backgroundColor: bottomKeyboardEnabled ? '#10b981' : '#334155',
+                      borderRadius: '34px',
+                      transition: '0.3s',
+                    }}>
+                      <span style={{
+                        position: 'absolute',
+                        content: '""',
+                        height: '20px',
+                        width: '20px',
+                        left: bottomKeyboardEnabled ? '24px' : '3px',
+                        bottom: '3px',
+                        backgroundColor: '#fff',
+                        borderRadius: '50%',
+                        transition: '0.3s',
+                      }} />
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {/* 2. Bottom Keyboard Layout Customizer (2x2 Grid) */}
+              <div className="tg-field-card">
+                <div className="tg-field-header">
+                  <div className="tg-field-title-group">
+                    <span className="tg-field-icon-badge" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>
+                      <Menu size={16} />
+                    </span>
+                    <div>
+                      <h4 className="tg-field-title" style={{ color: '#38bdf8' }}>
+                        تخصيص نصوص الأزرار السفلية (شبكة 2×2)
+                      </h4>
+                      <p className="tg-field-hint">
+                        عدّل نصوص وأيقونات الأزرار التي تظهر للزبون في الأسفل، أو استعد التسميات القياسية
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBottomBtn1('🛍️ المنتجات');
+                      setBottomBtn2('🚀 الرئيسية');
+                      setBottomBtn3('💳 طرق الدفع');
+                      setBottomBtn4('💬 الدعم');
+                      toast.success('تمت استعادة التسميات القياسية للأزرار السفلية');
+                    }}
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: '0.75rem', padding: '4px 10px', borderRadius: '8px' }}
+                  >
+                    استعادة الافتراضي
+                  </button>
+                </div>
+
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                  gap: '12px',
+                  background: 'rgba(255,255,255,0.02)',
+                  padding: '14px',
+                  borderRadius: '12px',
+                  border: '1px solid var(--border-subtle)',
+                }}>
+                  {/* Row 1 - Btn 1 */}
+                  <div>
+                    <label style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                      الزر 1 (الصف الأول - اليمين):
+                    </label>
+                    <input
+                      type="text"
+                      value={bottomBtn1}
+                      onChange={(e) => setBottomBtn1(e.target.value)}
+                      placeholder="🛍️ المنتجات"
+                      className="tg-input"
+                      disabled={!bottomKeyboardEnabled}
+                    />
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
+                      يعرض قائمة المنتجات والكتالوج فوراً
+                    </span>
+                  </div>
+
+                  {/* Row 1 - Btn 2 */}
+                  <div>
+                    <label style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                      الزر 2 (الصف الأول - اليسار):
+                    </label>
+                    <input
+                      type="text"
+                      value={bottomBtn2}
+                      onChange={(e) => setBottomBtn2(e.target.value)}
+                      placeholder="🚀 الرئيسية"
+                      className="tg-input"
+                      disabled={!bottomKeyboardEnabled}
+                    />
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
+                      يعيد فتح رسالة الترحيب والبانر الرئيسي
+                    </span>
+                  </div>
+
+                  {/* Row 2 - Btn 3 */}
+                  <div>
+                    <label style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                      الزر 3 (الصف الثاني - اليمين):
+                    </label>
+                    <input
+                      type="text"
+                      value={bottomBtn3}
+                      onChange={(e) => setBottomBtn3(e.target.value)}
+                      placeholder="💳 طرق الدفع"
+                      className="tg-input"
+                      disabled={!bottomKeyboardEnabled}
+                    />
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
+                      يعرض الحسابات البنكية ومعلومات الشحن
+                    </span>
+                  </div>
+
+                  {/* Row 2 - Btn 4 */}
+                  <div>
+                    <label style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                      الزر 4 (الصف الثاني - اليسار):
+                    </label>
+                    <input
+                      type="text"
+                      value={bottomBtn4}
+                      onChange={(e) => setBottomBtn4(e.target.value)}
+                      placeholder="💬 الدعم"
+                      className="tg-input"
+                      disabled={!bottomKeyboardEnabled}
+                    />
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
+                      يفتح خيارات المساعدة والتواصل المباشر
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Direct Support Username */}
+              <div className="tg-field-card">
+                <div className="tg-field-header">
+                  <div className="tg-field-title-group">
+                    <span className="tg-field-icon-badge" style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc' }}>
+                      <MessageSquare size={16} />
+                    </span>
+                    <div>
+                      <h4 className="tg-field-title" style={{ color: '#c084fc' }}>
+                        حساب الدعم الفني وخدمة العملاء (Support Username)
+                      </h4>
+                      <p className="tg-field-hint">
+                        يُربط تلقائياً بزر الدعم السفلي وأمر <code style={{ color: '#38bdf8' }}>/support</code> ليتمكن الزبائن من محادثتك مباشرة بنقرة واحدة
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ position: 'relative' }}>
+                  <span style={{
+                    position: 'absolute',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    right: '12px',
+                    color: 'var(--text-muted)',
+                    fontWeight: 700,
+                  }}>@</span>
+                  <input
+                    type="text"
+                    value={supportUsername}
+                    onChange={(e) => setSupportUsername(e.target.value.replace(/^@/, ''))}
+                    placeholder="مثال: store_support أو mohamed_admin"
+                    className="tg-input"
+                    style={{ paddingRight: '32px', direction: 'ltr', textAlign: 'right' }}
+                  />
+                </div>
+                {supportUsername && (
+                  <div style={{
+                    marginTop: '8px',
+                    fontSize: '0.75rem',
+                    color: '#34d399',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                  }}>
+                    <CheckCircle2 size={13} />
+                    <span>رابط التواصل المباشر للزبائن: <a href={`https://t.me/${supportUsername.trim().replace(/^@/, '')}`} target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8', textDecoration: 'underline' }}>t.me/{supportUsername.trim().replace(/^@/, '')}</a></span>
+                  </div>
+                )}
+              </div>
+
+              {/* 4. Native Telegram Menu Commands Preview */}
+              <div className="tg-field-card" style={{
+                background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.6) 100%)',
+                border: '1px solid rgba(56, 189, 248, 0.2)',
+              }}>
+                <div className="tg-field-header">
+                  <div className="tg-field-title-group">
+                    <span className="tg-field-icon-badge" style={{ background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8' }}>
+                      <Command size={16} />
+                    </span>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <h4 className="tg-field-title" style={{ color: '#38bdf8', margin: 0 }}>
+                          زر قائمة Menu الأزرق الرسمي (Official Telegram Commands)
+                        </h4>
+                        <span style={{
+                          fontSize: '0.68rem',
+                          background: 'rgba(56, 189, 248, 0.15)',
+                          color: '#38bdf8',
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          fontWeight: 700,
+                        }}>
+                          مفعّل ومسجّل تلقائياً
+                        </span>
+                      </div>
+                      <p className="tg-field-hint" style={{ marginTop: '4px' }}>
+                        يقوم محرك البوت تلقائياً بتسجيل هذه الأوامر الرسمية عبر Telegram Bot API، لتظهر في زر "Menu" الأزرق الدائم أسفل يسار الشاشة:
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  marginTop: '6px',
+                }}>
+                  {[
+                    { cmd: '/start', desc: '🚀 القائمة الرئيسية للمتجر وإعادة تشغيل الواجهة' },
+                    { cmd: '/products', desc: '🛍️ تصفح كتالوج المنتجات والباقات الرقمية' },
+                    { cmd: '/wallet', desc: '💳 طرق الدفع وشحن الرصيد الفوري' },
+                    { cmd: '/support', desc: '💬 الدعم الفني وخدمة العملاء المباشرة' },
+                    { cmd: '/rules', desc: '📜 شروط وضمان المتجر وسياسة الاسترجاع' },
+                    { cmd: '/track', desc: '📦 تتبع حالة طلبك برقم التتبع' },
+                  ].map((item, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '8px 12px',
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                        borderRadius: '8px',
+                        fontSize: '0.8rem',
+                      }}
+                    >
+                      <code style={{
+                        color: '#38bdf8',
+                        fontWeight: 700,
+                        direction: 'ltr',
+                        background: 'rgba(56, 189, 248, 0.1)',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                      }}>
+                        {item.cmd}
+                      </code>
+                      <span style={{ color: 'var(--text-secondary)', fontSize: '0.78rem' }}>
+                        {item.desc}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── RIGHT: LIVE INTERACTIVE PHONE MOCKUP (Sticky) ── */}
@@ -1369,6 +1717,12 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
             paymentMethods={paymentMethods}
             paymentTimeoutMinutes={paymentTimeoutMinutes}
             products={bot?.products || []}
+            bottomKeyboardEnabled={bottomKeyboardEnabled}
+            bottomBtn1={bottomBtn1}
+            bottomBtn2={bottomBtn2}
+            bottomBtn3={bottomBtn3}
+            bottomBtn4={bottomBtn4}
+            supportUsername={supportUsername}
           />
 
           <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textAlign: 'center', maxWidth: '280px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>

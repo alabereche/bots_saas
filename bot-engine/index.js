@@ -8,7 +8,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import crypto from 'crypto';
-import { Bot, InputFile, InlineKeyboard } from 'grammy';
+import { Bot, InputFile, InlineKeyboard, Keyboard } from 'grammy';
 import admin from 'firebase-admin';
 import fs from 'fs';
 import path from 'path';
@@ -1335,11 +1335,62 @@ async function handleStoreStart(ctx, currentConfig) {
   await sendStoreMainMenu(ctx, currentConfig);
 }
 
+function buildStoreReplyKeyboard(storeConfig = {}) {
+  const keyboard = new Keyboard();
+  const rows = storeConfig.bottomKeyboardRows;
+  if (Array.isArray(rows) && rows.length > 0) {
+    rows.forEach((r, rIdx) => {
+      if (Array.isArray(r) && r.length > 0) {
+        r.forEach(btn => {
+          if (btn && typeof btn === 'string' && btn.trim()) {
+            keyboard.text(btn.trim());
+          }
+        });
+        if (rIdx < rows.length - 1) {
+          keyboard.row();
+        }
+      }
+    });
+  } else {
+    // Default high-converting layout
+    keyboard
+      .text('🛍️ المنتجات').text('🚀 الرئيسية')
+      .row()
+      .text('💳 طرق الدفع').text('💬 الدعم');
+  }
+  return keyboard.resized().persistent();
+}
+
+async function syncBotTelegramCommands(botApi, storeConfig = {}) {
+  try {
+    const commands = [
+      { command: 'start', description: '🚀 القائمة الرئيسية للمتجر' },
+      { command: 'products', description: '🛍️ تصفح المنتجات والعروض' },
+      { command: 'wallet', description: '💳 طرق الدفع وشحن الرصيد' },
+      { command: 'rules', description: '📜 قوانين وشروط المتجر' },
+      { command: 'support', description: '💬 الدعم الفني وخدمة العملاء' },
+      { command: 'track', description: '📦 تتبع حالة طلبك' },
+    ];
+    await botApi.setMyCommands(commands).catch(() => {});
+    console.log('[Telegram Bot] Synced official bot commands (Menu button).');
+  } catch (err) {
+    console.warn('[Telegram Bot] setMyCommands notice:', err.message);
+  }
+}
+
 async function sendStoreMainMenu(ctx, currentConfig) {
   const storeConfig = currentConfig.telegramStore || {};
   const welcome = storeConfig.welcomeMessage ||
     `مرحباً بك في متجر *${currentConfig.businessName || currentConfig.botName}*!\nاختر الخدمة أو المنتج الذي تريده لتأكيد طلبك فوراً:`;
   const keyboard = buildStoreKeyboard(storeConfig);
+
+  // Send or update persistent Reply Keyboard so it stays docked at bottom of chat
+  if (storeConfig.bottomKeyboardEnabled !== false) {
+    const replyKb = buildStoreReplyKeyboard(storeConfig);
+    await ctx.reply('مرحباً بك! يمكنك استخدام الأزرار أدناه للتنقل السريع في أي وقت:', {
+      reply_markup: replyKb,
+    }).catch(() => {});
+  }
 
   const banner = storeConfig.bannerUrl ? resolveInputMedia(storeConfig.bannerUrl) : null;
 
@@ -1377,6 +1428,9 @@ async function startBot(config) {
     // Register in activeBots immediately to prevent concurrent duplicate instances
     activeBots.set(config.id, { bot, config });
 
+    // Sync official Telegram Menu commands
+    syncBotTelegramCommands(bot.api, config.telegramStore);
+
     bot.command('start', async (ctx) => {
       const liveEntry = activeBots.get(config.id);
       const currentConfig = (liveEntry && liveEntry.config) ? liveEntry.config : config;
@@ -1391,6 +1445,65 @@ async function startBot(config) {
         ? `مرحباً بك. أنا ${config.botName}، مساعدك الآلي من ${config.businessName}. كيف يمكنني مساعدتك اليوم؟`
         : `أهلاً وسهلاً بك. أنا ${config.botName} من ${config.businessName}. كيف يمكنني مساعدتك اليوم؟`;
       await ctx.reply(greeting);
+    });
+
+    // ── Dedicated Bot Commands (Menu Button) ──
+    bot.command('products', async (ctx) => {
+      const liveEntry = activeBots.get(config.id);
+      const currentConfig = (liveEntry && liveEntry.config) ? liveEntry.config : config;
+      return handleStoreStart(ctx, currentConfig);
+    });
+
+    bot.command('wallet', async (ctx) => {
+      const liveEntry = activeBots.get(config.id);
+      const currentConfig = (liveEntry && liveEntry.config) ? liveEntry.config : config;
+      const storeConfig = currentConfig.telegramStore || {};
+      const walletText = storeConfig.walletInfo ||
+        '*معلومات وطرق الدفع المعتمدة:*\n\n• بريدي موب (BaridiMob)\n• بينانس (Binance Pay / USDT)\n• الحساب البريدي الجاري (CCP)\n\nبعد التحويل، يرجى إرسال صورة وصل الدفع أو معرف العملية هنا لتأكيد طلبك فوراً!';
+      const kb = new InlineKeyboard().text('🛍️ تصفح المنتجات الآن', 'tgstore_main');
+      await ctx.reply(walletText, { reply_markup: kb, parse_mode: 'Markdown' }).catch(() => ctx.reply(walletText, { reply_markup: kb }));
+    });
+
+    bot.command('rules', async (ctx) => {
+      const liveEntry = activeBots.get(config.id);
+      const currentConfig = (liveEntry && liveEntry.config) ? liveEntry.config : config;
+      const storeConfig = currentConfig.telegramStore || {};
+      const rules = storeConfig.rulesText ||
+        '*قوانين وشروط المتجر والضمان:*\n\n1. جميع المنتجات والحسابات أصلية ومضمونة.\n2. التسليم يتم فور مراجعة وصل الدفع.\n3. الدعم متوفر لمساعدتك في أي وقت.';
+      const kb = new InlineKeyboard().text('🔙 العودة للقائمة الرئيسية', 'tgstore_main');
+      await ctx.reply(rules, { reply_markup: kb, parse_mode: 'Markdown' }).catch(() => ctx.reply(rules, { reply_markup: kb }));
+    });
+
+    bot.command('support', async (ctx) => {
+      const liveEntry = activeBots.get(config.id);
+      const currentConfig = (liveEntry && liveEntry.config) ? liveEntry.config : config;
+      const storeConfig = currentConfig.telegramStore || {};
+      let supportUser = storeConfig.supportUsername || '';
+      if (supportUser.startsWith('@')) supportUser = supportUser.replace('@', '');
+      const supportLink = supportUser ? `https://t.me/${supportUser}` : '';
+      const supportText =
+        `💬 *خدمة العملاء والدعم الفني*\n` +
+        `━━━━━━━━━━━━━━━━━━\n` +
+        `فريق الدعم الفني متواجد لمساعدتك والإجابة على أي استفسار حول مشترياتك وتسليم طلباتك.\n\n` +
+        (supportUser ? `👤 *حساب الدعم المباشر:* @${supportUser}\n` : '') +
+        `⏰ *ساعات العمل:* متاح على مدار الساعة.`;
+
+      const supKb = new InlineKeyboard();
+      if (supportLink) supKb.url('💬 تواصل مع الدعم مباشرة', supportLink).row();
+      supKb.text('🔙 العودة للقائمة الرئيسية', 'tgstore_main');
+      await ctx.reply(supportText, { reply_markup: supKb, parse_mode: 'Markdown' }).catch(() => ctx.reply(supportText, { reply_markup: supKb }));
+    });
+
+    bot.command('track', async (ctx) => {
+      const liveEntry = activeBots.get(config.id);
+      const currentConfig = (liveEntry && liveEntry.config) ? liveEntry.config : config;
+      const orders = await findOrdersForTracking(currentConfig.id, ctx.from.id, '');
+      if (orders && orders.length > 0) {
+        const reply = formatMultipleOrdersList(orders, 'telegram_store');
+        await ctx.reply(reply, { parse_mode: 'Markdown' }).catch(() => ctx.reply(reply));
+      } else {
+        await ctx.reply('📦 لم يتم العثور على طلبات سابقة. يمكنك إرسال رقم التتبع أو مرجع الطلب (مثل #53880) هنا في أي وقت.');
+      }
     });
 
     bot.on('callback_query:data', async (ctx) => {
@@ -1973,6 +2086,61 @@ async function startBot(config) {
       // 0 LLM Calls — Zero Token Waste — No AI Hallucinations
       // ═════════════════════════════════════════════════════════════════
       if (isStoreMode) {
+        // 0. Navigation commands & Persistent Bottom Keyboard clicks
+        if (userMessage && !isPhoto) {
+          const cleanText = userMessage.trim();
+
+          // A. Products & Main Menu
+          if (/^(🛍️|🛒|📦)?\s*(المنتجات|تصفح المنتجات|كتالوج|products|catalog|المتجر)/i.test(cleanText) ||
+              /^(🚀|🏠|⚡)?\s*(الرئيسية|القائمة الرئيسية|بداية|start|menu|main menu)/i.test(cleanText)) {
+            await sendStoreMainMenu(ctx, currentConfig);
+            return;
+          }
+
+          // B. Wallet & Payment Methods
+          if (/^(💳|💰|👛|💵)?\s*(طرق الدفع|وسائل الدفع|شحن الرصيد|المحفظة|wallet|top up|pay)/i.test(cleanText)) {
+            const walletText = storeConfig.walletInfo ||
+              '*معلومات وطرق الدفع المعتمدة:*\n\n• بريدي موب (BaridiMob)\n• بينانس (Binance Pay / USDT)\n• الحساب البريدي الجاري (CCP)\n\nبعد التحويل، يرجى إرسال صورة وصل الدفع أو معرف العملية هنا لتأكيد طلبك فوراً!';
+            const kb = new InlineKeyboard()
+              .text('🛍️ تصفح المنتجات الآن', 'tgstore_main')
+              .row()
+              .text('🔙 العودة للقائمة الرئيسية', 'tgstore_main');
+            await ctx.reply(walletText, { reply_markup: kb, parse_mode: 'Markdown' }).catch(() => ctx.reply(walletText, { reply_markup: kb }));
+            return;
+          }
+
+          // C. Rules & Guarantees
+          if (/^(📜|⚖️|🛡️)?\s*(قوانين|شروط|الشروط|الضمان|سياسة|rules|terms)/i.test(cleanText)) {
+            const rules = storeConfig.rulesText ||
+              '*قوانين وشروط المتجر والضمان:*\n\n1. جميع المنتجات والحسابات أصلية ومضمونة.\n2. التسليم يتم فور مراجعة وصل الدفع.\n3. الدعم متوفر لمساعدتك في أي وقت.';
+            const kb = new InlineKeyboard().text('🔙 العودة للقائمة الرئيسية', 'tgstore_main');
+            await ctx.reply(rules, { reply_markup: kb, parse_mode: 'Markdown' }).catch(() => ctx.reply(rules, { reply_markup: kb }));
+            return;
+          }
+
+          // D. Support / Help
+          if (/^(💬|🎧|📞|🆘)?\s*(الدعم|الدعم الفني|خدمة العملاء|مساعدة|تواصل|support|help)/i.test(cleanText)) {
+            let supportUser = storeConfig.supportUsername || '';
+            if (supportUser.startsWith('@')) supportUser = supportUser.replace('@', '');
+            const supportLink = supportUser ? `https://t.me/${supportUser}` : '';
+            const supportText =
+              `💬 *خدمة العملاء والدعم الفني*\n` +
+              `━━━━━━━━━━━━━━━━━━\n` +
+              `فريق الدعم الفني متواجد لمساعدتك والإجابة على أي استفسار حول مشترياتك وتسليم طلباتك.\n\n` +
+              (supportUser ? `👤 *حساب الدعم المباشر:* @${supportUser}\n` : '') +
+              `⏰ *ساعات العمل:* متاح على مدار الساعة.`;
+
+            const supKb = new InlineKeyboard();
+            if (supportLink) {
+              supKb.url('💬 تواصل مع الدعم مباشرة', supportLink).row();
+            }
+            supKb.text('🔙 العودة للقائمة الرئيسية', 'tgstore_main');
+
+            await ctx.reply(supportText, { reply_markup: supKb, parse_mode: 'Markdown' }).catch(() => ctx.reply(supportText, { reply_markup: supKb }));
+            return;
+          }
+        }
+
         // 1. Photo Receipt Detection
         if (isPhoto) {
           let receiptUrl = '';

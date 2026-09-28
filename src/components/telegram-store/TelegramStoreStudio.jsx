@@ -201,7 +201,6 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
   const [activeTab, setActiveTab] = useState('buttons'); // 'buttons' | 'channels' | 'payments' | 'settings' | 'menu_nav'
   const [mobileView, setMobileView] = useState('editor'); // 'editor' | 'preview'
   const [showVideoModal, setShowVideoModal] = useState(false);
-  const [showFloater, setShowFloater] = useState(true);
 
   // Modal State for Button Customization
   const [editingBtn, setEditingBtn] = useState(null); // { rIdx, bIdx, btn, isSubmenu, parentId }
@@ -943,6 +942,24 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
                     3 أزرار متجاورة (33%)
                   </button>
                 </div>
+              </div>
+
+              {/* Explainer Video Guide Trigger (exact location indicated in screenshot) */}
+              <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '1.25rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowVideoModal(true)}
+                  className="tg-guide-trigger-btn"
+                  title="انقر لمشاهدة فيديو توضيحي لكيفية عمل متجر التيليجرام"
+                >
+                  <div className="tg-guide-trigger-icon">
+                    <Play size={15} style={{ fill: '#38bdf8', color: '#38bdf8' }} />
+                  </div>
+                  <div className="tg-guide-trigger-text">
+                    <span className="tg-guide-trigger-title">كيف يعمل متجر التيليجرام؟</span>
+                    <span className="tg-guide-trigger-subtitle">دليل عمل متجرك ⚡ فيديو</span>
+                  </div>
+                </button>
               </div>
             </div>
           )}
@@ -1960,55 +1977,7 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
         </div>
       )}
 
-      {/* ── Floating Guide Widget (Corner card matching user screenshot) ── */}
-      {showFloater ? (
-        <div
-          onClick={() => setShowVideoModal(true)}
-          className="tg-floating-guide-card"
-          title="انقر لمشاهدة فيديو توضيحي لآلية عمل المتجر والتسليم الفوري"
-          dir="rtl"
-        >
-          {/* Close button to dismiss floater */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowFloater(false);
-            }}
-            className="tg-floating-guide-close"
-            title="إغلاق هذه النافذة"
-          >
-            <X size={12} />
-          </button>
 
-          {/* Glowing Play Icon */}
-          <div className="tg-floating-guide-play">
-            <span>▶</span>
-          </div>
-
-          {/* Texts matching user request & screenshot */}
-          <div className="tg-floating-guide-content">
-            <h4 className="tg-floating-guide-title">
-              كيف يعمل متجر التيليجرام؟
-            </h4>
-            <p className="tg-floating-guide-subtitle">
-              <span>دليل عمل متجرك</span>
-              <span className="tg-floating-guide-badge">⚡ فيديو</span>
-            </p>
-          </div>
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setShowFloater(true)}
-          className="tg-floating-guide-minimized"
-          title="إظهار نافذة دليل عمل متجر التيليجرام"
-          dir="rtl"
-        >
-          <Play size={13} style={{ fill: '#38bdf8', color: '#38bdf8' }} />
-          <span>دليل المتجر ⚡</span>
-        </button>
-      )}
 
       {/* Explainer Video Modal */}
       <TelegramStoreVideoModal

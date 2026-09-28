@@ -1084,14 +1084,17 @@ function generateOrderReference() {
 }
 
 const ICON_EMOJI_FALLBACK = {
+  // Brands & AI
   gemini: '⚡',
   chatgpt: '🤖',
+  openai: '🤖',
   claude: '🟣',
+  anthropic: '🟣',
   midjourney: '🎨',
   cursor: '💻',
   deepseek: '🐋',
-  perplexity: '🌐',
-  copilot: '🤖',
+  perplexity: '🔍',
+  copilot: '👾',
   mistral: '🌪️',
   elevenlabs: '🎙️',
   sora: '🎬',
@@ -1111,10 +1114,13 @@ const ICON_EMOJI_FALLBACK = {
   xbox: '🎮',
   steam: '🕹️',
   binance: '🔸',
+  tether: '₮',
   usdt: '₮',
+
+  // Lucide & General UI Icons
   zap: '⚡',
   gem: '💎',
-  wallet: '💼',
+  wallet: '👛',
   creditcard: '💳',
   shoppingbag: '🛍️',
   package: '📦',
@@ -1128,14 +1134,43 @@ const ICON_EMOJI_FALLBACK = {
   rocket: '🚀',
   tag: '🏷️',
   coins: '🪙',
+  shield: '🛡️',
   shieldcheck: '🛡️',
   award: '🏆',
   sparkles: '✨',
   bot: '🤖',
+  headphones: '🎧',
   headset: '🎧',
   gamepad: '🎮',
+  gamepad2: '🎮',
   message: '💬',
+  filetext: '📜',
+  megaphone: '📢',
+  key: '🔑',
+  globe: '🌐',
 };
+
+const KEYWORD_EMOJIS = [
+  { match: /gemini/i, emoji: '⚡' },
+  { match: /spotify/i, emoji: '🎵' },
+  { match: /chatgpt|gpt|openai/i, emoji: '🤖' },
+  { match: /claude|anthropic/i, emoji: '🟣' },
+  { match: /netflix/i, emoji: '🎬' },
+  { match: /youtube/i, emoji: '▶️' },
+  { match: /duolingo/i, emoji: '🦉' },
+  { match: /discord/i, emoji: '💬' },
+  { match: /canva/i, emoji: '🎨' },
+  { match: /midjourney/i, emoji: '🎨' },
+  { match: /playstation|psn|ps5|ps4/i, emoji: '🎮' },
+  { match: /xbox/i, emoji: '🎮' },
+  { match: /steam/i, emoji: '🕹️' },
+  { match: /pubg|free\s*fire|جواهر|شدات/i, emoji: '🔥' },
+  { match: /binance|usdt|كريبتو|عملات/i, emoji: '🔸' },
+  { match: /بريدي|baridimob|ccp|شحن|دفع|رصيد/i, emoji: '💳' },
+  { match: /دعم|تواصل|مساعدة|استفسار/i, emoji: '💎' },
+  { match: /قوانين|شروط|ضمان/i, emoji: '📜' },
+  { match: /إثبات|لوغز|قناة/i, emoji: '📢' },
+];
 
 function formatStoreButtonLabel(btn) {
   if (!btn) return 'زر';
@@ -1146,13 +1181,21 @@ function formatStoreButtonLabel(btn) {
   const hasEmoji = /\p{Extended_Pictographic}/u.test(rawText);
   if (hasEmoji) return rawText;
 
-  // If btn has an icon configured, prepend matching emoji for Telegram
+  // 1. If btn has an icon configured, prepend matching emoji for Telegram
   if (btn.icon) {
     let iconKey = String(btn.icon).toLowerCase().trim();
     if (iconKey.startsWith('si:')) iconKey = iconKey.replace('si:', '');
-    const emoji = ICON_EMOJI_FALLBACK[iconKey];
+    const cleanKey = iconKey.replace(/[^a-z0-9]/g, '');
+    const emoji = ICON_EMOJI_FALLBACK[iconKey] || ICON_EMOJI_FALLBACK[cleanKey];
     if (emoji) {
       return `${emoji} ${rawText}`;
+    }
+  }
+
+  // 2. Smart auto-detect from text keywords (e.g. "Spotify", "Gemini", etc.)
+  for (const item of KEYWORD_EMOJIS) {
+    if (item.match.test(rawText)) {
+      return `${item.emoji} ${rawText}`;
     }
   }
 

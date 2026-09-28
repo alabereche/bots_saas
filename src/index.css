@@ -6676,6 +6676,172 @@ body {
   transform: translateY(0);
 }
 
+/* Floating Guide Card Widget (Bottom corner pill/card matching user screenshot) */
+.tg-floating-guide-card {
+  position: fixed;
+  bottom: 24px;
+  right: calc(var(--sidebar-width, 260px) + 24px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #101524 !important;
+  border: 1px solid rgba(34, 158, 217, 0.45) !important;
+  border-radius: 18px;
+  padding: 10px 16px 10px 12px;
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.85), 0 0 25px rgba(34, 158, 217, 0.25);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: tgFloaterSlideUp 0.4s ease-out;
+  user-select: none;
+}
+
+@keyframes tgFloaterSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.tg-floating-guide-card:hover {
+  background: #141c30 !important;
+  border-color: rgba(34, 158, 217, 0.8) !important;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.95), 0 0 35px rgba(34, 158, 217, 0.45);
+  transform: translateY(-3px) scale(1.02);
+}
+
+.tg-floating-guide-play {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #0088cc 0%, #6366f1 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 13px;
+  box-shadow: 0 0 15px rgba(34, 158, 217, 0.6);
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+  padding-right: 1px;
+}
+
+.tg-floating-guide-card:hover .tg-floating-guide-play {
+  transform: scale(1.1);
+}
+
+.tg-floating-guide-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: right;
+}
+
+.tg-floating-guide-title {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+  font-family: inherit;
+}
+
+.tg-floating-guide-subtitle {
+  margin: 0;
+  font-size: 0.74rem;
+  color: #94a3b8;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+}
+
+.tg-floating-guide-badge {
+  color: #38bdf8;
+  font-weight: 800;
+}
+
+.tg-floating-guide-close {
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  transition: all 0.2s ease;
+}
+
+.tg-floating-guide-close:hover {
+  background: #e11d48;
+  border-color: #f43f5e;
+  color: #ffffff;
+  transform: scale(1.1);
+}
+
+.sidebar-collapsed .tg-floating-guide-card {
+  right: 96px;
+}
+
+.tg-floating-guide-minimized {
+  position: fixed;
+  bottom: 24px;
+  right: calc(var(--sidebar-width, 250px) + 24px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #0f172a !important;
+  border: 1px solid rgba(56, 189, 248, 0.4) !important;
+  border-radius: 9999px;
+  padding: 7px 16px;
+  color: #e2e8f0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.6), 0 0 15px rgba(34, 158, 217, 0.2);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: tgFloaterSlideUp 0.3s ease-out;
+  user-select: none;
+}
+
+.sidebar-collapsed .tg-floating-guide-minimized {
+  right: 96px;
+}
+
+.tg-floating-guide-minimized:hover {
+  background: #1e293b !important;
+  border-color: #38bdf8 !important;
+  transform: translateY(-2px);
+  color: #38bdf8;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7), 0 0 25px rgba(56, 189, 248, 0.35);
+}
+
+@media (max-width: 1024px) {
+  .tg-floating-guide-card {
+    right: 16px !important;
+    bottom: 80px !important;
+    padding: 8px 14px 8px 10px;
+  }
+
+  .tg-floating-guide-minimized {
+    right: 16px !important;
+    bottom: 80px !important;
+  }
+}
+
 /* Sub-tabs Navigation Strip */
 .tg-subtabs-nav {
   display: flex;

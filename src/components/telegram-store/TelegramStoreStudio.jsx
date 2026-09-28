@@ -539,20 +539,8 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
             className="tg-video-guide-btn"
             title="مشاهدة فيديو توضيحي لآلية عمل المتجر والتسليم الفوري"
           >
-            <span style={{
-              width: '18px',
-              height: '18px',
-              borderRadius: '50%',
-              background: '#0088cc',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#ffffff',
-              fontSize: '9px',
-              boxShadow: '0 0 8px rgba(34, 158, 217, 0.7)',
-              paddingRight: '1px',
-            }}>
-              ▶
+            <span className="tg-video-guide-play-icon">
+              <Play size={10} style={{ fill: 'currentColor', marginLeft: '1px' }} />
             </span>
             <span>شاهد كيف يعمل؟ (فيديو توضيحي)</span>
           </button>
@@ -942,24 +930,6 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
                     3 أزرار متجاورة (33%)
                   </button>
                 </div>
-              </div>
-
-              {/* Explainer Video Guide Trigger (exact location indicated in screenshot) */}
-              <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '1.25rem' }}>
-                <button
-                  type="button"
-                  onClick={() => setShowVideoModal(true)}
-                  className="tg-guide-trigger-btn"
-                  title="انقر لمشاهدة فيديو توضيحي لكيفية عمل متجر التيليجرام"
-                >
-                  <div className="tg-guide-trigger-icon">
-                    <Play size={15} style={{ fill: '#38bdf8', color: '#38bdf8' }} />
-                  </div>
-                  <div className="tg-guide-trigger-text">
-                    <span className="tg-guide-trigger-title">كيف يعمل متجر التيليجرام؟</span>
-                    <span className="tg-guide-trigger-subtitle">دليل عمل متجرك ⚡ فيديو</span>
-                  </div>
-                </button>
               </div>
             </div>
           )}

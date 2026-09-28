@@ -6646,6 +6646,36 @@ body {
   min-width: 0;
 }
 
+/* Explainer Video Guide Button */
+.tg-video-guide-btn {
+  background: linear-gradient(135deg, rgba(34, 158, 217, 0.16) 0%, rgba(99, 102, 241, 0.22) 100%) !important;
+  border: 1px solid rgba(34, 158, 217, 0.45) !important;
+  color: #38bdf8 !important;
+  border-radius: 999px;
+  padding: 0.52rem 1.15rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(34, 158, 217, 0.2);
+  transition: all 0.25s ease;
+  white-space: nowrap;
+}
+
+.tg-video-guide-btn:hover {
+  background: linear-gradient(135deg, rgba(34, 158, 217, 0.28) 0%, rgba(99, 102, 241, 0.35) 100%) !important;
+  border-color: rgba(34, 158, 217, 0.8) !important;
+  box-shadow: 0 4px 22px rgba(34, 158, 217, 0.45);
+  transform: translateY(-1px);
+  color: #ffffff !important;
+}
+
+.tg-video-guide-btn:active {
+  transform: translateY(0);
+}
+
 /* Sub-tabs Navigation Strip */
 .tg-subtabs-nav {
   display: flex;

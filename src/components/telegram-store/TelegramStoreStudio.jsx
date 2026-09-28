@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import TelegramPhoneMockup from './TelegramPhoneMockup';
 import StoreIcon, { stripEmojis } from './StoreIcons';
 import StoreIconPicker from './StoreIconPicker';
+import { TelegramStoreVideoModal } from './TelegramStoreVideoModal';
 import { useToast } from '../../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -11,6 +12,7 @@ import {
   Sparkles,
   CheckCircle2,
   XCircle,
+  Play,
   Plus,
   ArrowUp,
   ArrowDown,
@@ -198,6 +200,7 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('buttons'); // 'buttons' | 'channels' | 'payments' | 'settings' | 'menu_nav'
   const [mobileView, setMobileView] = useState('editor'); // 'editor' | 'preview'
+  const [showVideoModal, setShowVideoModal] = useState(false);
 
   // Modal State for Button Customization
   const [editingBtn, setEditingBtn] = useState(null); // { rIdx, bIdx, btn, isSubmenu, parentId }
@@ -528,6 +531,31 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
               <span>{enabled ? 'المتجر مفعّل' : 'المتجر معطّل'}</span>
             </span>
           </label>
+
+          {/* Explainer Video Guide Button */}
+          <button
+            type="button"
+            onClick={() => setShowVideoModal(true)}
+            className="tg-video-guide-btn"
+            title="مشاهدة فيديو توضيحي لآلية عمل المتجر والتسليم الفوري"
+          >
+            <span style={{
+              width: '18px',
+              height: '18px',
+              borderRadius: '50%',
+              background: '#0088cc',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#ffffff',
+              fontSize: '9px',
+              boxShadow: '0 0 8px rgba(34, 158, 217, 0.7)',
+              paddingRight: '1px',
+            }}>
+              ▶
+            </span>
+            <span>شاهد كيف يعمل؟ (فيديو توضيحي)</span>
+          </button>
 
           {/* Save Button */}
           <button
@@ -1930,6 +1958,12 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
           </button>
         </div>
       )}
+
+      {/* Explainer Video Modal */}
+      <TelegramStoreVideoModal
+        isOpen={showVideoModal}
+        onClose={() => setShowVideoModal(false)}
+      />
     </div>
   );
 }

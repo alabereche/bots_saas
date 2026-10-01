@@ -170,6 +170,27 @@ export function serializeStoreRowsForFirestore(rows) {
   return { rowsJson };
 }
 
+// Helper to safely parse bottom keyboard rows without nested array issues
+export function parseBottomKeyboardRows(storeConfig) {
+  if (!storeConfig) return null;
+  if (storeConfig.bottomKeyboardRowsJson) {
+    try {
+      const parsed = JSON.parse(storeConfig.bottomKeyboardRowsJson);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch { /* fallback */ }
+  }
+  if (Array.isArray(storeConfig.bottomKeyboardRows) && storeConfig.bottomKeyboardRows.length > 0) {
+    return storeConfig.bottomKeyboardRows;
+  }
+  if (storeConfig.bottomBtn1 || storeConfig.bottomBtn2 || storeConfig.bottomBtn3 || storeConfig.bottomBtn4) {
+    return [
+      [storeConfig.bottomBtn1 || '🛍️ المنتجات', storeConfig.bottomBtn2 || '🚀 الرئيسية'],
+      [storeConfig.bottomBtn3 || '💳 طرق الدفع', storeConfig.bottomBtn4 || '💬 الدعم'],
+    ];
+  }
+  return null;
+}
+
 export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) {
   const toast = useToast();
   const navigate = useNavigate();
@@ -188,10 +209,11 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
   const [paymentMethods, setPaymentMethods] = useState(() => parsePaymentMethods(initialStore));
   const [bottomKeyboardEnabled, setBottomKeyboardEnabled] = useState(initialStore.bottomKeyboardEnabled ?? true);
   const [supportUsername, setSupportUsername] = useState(initialStore.supportUsername || '');
-  const [bottomBtn1, setBottomBtn1] = useState(initialStore.bottomKeyboardRows?.[0]?.[0] || '🛍️ المنتجات');
-  const [bottomBtn2, setBottomBtn2] = useState(initialStore.bottomKeyboardRows?.[0]?.[1] || '🚀 الرئيسية');
-  const [bottomBtn3, setBottomBtn3] = useState(initialStore.bottomKeyboardRows?.[1]?.[0] || '💳 طرق الدفع');
-  const [bottomBtn4, setBottomBtn4] = useState(initialStore.bottomKeyboardRows?.[1]?.[1] || '💬 الدعم');
+  const initialBottomRows = parseBottomKeyboardRows(initialStore);
+  const [bottomBtn1, setBottomBtn1] = useState(initialStore.bottomBtn1 || initialBottomRows?.[0]?.[0] || '🛍️ المنتجات');
+  const [bottomBtn2, setBottomBtn2] = useState(initialStore.bottomBtn2 || initialBottomRows?.[0]?.[1] || '🚀 الرئيسية');
+  const [bottomBtn3, setBottomBtn3] = useState(initialStore.bottomBtn3 || initialBottomRows?.[1]?.[0] || '💳 طرق الدفع');
+  const [bottomBtn4, setBottomBtn4] = useState(initialStore.bottomBtn4 || initialBottomRows?.[1]?.[1] || '💬 الدعم');
   const [rows, setRows] = useState(() => {
     const parsed = parseStoreRows(initialStore);
     return (parsed && parsed.length > 0) ? parsed : STORE_TEMPLATES.subscriptions.rows;
@@ -229,11 +251,17 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
       if (s.paymentTimeoutMinutes !== undefined) setPaymentTimeoutMinutes(s.paymentTimeoutMinutes);
       if (s.bottomKeyboardEnabled !== undefined) setBottomKeyboardEnabled(s.bottomKeyboardEnabled);
       if (s.supportUsername !== undefined) setSupportUsername(s.supportUsername);
-      if (Array.isArray(s.bottomKeyboardRows) && s.bottomKeyboardRows.length > 0) {
-        if (s.bottomKeyboardRows[0]?.[0]) setBottomBtn1(s.bottomKeyboardRows[0][0]);
-        if (s.bottomKeyboardRows[0]?.[1]) setBottomBtn2(s.bottomKeyboardRows[0][1]);
-        if (s.bottomKeyboardRows[1]?.[0]) setBottomBtn3(s.bottomKeyboardRows[1][0]);
-        if (s.bottomKeyboardRows[1]?.[1]) setBottomBtn4(s.bottomKeyboardRows[1][1]);
+      const bRows = parseBottomKeyboardRows(s);
+      if (bRows && bRows.length > 0) {
+        if (bRows[0]?.[0]) setBottomBtn1(bRows[0][0]);
+        if (bRows[0]?.[1]) setBottomBtn2(bRows[0][1]);
+        if (bRows[1]?.[0]) setBottomBtn3(bRows[1][0]);
+        if (bRows[1]?.[1]) setBottomBtn4(bRows[1][1]);
+      } else {
+        if (s.bottomBtn1) setBottomBtn1(s.bottomBtn1);
+        if (s.bottomBtn2) setBottomBtn2(s.bottomBtn2);
+        if (s.bottomBtn3) setBottomBtn3(s.bottomBtn3);
+        if (s.bottomBtn4) setBottomBtn4(s.bottomBtn4);
       }
       const parsedMethods = parsePaymentMethods(s);
       if (parsedMethods && parsedMethods.length > 0) setPaymentMethods(parsedMethods);
@@ -408,10 +436,14 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
         })),
         bottomKeyboardEnabled: !!bottomKeyboardEnabled,
         supportUsername: supportUsername.trim().replace(/^@/, ''),
-        bottomKeyboardRows: [
+        bottomBtn1: bottomBtn1.trim() || '🛍️ المنتجات',
+        bottomBtn2: bottomBtn2.trim() || '🚀 الرئيسية',
+        bottomBtn3: bottomBtn3.trim() || '💳 طرق الدفع',
+        bottomBtn4: bottomBtn4.trim() || '💬 الدعم',
+        bottomKeyboardRowsJson: JSON.stringify([
           [bottomBtn1.trim() || '🛍️ المنتجات', bottomBtn2.trim() || '🚀 الرئيسية'],
           [bottomBtn3.trim() || '💳 طرق الدفع', bottomBtn4.trim() || '💬 الدعم'],
-        ],
+        ]),
         rowsJson,
         updatedAt: new Date().toISOString(),
       };

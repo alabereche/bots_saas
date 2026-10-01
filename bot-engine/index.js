@@ -1337,7 +1337,22 @@ async function handleStoreStart(ctx, currentConfig) {
 
 function buildStoreReplyKeyboard(storeConfig = {}) {
   const keyboard = new Keyboard();
-  const rows = storeConfig.bottomKeyboardRows;
+  let rows = null;
+  if (storeConfig.bottomKeyboardRowsJson) {
+    try {
+      const parsed = JSON.parse(storeConfig.bottomKeyboardRowsJson);
+      if (Array.isArray(parsed) && parsed.length > 0) rows = parsed;
+    } catch (e) {}
+  }
+  if (!rows && Array.isArray(storeConfig.bottomKeyboardRows) && storeConfig.bottomKeyboardRows.length > 0) {
+    rows = storeConfig.bottomKeyboardRows;
+  }
+  if (!rows && (storeConfig.bottomBtn1 || storeConfig.bottomBtn2 || storeConfig.bottomBtn3 || storeConfig.bottomBtn4)) {
+    rows = [
+      [storeConfig.bottomBtn1 || '🛍️ المنتجات', storeConfig.bottomBtn2 || '🚀 الرئيسية'],
+      [storeConfig.bottomBtn3 || '💳 طرق الدفع', storeConfig.bottomBtn4 || '💬 الدعم']
+    ];
+  }
   if (Array.isArray(rows) && rows.length > 0) {
     rows.forEach((r, rIdx) => {
       if (Array.isArray(r) && r.length > 0) {
@@ -2089,16 +2104,23 @@ async function startBot(config) {
         // 0. Navigation commands & Persistent Bottom Keyboard clicks
         if (userMessage && !isPhoto) {
           const cleanText = userMessage.trim();
+          const b1 = (storeConfig.bottomBtn1 || '').trim();
+          const b2 = (storeConfig.bottomBtn2 || '').trim();
+          const b3 = (storeConfig.bottomBtn3 || '').trim();
+          const b4 = (storeConfig.bottomBtn4 || '').trim();
 
           // A. Products & Main Menu
-          if (/^(🛍️|🛒|📦)?\s*(المنتجات|تصفح المنتجات|كتالوج|products|catalog|المتجر)/i.test(cleanText) ||
+          if ((b1 && cleanText === b1) ||
+              (b2 && cleanText === b2) ||
+              /^(🛍️|🛒|📦)?\s*(المنتجات|تصفح المنتجات|كتالوج|products|catalog|المتجر)/i.test(cleanText) ||
               /^(🚀|🏠|⚡)?\s*(الرئيسية|القائمة الرئيسية|بداية|start|menu|main menu)/i.test(cleanText)) {
             await sendStoreMainMenu(ctx, currentConfig);
             return;
           }
 
           // B. Wallet & Payment Methods
-          if (/^(💳|💰|👛|💵)?\s*(طرق الدفع|وسائل الدفع|شحن الرصيد|المحفظة|wallet|top up|pay)/i.test(cleanText)) {
+          if ((b3 && cleanText === b3) ||
+              /^(💳|💰|👛|💵)?\s*(طرق الدفع|وسائل الدفع|شحن الرصيد|المحفظة|wallet|top up|pay)/i.test(cleanText)) {
             const walletText = storeConfig.walletInfo ||
               '*معلومات وطرق الدفع المعتمدة:*\n\n• بريدي موب (BaridiMob)\n• بينانس (Binance Pay / USDT)\n• الحساب البريدي الجاري (CCP)\n\nبعد التحويل، يرجى إرسال صورة وصل الدفع أو معرف العملية هنا لتأكيد طلبك فوراً!';
             const kb = new InlineKeyboard()
@@ -2119,7 +2141,8 @@ async function startBot(config) {
           }
 
           // D. Support / Help
-          if (/^(💬|🎧|📞|🆘)?\s*(الدعم|الدعم الفني|خدمة العملاء|مساعدة|تواصل|support|help)/i.test(cleanText)) {
+          if ((b4 && cleanText === b4) ||
+              /^(💬|🎧|📞|🆘)?\s*(الدعم|الدعم الفني|خدمة العملاء|مساعدة|تواصل|support|help)/i.test(cleanText)) {
             let supportUser = storeConfig.supportUsername || '';
             if (supportUser.startsWith('@')) supportUser = supportUser.replace('@', '');
             const supportLink = supportUser ? `https://t.me/${supportUser}` : '';

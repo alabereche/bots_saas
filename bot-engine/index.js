@@ -1035,28 +1035,11 @@ function parseStoreRows(input) {
 
 const DEFAULT_STORE_PAYMENT_METHODS = [
   {
-    id: 'binance',
-    name: '🔸 الدفع عبر Binance',
-    details: 'معرف الدفع (Binance Pay ID): 123456789\nأو تحويل USDT على شبكة BEP20:\n0x1234567890abcdef1234567890abcdef12345678',
+    id: 'pm_custom',
+    name: 'وسيلة الدفع',
+    details: 'يرجى التواصل مع إدارة المتجر للحصول على تفاصيل الدفع.',
+    afterPaymentInstruction: '',
     enabled: true,
-  },
-  {
-    id: 'baridimob',
-    name: '💳 بريدي موب (BaridiMob)',
-    details: 'RIP: 00799999000123456789\nالاسم: MOHAMED ALGERIA',
-    enabled: true,
-  },
-  {
-    id: 'ccp',
-    name: '📬 الحساب البريدي الجاري (CCP)',
-    details: 'رقم الحساب: 1234567 مفتاح 89\nالاسم: محمد الجزائري',
-    enabled: true,
-  },
-  {
-    id: 'usdt',
-    name: '₮ العملات الرقمية USDT (TRC20)',
-    details: 'العنوان: TXYz1234567890abcdef1234567890abcdef\nالشبكة: TRC20 (Tron)',
-    enabled: false,
   },
 ];
 
@@ -1072,6 +1055,18 @@ function getStorePaymentMethods(storeConfig) {
     return storeConfig.paymentMethods;
   }
   return DEFAULT_STORE_PAYMENT_METHODS;
+}
+
+function getStoreWalletInfo(storeConfig = {}) {
+  if (storeConfig.walletInfo && storeConfig.walletInfo.trim()) {
+    return storeConfig.walletInfo.trim();
+  }
+  const methods = getStorePaymentMethods(storeConfig).filter(m => m.enabled !== false && (m.name || m.details));
+  if (methods.length > 0) {
+    const list = methods.map(m => `• *${m.name || 'طريقة دفع'}*:\n${m.details || 'لا توجد تفاصيل'}`).join('\n\n');
+    return `💳 *طرق الدفع والشحن المتوفرة:*\n\n${list}\n\nبعد التحويل، يرجى إرسال صورة وصل الدفع هنا في المحادثة مباشرة لتأكيد طلبك وتثبيته فوراً!`;
+  }
+  return '💳 *طرق الدفع:*\nيرجى التواصل مع إدارة المتجر لمعرفة وسائل الدفع المعتمدة.';
 }
 
 function generateOrderReference() {
@@ -1172,61 +1167,110 @@ const KEYWORD_EMOJIS = [
   { match: /إثبات|لوغز|قناة/i, emoji: '📢' },
 ];
 
-function formatStoreButtonLabel(btn) {
+function formatStorePrice(price, storeConfig = {}) {
+  if (!price && price !== 0) return 'سعر خاص';
+  const str = String(price).trim();
+  if (!str) return 'سعر خاص';
+  // Check if string already contains a known currency symbol or word
+  if (/\$|€|£|دج|DZD|USD|EUR|SAR|ر\.س|درهم|USDT/i.test(str)) {
+    return str;
+  }
+  const cur = (storeConfig.currency || 'دج').trim();
+  return `${str} ${cur}`;
+}
+
+function formatStoreButtonLabel(btn, storeConfig = {}) {
   if (!btn) return 'زر';
-  const rawText = (btn.text || '').trim();
+  let rawText = (btn.text || '').trim();
   if (!rawText) return 'زر';
 
   // Check if button text already contains an emoji
   const hasEmoji = /\p{Extended_Pictographic}/u.test(rawText);
-  if (hasEmoji) return rawText;
-
-  // 1. If btn has an icon configured, prepend matching emoji for Telegram
-  if (btn.icon) {
-    let iconKey = String(btn.icon).toLowerCase().trim();
-    if (iconKey.startsWith('si:')) iconKey = iconKey.replace('si:', '');
-    const cleanKey = iconKey.replace(/[^a-z0-9]/g, '');
-    const emoji = ICON_EMOJI_FALLBACK[iconKey] || ICON_EMOJI_FALLBACK[cleanKey];
-    if (emoji) {
-      return `${emoji} ${rawText}`;
+  let prefix = '';
+  if (!hasEmoji) {
+    if (btn.icon) {
+      let iconKey = String(btn.icon).toLowerCase().trim();
+      if (iconKey.startsWith('si:')) iconKey = iconKey.replace('si:', '');
+      const cleanKey = iconKey.replace(/[^a-z0-9]/g, '');
+      const emoji = ICON_EMOJI_FALLBACK[iconKey] || ICON_EMOJI_FALLBACK[cleanKey];
+      if (emoji) {
+        prefix = `${emoji} `;
+      }
+    }
+    if (!prefix) {
+      for (const item of KEYWORD_EMOJIS) {
+        if (item.match.test(rawText)) {
+          prefix = `${item.emoji} `;
+          break;
+        }
+      }
     }
   }
 
-  // 2. Smart auto-detect from text keywords (e.g. "Spotify", "Gemini", etc.)
-  for (const item of KEYWORD_EMOJIS) {
-    if (item.match.test(rawText)) {
-      return `${item.emoji} ${rawText}`;
+  let label = `${prefix}${rawText}`;
+
+  // If this is a product button, append stock / availability badge
+  if (btn.action === 'product') {
+    const isOutOfStock = btn.isAvailable === false || btn.stockStatus === 'out_of_stock' || btn.stockCount === 0;
+    if (isOutOfStock) {
+      if (!label.includes('نفدت') && !label.includes('غير متوفر')) {
+        label += ' | ❌ نفدت الكمية';
+      }
+    } else if (btn.stockCount !== undefined && btn.stockCount !== null && String(btn.stockCount).trim() !== '') {
+      const stockBadge = `📦 ${String(btn.stockCount).trim()}`;
+      if (!label.includes(stockBadge) && !label.includes('متوفر')) {
+        label += ` | ${stockBadge}`;
+      }
     }
   }
 
-  return rawText;
+  return label;
 }
 
-function buildStoreKeyboard(rowsInput = []) {
+function buildStoreKeyboard(rowsInput = [], storeConfig = {}) {
   const keyboard = new InlineKeyboard();
   const rows = parseStoreRows(rowsInput);
   if (!Array.isArray(rows) || rows.length === 0) return keyboard;
+
+  if (rowsInput && typeof rowsInput === 'object' && !Array.isArray(rowsInput) && !storeConfig.currency) {
+    storeConfig = rowsInput;
+  }
 
   rows.forEach((row, rIdx) => {
     if (!Array.isArray(row) || row.length === 0) return;
     row.forEach((btn) => {
       if (!btn || !btn.id) return;
-      const label = formatStoreButtonLabel(btn);
+      const label = formatStoreButtonLabel(btn, storeConfig);
+
+      // Determine Telegram Bot API button style (Bot API 9.4+)
+      let btnStyle = undefined;
+      if (btn.buttonStyle && btn.buttonStyle !== 'auto' && btn.buttonStyle !== 'default') {
+        btnStyle = btn.buttonStyle;
+      } else if (btn.action === 'product') {
+        const isOutOfStock = btn.isAvailable === false || btn.stockStatus === 'out_of_stock' || btn.stockCount === 0;
+        btnStyle = isOutOfStock ? 'danger' : 'success';
+      }
+
       if (btn.action === 'url' && btn.url) {
         const link = btn.url.startsWith('http') ? btn.url : `https://${btn.url}`;
-        keyboard.url(label, link);
-      } else if (btn.action === 'submenu') {
-        keyboard.text(label, `tgstore_sub_${btn.id}`);
-      } else if (btn.action === 'product') {
-        keyboard.text(label, `tgstore_prod_${btn.id}`);
-      } else if (btn.action === 'wallet') {
-        keyboard.text(label, 'tgstore_wallet');
-      } else if (btn.action === 'rules') {
-        keyboard.text(label, 'tgstore_rules');
-      } else if (btn.action === 'custom_message') {
-        keyboard.text(label, `tgstore_msg_${btn.id}`);
+        if (btnStyle) {
+          keyboard.add({ text: label, url: link, style: btnStyle });
+        } else {
+          keyboard.url(label, link);
+        }
       } else {
-        keyboard.text(label, `tgstore_btn_${btn.id}`);
+        let callbackData = `tgstore_btn_${btn.id}`;
+        if (btn.action === 'submenu') callbackData = `tgstore_sub_${btn.id}`;
+        else if (btn.action === 'product') callbackData = `tgstore_prod_${btn.id}`;
+        else if (btn.action === 'wallet') callbackData = 'tgstore_wallet';
+        else if (btn.action === 'rules') callbackData = 'tgstore_rules';
+        else if (btn.action === 'custom_message') callbackData = `tgstore_msg_${btn.id}`;
+
+        if (btnStyle) {
+          keyboard.add({ text: label, callback_data: callbackData, style: btnStyle });
+        } else {
+          keyboard.text(label, callbackData);
+        }
       }
     });
     if (rIdx < rows.length - 1) {
@@ -1473,8 +1517,7 @@ async function startBot(config) {
       const liveEntry = activeBots.get(config.id);
       const currentConfig = (liveEntry && liveEntry.config) ? liveEntry.config : config;
       const storeConfig = currentConfig.telegramStore || {};
-      const walletText = storeConfig.walletInfo ||
-        '*معلومات وطرق الدفع المعتمدة:*\n\n• بريدي موب (BaridiMob)\n• بينانس (Binance Pay / USDT)\n• الحساب البريدي الجاري (CCP)\n\nبعد التحويل، يرجى إرسال صورة وصل الدفع أو معرف العملية هنا لتأكيد طلبك فوراً!';
+      const walletText = getStoreWalletInfo(storeConfig);
       const kb = new InlineKeyboard().text('🛍️ تصفح المنتجات الآن', 'tgstore_main');
       await ctx.reply(walletText, { reply_markup: kb, parse_mode: 'Markdown' }).catch(() => ctx.reply(walletText, { reply_markup: kb }));
     });
@@ -1554,8 +1597,7 @@ async function startBot(config) {
         }
 
         if (data === 'tgstore_wallet') {
-          const walletText = storeConfig.walletInfo ||
-            '*معلومات وطرق الدفع المعتمدة:*\n\n• بريدي موب (BaridiMob)\n• بينانس (Binance Pay / USDT)\n• الحساب البريدي الجاري (CCP)\n\nبعد التحويل، يرجى إرسال صورة وصل الدفع أو معرف العملية (Binance Pay ID / TxID) هنا في المحادثة مباشرة لتأكيد طلبك فوراً!';
+          const walletText = getStoreWalletInfo(storeConfig);
           const kb = new InlineKeyboard().text('العودة للقائمة الرئيسية', 'tgstore_main');
           await ctx.reply(walletText, { reply_markup: kb, parse_mode: 'Markdown' }).catch(() => {
             ctx.reply(walletText, { reply_markup: kb });
@@ -1591,11 +1633,37 @@ async function startBot(config) {
           const prodId = data.replace('tgstore_prod_', '');
           const btn = findStoreButton(storeConfig, prodId);
           if (btn) {
-            const priceStr = btn.productPrice ? `${btn.productPrice} دج` : 'سعر خاص';
+            const isOutOfStock = btn.isAvailable === false || btn.stockStatus === 'out_of_stock' || btn.stockCount === 0;
+            if (isOutOfStock) {
+              const outOfStockText =
+                `🔴 *عذراً، هذا المنتج غير متوفر حالياً!*\n` +
+                `━━━━━━━━━━━━━━━━━━\n` +
+                `*المنتج:* ${btn.text}\n` +
+                `⚠️ *الحالة:* نفدت الكمية من المخزن.\n\n` +
+                `يرجى مراجعة إدارة المتجر أو اختيار باقة أخرى متوفرة!`;
+
+              let supportUser = storeConfig.supportUsername || '';
+              if (supportUser.startsWith('@')) supportUser = supportUser.replace('@', '');
+              const supportLink = supportUser ? `https://t.me/${supportUser}` : '';
+
+              const oosKb = new InlineKeyboard();
+              if (supportLink) {
+                oosKb.url('💬 استفسر من الدعم عن التوفر', supportLink).row();
+              }
+              oosKb.text('🔙 العودة لقائمة المتجر', 'tgstore_main');
+
+              await ctx.reply(outOfStockText, { reply_markup: oosKb, parse_mode: 'Markdown' }).catch(() => {
+                ctx.reply(outOfStockText, { reply_markup: oosKb });
+              });
+              return;
+            }
+
+            const priceStr = formatStorePrice(btn.productPrice, storeConfig);
             const prodText =
               `*${btn.text}*\n` +
               `━━━━━━━━━━━━━━━━━━\n` +
               `*السعر:* ${priceStr}\n` +
+              (btn.stockCount ? `*الكمية المتوفرة:* 📦 ${btn.stockCount} قطعة\n` : '') +
               (btn.customMessage ? `\n${btn.customMessage}\n` : '') +
               `\nللتأكيد الفوري اضغط على زر «شراء الآن» أدناه:`;
 
@@ -1677,7 +1745,7 @@ async function startBot(config) {
           }
 
           // 3. Format message exactly matching the reference style
-          const formattedPrice = itemPrice ? `${itemPrice}${itemPrice.includes('$') || itemPrice.includes('دج') ? '' : '$'}` : 'سعر خاص';
+          const formattedPrice = formatStorePrice(itemPrice, storeConfig);
           const summaryText =
             `🛒 *طلب جديد*\n\n` +
             `🧾 *الطلب:* #${trackingCode || '53880'}\n` +
@@ -1797,7 +1865,17 @@ async function startBot(config) {
             }).catch(() => {});
           }
 
-          const priceStr = orderData?.price ? `${orderData.price}${orderData.price.includes('$') || orderData.price.includes('دج') ? '' : '$'}` : 'سعر خاص';
+          const priceStr = formatStorePrice(orderData?.price, storeConfig);
+
+          // User-customized post-payment proof instructions
+          let afterPaymentText = (selectedMethod.afterPaymentInstruction || '').trim();
+          if (!afterPaymentText && storeConfig.afterPaymentInstructions) {
+            afterPaymentText = storeConfig.afterPaymentInstructions.trim();
+          }
+          if (!afterPaymentText) {
+            afterPaymentText = 'أرسل صورة الوصل أو إثبات التحويل هنا في المحادثة مباشرة لتأكيد طلبك وتثبيته فوراً!';
+          }
+
           const payText =
             `💳 *تفاصيل الدفع — ${selectedMethod.name}*\n` +
             `━━━━━━━━━━━━━━━━━━\n` +
@@ -1813,7 +1891,7 @@ async function startBot(config) {
             `${selectedMethod.details || 'لا توجد تعليمات محددة'}\n\n` +
             `━━━━━━━━━━━━━━━━━━\n` +
             `🚀 *بعد إتمام التحويل:*\n` +
-            `أرسل *صورة الوصل* أو *معرف العملية (Binance Pay ID / TxID)* هنا في المحادثة مباشرة لتأكيد طلبك وتثبيته فوراً!`;
+            `${afterPaymentText}`;
 
           const payActionKb = new InlineKeyboard()
             .text('🔄 فحص حالة المؤقت والدفع', `tgstore_chk_${orderId}`)
@@ -2121,8 +2199,7 @@ async function startBot(config) {
           // B. Wallet & Payment Methods
           if ((b3 && cleanText === b3) ||
               /^(💳|💰|👛|💵)?\s*(طرق الدفع|وسائل الدفع|شحن الرصيد|المحفظة|wallet|top up|pay)/i.test(cleanText)) {
-            const walletText = storeConfig.walletInfo ||
-              '*معلومات وطرق الدفع المعتمدة:*\n\n• بريدي موب (BaridiMob)\n• بينانس (Binance Pay / USDT)\n• الحساب البريدي الجاري (CCP)\n\nبعد التحويل، يرجى إرسال صورة وصل الدفع أو معرف العملية هنا لتأكيد طلبك فوراً!';
+            const walletText = getStoreWalletInfo(storeConfig);
             const kb = new InlineKeyboard()
               .text('🛍️ تصفح المنتجات الآن', 'tgstore_main')
               .row()
@@ -2393,7 +2470,7 @@ async function startBot(config) {
         // 4. Any other message in Store Mode: Direct to Store Buttons (0 LLM Calls)
         const storePrompt =
           `مرحباً بك في متجر *${currentConfig.businessName || currentConfig.botName}*!\n\n` +
-          `• إذا قمت بالتحويل، يرجى إرسال *صورة الوصل* أو *معرف الطلب (Binance Pay ID / CCP Ref)* هنا مباشرة لتأكيد طلبك.\n` +
+          `• بعد إتمام التحويل، يرجى إرسال *صورة الوصل* أو *إثبات الدفع* هنا مباشرة لتأكيد طلبك وتثبيته فوراً.\n` +
           `• لتصفح العروض وشراء الباقات أو شحن المحفظة، يرجى استخدام أزرار المتجر أدناه 👇`;
 
         const keyboard = buildStoreKeyboard(storeConfig);

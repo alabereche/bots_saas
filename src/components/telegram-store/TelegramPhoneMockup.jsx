@@ -30,6 +30,7 @@ export default function TelegramPhoneMockup({
   forceSubscribeChannel = '',
   walletInfo = '',
   rulesText = '',
+  currency = 'دج',
   paymentMethods = [],
   paymentTimeoutMinutes = 15,
   products = [],
@@ -412,48 +413,82 @@ export default function TelegramPhoneMockup({
                           width: '100%',
                         }}
                       >
-                        {row.map((btn, bIdx) => (
-                          <button
-                            key={btn.id || bIdx}
-                            onClick={() => {
-                              if (btn.action === 'back_main') {
-                                setActiveSubmenu(null);
-                              } else {
-                                handleButtonClick(btn);
+                        {row.map((btn, bIdx) => {
+                          const isOutOfStock = btn.isAvailable === false || btn.stockStatus === 'out_of_stock' || btn.stockCount === 0;
+                          const effectiveStyle = btn.buttonStyle && btn.buttonStyle !== 'auto'
+                            ? btn.buttonStyle
+                            : (btn.action === 'product' ? (isOutOfStock ? 'danger' : 'success') : 'default');
+
+                          let btnBg = '#2b5278';
+                          let btnBorder = '1px solid rgba(255,255,255,0.08)';
+                          if (btn.action === 'back_main') {
+                            btnBg = '#3e4a59';
+                          } else if (effectiveStyle === 'success') {
+                            btnBg = '#166534'; // Telegram green
+                            btnBorder = '1px solid rgba(74, 222, 128, 0.4)';
+                          } else if (effectiveStyle === 'danger') {
+                            btnBg = '#7f1d1d'; // Telegram red/brown
+                            btnBorder = '1px solid rgba(248, 113, 113, 0.4)';
+                          } else if (effectiveStyle === 'primary') {
+                            btnBg = '#1e40af'; // Telegram primary
+                            btnBorder = '1px solid rgba(96, 165, 250, 0.4)';
+                          }
+
+                          let labelText = stripEmojis(btn.text);
+                          if (btn.action === 'product') {
+                            if (isOutOfStock) {
+                              if (!labelText.includes('نفدت') && !labelText.includes('غير متوفر')) {
+                                labelText += ' | ❌ نفدت الكمية';
                               }
-                            }}
-                            title={`نقر تجريبي: ${btn.text}`}
-                            style={{
-                              flex: 1,
-                              background: btn.action === 'back_main' ? '#3e4a59' : '#2b5278',
-                              border: 'none',
-                              borderRadius: '7px',
-                              color: '#ffffff',
-                              padding: '7px 4px',
-                              fontSize: row.length >= 3 ? '9.5px' : '11px',
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              gap: '4px',
-                              transition: 'background 0.15s ease, transform 0.1s ease',
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
-                            }}
-                            onMouseEnter={(e) => { e.currentTarget.style.background = '#356391'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.background = btn.action === 'back_main' ? '#3e4a59' : '#2b5278'; }}
-                          >
-                            {btn.action === 'back_main' ? (
-                              <ArrowRight size={12} />
-                            ) : (
-                              btn.icon && <StoreIcon icon={btn.icon} size={row.length >= 3 ? 11 : 13} />
-                            )}
-                            <span>{stripEmojis(btn.text)}</span>
-                          </button>
-                        ))}
+                            } else if (btn.stockCount !== undefined && btn.stockCount !== null && String(btn.stockCount).trim() !== '') {
+                              const badge = `📦 ${String(btn.stockCount).trim()}`;
+                              if (!labelText.includes(badge) && !labelText.includes('متوفر')) {
+                                labelText += ` | ${badge}`;
+                              }
+                            }
+                          }
+
+                          return (
+                            <button
+                              key={btn.id || bIdx}
+                              onClick={() => {
+                                if (btn.action === 'back_main') {
+                                  setActiveSubmenu(null);
+                                } else {
+                                  handleButtonClick(btn);
+                                }
+                              }}
+                              title={`نقر تجريبي: ${btn.text}`}
+                              style={{
+                                flex: 1,
+                                background: btnBg,
+                                border: btnBorder,
+                                borderRadius: '7px',
+                                color: '#ffffff',
+                                padding: '7px 4px',
+                                fontSize: row.length >= 3 ? '9.5px' : '11px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '4px',
+                                transition: 'background 0.15s ease, transform 0.1s ease',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                              }}
+                            >
+                              {btn.action === 'back_main' ? (
+                                <ArrowRight size={12} />
+                              ) : (
+                                btn.icon && <StoreIcon icon={btn.icon} size={row.length >= 3 ? 11 : 13} />
+                              )}
+                              <span>{labelText}</span>
+                            </button>
+                          );
+                        })}
                       </div>
                     ))
                   )}
@@ -483,7 +518,7 @@ export default function TelegramPhoneMockup({
                   </div>
                   <div style={{ fontSize: '12px', fontWeight: 800, color: '#10b981', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <Coins size={13} color="#10b981" />
-                    <span>السعر: {selectedProduct.price} دج</span>
+                    <span>السعر: {selectedProduct.price} {currency || 'دج'}</span>
                   </div>
                   <div style={{ fontSize: '10.5px', color: '#b9c7d4', lineHeight: 1.5, marginBottom: '10px' }}>
                     {selectedProduct.description || 'تسليم فوري ومباشر بعد تأكيد الدفع.'}
@@ -560,7 +595,7 @@ export default function TelegramPhoneMockup({
                     <div>🧾 <strong>الطلب:</strong> #53880</div>
                     <div>📦 <strong>المنتج:</strong> {selectedProduct.name}</div>
                     <div>🔢 <strong>الكمية:</strong> 1</div>
-                    <div>💰 <strong>المجموع:</strong> {selectedProduct.price} دج</div>
+                    <div>💰 <strong>المجموع:</strong> {selectedProduct.price} {currency || 'دج'}</div>
                     <div>🏷️ <strong>المرجع:</strong> BF3195BC277D</div>
                     <div style={{ color: '#c084fc' }}>⏳ <strong>مهلة الدفع:</strong> {paymentTimeoutMinutes} دقيقة</div>
                     <div style={{ marginTop: '6px', fontWeight: 700, color: '#38bdf8' }}>💳 اختر طريقة الدفع:</div>
@@ -655,7 +690,7 @@ export default function TelegramPhoneMockup({
 
                 <div style={{ fontSize: '10.5px', color: '#e0e6ed', lineHeight: 1.5, marginBottom: '8px' }}>
                   <div>🧾 <strong>رقم الطلب:</strong> #53880</div>
-                  <div>💰 <strong>المبلغ المطلوب:</strong> {selectedProduct?.price || '1000'} دج</div>
+                  <div>💰 <strong>المبلغ المطلوب:</strong> {selectedProduct?.price || '1000'} {currency || 'دج'}</div>
                 </div>
 
                 <div style={{
@@ -674,7 +709,8 @@ export default function TelegramPhoneMockup({
                 </div>
 
                 <div style={{ fontSize: '9.5px', color: '#94a3b8', lineHeight: 1.4, marginBottom: '9px' }}>
-                  📌 <strong>تعليمات:</strong> حول المبلغ قبل انتهاء المؤقت ثم أرسل صورة الوصل أو معرف الدفع (Binance Pay ID) هنا مباشرة لتأكيد طلبك!
+                  📌 <strong>تعليمات ما بعد التحويل:</strong> {selectedMethod.afterPaymentInstruction ||
+                    'أرسل صورة الوصل أو إثبات الدفع هنا في المحادثة مباشرة لتأكيد طلبك وتثبيته فوراً!'}
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>

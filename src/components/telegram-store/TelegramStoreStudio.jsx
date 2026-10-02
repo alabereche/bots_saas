@@ -40,31 +40,14 @@ import {
   DollarSign,
 } from 'lucide-react';
 
-// Default dynamic payment methods
+// Default dynamic payment methods (clean and customizable)
 export const DEFAULT_PAYMENT_METHODS = [
   {
-    id: 'binance',
-    name: '🔸 الدفع عبر Binance',
-    details: 'معرف الدفع (Binance Pay ID): 123456789\nأو تحويل USDT على شبكة BEP20:\n0x1234567890abcdef1234567890abcdef12345678',
+    id: 'pm_custom_1',
+    name: '💳 وسيلة دفع (اضغط لتعديل الاسم)',
+    details: 'اكتب هنا تفاصيل الحساب، رقم المعرف، أو عنوان المحفظة والتعليمات...',
+    afterPaymentInstruction: '',
     enabled: true,
-  },
-  {
-    id: 'baridimob',
-    name: '💳 بريدي موب (BaridiMob)',
-    details: 'RIP: 00799999000123456789\nالاسم: MOHAMED ALGERIA',
-    enabled: true,
-  },
-  {
-    id: 'ccp',
-    name: '📬 الحساب البريدي الجاري (CCP)',
-    details: 'رقم الحساب: 1234567 مفتاح 89\nالاسم: محمد الجزائري',
-    enabled: true,
-  },
-  {
-    id: 'usdt',
-    name: '₮ العملات الرقمية USDT (TRC20)',
-    details: 'العنوان: TXYz1234567890abcdef1234567890abcdef\nالشبكة: TRC20 (Tron)',
-    enabled: false,
   },
 ];
 
@@ -205,6 +188,8 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
   const [logsChannelId, setLogsChannelId] = useState(initialStore.logsChannelId || '');
   const [walletInfo, setWalletInfo] = useState(initialStore.walletInfo || STORE_TEMPLATES.subscriptions.walletInfo);
   const [rulesText, setRulesText] = useState(initialStore.rulesText || STORE_TEMPLATES.subscriptions.rulesText);
+  const [currency, setCurrency] = useState(initialStore.currency || 'دج');
+  const [afterPaymentInstructions, setAfterPaymentInstructions] = useState(initialStore.afterPaymentInstructions || '');
   const [paymentTimeoutMinutes, setPaymentTimeoutMinutes] = useState(initialStore.paymentTimeoutMinutes ?? 15);
   const [paymentMethods, setPaymentMethods] = useState(() => parsePaymentMethods(initialStore));
   const [bottomKeyboardEnabled, setBottomKeyboardEnabled] = useState(initialStore.bottomKeyboardEnabled ?? true);
@@ -248,6 +233,8 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
       if (s.logsChannelId !== undefined) setLogsChannelId(s.logsChannelId);
       if (s.walletInfo) setWalletInfo(s.walletInfo);
       if (s.rulesText) setRulesText(s.rulesText);
+      if (s.currency) setCurrency(s.currency);
+      if (s.afterPaymentInstructions !== undefined) setAfterPaymentInstructions(s.afterPaymentInstructions);
       if (s.paymentTimeoutMinutes !== undefined) setPaymentTimeoutMinutes(s.paymentTimeoutMinutes);
       if (s.bottomKeyboardEnabled !== undefined) setBottomKeyboardEnabled(s.bottomKeyboardEnabled);
       if (s.supportUsername !== undefined) setSupportUsername(s.supportUsername);
@@ -358,6 +345,11 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
       action: btn.action || 'product',
       productId: btn.productId || '',
       productPrice: btn.productPrice || '',
+      currency: btn.currency || currency || 'دج',
+      isAvailable: btn.isAvailable !== false && btn.stockStatus !== 'out_of_stock',
+      stockStatus: btn.stockStatus || (btn.isAvailable === false ? 'out_of_stock' : 'available'),
+      stockCount: btn.stockCount !== undefined && btn.stockCount !== null ? btn.stockCount : '',
+      buttonStyle: btn.buttonStyle || 'auto',
       url: btn.url || '',
       customMessage: btn.customMessage || '',
       subButtons: btn.subButtons || [],
@@ -375,6 +367,11 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
       action: btnFormData.action,
       productId: btnFormData.productId || '',
       productPrice: btnFormData.productPrice || '',
+      currency: btnFormData.currency || currency || 'دج',
+      isAvailable: btnFormData.stockStatus === 'available',
+      stockStatus: btnFormData.stockStatus || 'available',
+      stockCount: btnFormData.stockCount !== '' ? btnFormData.stockCount : undefined,
+      buttonStyle: btnFormData.buttonStyle || 'auto',
       url: btnFormData.url || '',
       customMessage: btnFormData.customMessage || '',
       subButtons: btnFormData.action === 'submenu' ? (btnFormData.subButtons || []) : undefined,
@@ -388,12 +385,13 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
   const addPaymentMethod = () => {
     const newMethod = {
       id: `pm_${Date.now()}`,
-      name: 'طريقة دفع جديدة',
-      details: 'اكتب هنا تفاصيل الحساب، رقم المعرف، أو عنوان المحفظة والتعليمات...',
+      name: '',
+      details: '',
+      afterPaymentInstruction: '',
       enabled: true,
     };
     setPaymentMethods([...paymentMethods, newMethod]);
-    toast.success('تمت إضافة طريقة دفع جديدة');
+    toast.success('تمت إضافة وسيلة دفع مخصصة (فارغة)');
   };
 
   const updatePaymentMethod = (id, field, value) => {
@@ -401,11 +399,8 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
   };
 
   const removePaymentMethod = (id) => {
-    if (paymentMethods.length <= 1) {
-      toast.error('يجب أن تحتوي قائمة الدفع على طريقة واحدة على الأقل');
-      return;
-    }
     setPaymentMethods(paymentMethods.filter(m => m.id !== id));
+    toast.success('تم حذف وسيلة الدفع');
   };
 
   const togglePaymentMethod = (id) => {
@@ -426,12 +421,15 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
         logsChannelId: logsChannelId.trim(),
         walletInfo: walletInfo.trim(),
         rulesText: rulesText.trim(),
+        currency: currency.trim() || 'دج',
+        afterPaymentInstructions: (afterPaymentInstructions || '').trim(),
         paymentTimeoutMinutes: Number(paymentTimeoutMinutes) || 15,
         paymentMethodsJson: JSON.stringify(paymentMethods),
         paymentMethods: paymentMethods.map(m => ({
           id: m.id || `pm_${Date.now()}`,
           name: (m.name || '').trim(),
           details: (m.details || '').trim(),
+          afterPaymentInstruction: (m.afterPaymentInstruction || '').trim(),
           enabled: !!m.enabled,
         })),
         bottomKeyboardEnabled: !!bottomKeyboardEnabled,
@@ -1080,14 +1078,103 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
               <div>
                 <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                   <CreditCard size={18} color="#c084fc" />
-                  <span>طرق الدفع والشحن ومؤقت إغلاق الصفقات</span>
+                  <span>طرق الدفع والعملة ومؤقت إغلاق الصفقات</span>
                 </h3>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', margin: '4px 0 0' }}>
-                  حدد بحرية تامة وسائل الدفع المقبولة في متجرك ومهلة المؤقت التنازلي لإتمام التحويل قبل إغلاق الطلب.
+                  حدد عملة المتجر، وسائل الدفع المقبولة، تعليمات ما بعد التحويل، ومهلة المؤقت التنازلي لإغلاق الطلب.
                 </p>
               </div>
 
-              {/* 1. Payment Countdown Timer */}
+              {/* 1. Store Currency Setting */}
+              <div className="tg-field-card">
+                <div className="tg-field-header">
+                  <div className="tg-field-title-group">
+                    <span className="tg-field-icon-badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399' }}>
+                      <Coins size={16} />
+                    </span>
+                    <div>
+                      <h4 className="tg-field-title" style={{ color: '#34d399' }}>
+                        العملة المعتمدة للمتجر (Store Currency)
+                      </h4>
+                      <p className="tg-field-hint">
+                        العملة التي تظهر لزبائنك في الأسعار، فواتير الشراء، وإشعارات الدفع (افتراضياً: دج)
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <input
+                    type="text"
+                    value={currency}
+                    onChange={(e) => setCurrency(e.target.value)}
+                    placeholder="دج"
+                    className="tg-input"
+                    style={{ width: '100px', textAlign: 'center', fontWeight: 800, fontSize: '1rem', color: '#34d399' }}
+                  />
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {[
+                      { label: 'دج (الجزائر)', val: 'دج' },
+                      { label: '$ (دولار أمريكي)', val: '$' },
+                      { label: '€ (يورو)', val: '€' },
+                      { label: 'ر.س (السعودية)', val: 'ر.س' },
+                      { label: 'د.إ (الإمارات)', val: 'د.إ' },
+                      { label: 'USDT (كريبتو)', val: 'USDT' },
+                    ].map(c => (
+                      <button
+                        key={c.val}
+                        type="button"
+                        onClick={() => setCurrency(c.val)}
+                        className="btn btn-secondary btn-sm"
+                        style={{
+                          fontSize: '0.78rem',
+                          padding: '4px 10px',
+                          borderRadius: '8px',
+                          borderColor: currency === c.val ? '#34d399' : undefined,
+                          color: currency === c.val ? '#34d399' : undefined,
+                          background: currency === c.val ? 'rgba(16, 185, 129, 0.15)' : undefined,
+                          fontWeight: currency === c.val ? 800 : 500,
+                        }}
+                      >
+                        {c.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Default Post-Payment Proof Instructions */}
+              <div className="tg-field-card">
+                <div className="tg-field-header">
+                  <div className="tg-field-title-group">
+                    <span className="tg-field-icon-badge" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>
+                      <FileText size={16} />
+                    </span>
+                    <div>
+                      <h4 className="tg-field-title" style={{ color: '#38bdf8' }}>
+                        تعليمات ما بعد التحويل (رسالة إثبات الدفع)
+                      </h4>
+                      <p className="tg-field-hint">
+                        التعليمات التي يرسلها البوت للزبون بعد اختيار وسيلة الدفع لإرشاده بكيفية إثبات التحويل
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <textarea
+                  rows="2"
+                  value={afterPaymentInstructions}
+                  onChange={(e) => setAfterPaymentInstructions(e.target.value)}
+                  placeholder="أرسل صورة الوصل أو إثبات التحويل هنا في المحادثة مباشرة لتأكيد طلبك وتثبيته فوراً!"
+                  className="tg-textarea"
+                  style={{ fontSize: '0.84rem' }}
+                />
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginTop: '4px', display: 'block' }}>
+                  💡 يمكنك أيضاً تخصيص تعليمات مستقلة لكل وسيلة دفع أدناه (مثلاً: للفليكسي طلب رسالة SMS ورقم الهاتف، ولبينانس طلب TxID).
+                </span>
+              </div>
+
+              {/* 3. Payment Countdown Timer */}
               <div className="tg-field-card">
                 <div className="tg-field-header">
                   <div className="tg-field-title-group">
@@ -1157,10 +1244,10 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
                     </span>
                     <div>
                       <h4 className="tg-field-title">
-                        وسائل الدفع والشحن المتاحة ({paymentMethods.length})
+                        وسائل الدفع والشحن المخصصة ({paymentMethods.length})
                       </h4>
                       <p className="tg-field-hint">
-                        تظهر كأزرار تفاعلية أنيقة عند اختيار الزبون للباقة أو المنتج لإتمام الشراء
+                        يمكنك إضافة أي وسيلة دفع تريدها وكتابة اسم الزر وبيانات الحساب وتعليمات ما بعد التحويل بحرية تامة
                       </p>
                     </div>
                   </div>
@@ -1172,83 +1259,122 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
                     style={{ gap: '5px', fontSize: '0.78rem', borderRadius: '8px' }}
                   >
                     <Plus size={14} />
-                    <span>إضافة وسيلة دفع</span>
+                    <span>إضافة وسيلة دفع مخصصة (فارغة)</span>
                   </button>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {paymentMethods.map((method, idx) => (
-                    <div key={method.id || idx} className="tg-payment-method-card">
-                      {/* Top Header of Card */}
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '220px' }}>
-                          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-tertiary)', width: '20px' }}>
-                            #{idx + 1}
-                          </span>
-                          <input
-                            type="text"
-                            value={method.name}
-                            onChange={(e) => updatePaymentMethod(method.id, 'name', e.target.value)}
-                            placeholder="اسم الزر في تيليغرام (مثال: 🔸 الدفع عبر Binance)"
-                            className="tg-input"
-                            style={{ flex: 1, fontWeight: 700, fontSize: '0.86rem' }}
+                {paymentMethods.length === 0 ? (
+                  <div style={{
+                    textAlign: 'center',
+                    padding: '24px',
+                    background: 'rgba(255,255,255,0.02)',
+                    borderRadius: '12px',
+                    border: '1px dashed var(--border-default)',
+                  }}>
+                    <CreditCard size={28} color="var(--text-tertiary)" style={{ margin: '0 auto 8px', display: 'block' }} />
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '12px' }}>
+                      لا توجد وسائل دفع مضافة حالياً. اضغط أدناه لإضافة وسيلة دفع مخصصة فارغة وكتابة بياناتك بحرية.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={addPaymentMethod}
+                      className="btn btn-primary btn-sm"
+                      style={{ gap: '6px' }}
+                    >
+                      <Plus size={15} />
+                      <span>إضافة وسيلة دفع مخصصة الآن</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {paymentMethods.map((method, idx) => (
+                      <div key={method.id || idx} className="tg-payment-method-card">
+                        {/* Top Header of Card */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '220px' }}>
+                            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-tertiary)', width: '20px' }}>
+                              #{idx + 1}
+                            </span>
+                            <input
+                              type="text"
+                              value={method.name}
+                              onChange={(e) => updatePaymentMethod(method.id, 'name', e.target.value)}
+                              placeholder="اسم وسيلة الدفع (مثال: فليكسي أوريدو، بريدي موب، كاش، PayPal...)"
+                              className="tg-input"
+                              style={{ flex: 1, fontWeight: 700, fontSize: '0.86rem' }}
+                            />
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 600, color: method.enabled ? '#34d399' : 'var(--text-muted)', cursor: 'pointer' }}>
+                              <input
+                                type="checkbox"
+                                checked={method.enabled}
+                                onChange={() => togglePaymentMethod(method.id)}
+                                style={{ accentColor: '#10b981' }}
+                              />
+                              <span>{method.enabled ? 'مفعّلة' : 'معطّلة'}</span>
+                            </label>
+
+                            <button
+                              type="button"
+                              onClick={() => removePaymentMethod(method.id)}
+                              style={{ background: 'transparent', border: 'none', color: '#f87171', cursor: 'pointer', padding: '4px' }}
+                              title="حذف وسيلة الدفع"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Instructions / Account details textarea */}
+                        <div>
+                          <label style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
+                            بيانات التحويل للحساب (تظهر للزبون عند اختيار هذه الوسيلة):
+                          </label>
+                          <textarea
+                            rows="3"
+                            value={method.details}
+                            onChange={(e) => updatePaymentMethod(method.id, 'details', e.target.value)}
+                            placeholder="اكتب هنا تفاصيل الحساب، رقم الهاتف، أو التعليمات التي يراها الزبون...&#10;مثال: ارسل فليكسي لهذا الرقم 055... أو RIP: 0079..."
+                            className="tg-textarea"
+                            style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
                           />
                         </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 600, color: method.enabled ? '#34d399' : 'var(--text-muted)', cursor: 'pointer' }}>
-                            <input
-                              type="checkbox"
-                              checked={method.enabled}
-                              onChange={() => togglePaymentMethod(method.id)}
-                              style={{ accentColor: '#10b981' }}
-                            />
-                            <span>{method.enabled ? 'مفعّلة' : 'معطّلة'}</span>
+                        {/* Specific After-Payment Proof Instructions */}
+                        <div>
+                          <label style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
+                            تعليمات ما بعد التحويل (ماذا يرسل الزبون لتأكيد الدفع؟):
                           </label>
+                          <input
+                            type="text"
+                            value={method.afterPaymentInstruction || ''}
+                            onChange={(e) => updatePaymentMethod(method.id, 'afterPaymentInstruction', e.target.value)}
+                            placeholder="مثال: أرسل صورة رسالة الـ SMS أو رقم الهاتف الذي حوّلت منه للتأكيد الفوري!"
+                            className="tg-input"
+                            style={{ fontSize: '0.8rem' }}
+                          />
+                        </div>
 
-                          <button
-                            type="button"
-                            onClick={() => removePaymentMethod(method.id)}
-                            style={{ background: 'transparent', border: 'none', color: '#f87171', cursor: 'pointer', padding: '4px' }}
-                            title="حذف وسيلة الدفع"
-                          >
-                            <Trash2 size={15} />
-                          </button>
+                        {/* Mini Live Preview Badge */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-tertiary)', borderTop: '1px solid var(--border-subtle)', paddingTop: '6px' }}>
+                          <span>معاينة الزر كما يراه الزبون:</span>
+                          <div style={{
+                            background: 'rgba(255, 255, 255, 0.06)',
+                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                            borderRadius: '6px',
+                            padding: '3px 10px',
+                            color: 'var(--text-primary)',
+                            fontWeight: 700,
+                          }}>
+                            {method.name || 'زر بدون اسم'}
+                          </div>
                         </div>
                       </div>
-
-                      {/* Instructions / Account details textarea */}
-                      <div>
-                        <label style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
-                          بيانات الحساب / رقم المحفظة / التعليمات (تظهر للزبون عند النقر):
-                        </label>
-                        <textarea
-                          rows="3"
-                          value={method.details}
-                          onChange={(e) => updatePaymentMethod(method.id, 'details', e.target.value)}
-                          placeholder="مثال:&#10;معرف الدفع (Binance Pay ID): 123456789&#10;أو RIP: 00799999000123456789 (الاسم: ...)"
-                          className="tg-textarea"
-                          style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
-                        />
-                      </div>
-
-                      {/* Mini Live Preview Badge */}
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-tertiary)', borderTop: '1px solid var(--border-subtle)', paddingTop: '6px' }}>
-                        <span>معاينة الزر كما يراه الزبون:</span>
-                        <div style={{
-                          background: 'rgba(255, 255, 255, 0.06)',
-                          border: '1px solid rgba(255, 255, 255, 0.12)',
-                          borderRadius: '6px',
-                          padding: '3px 10px',
-                          color: 'var(--text-primary)',
-                          fontWeight: 700,
-                        }}>
-                          {method.name || 'زر بدون اسم'}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1760,6 +1886,7 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
             forceSubscribeChannel={forceSubscribeEnabled ? forceSubscribeChannel : ''}
             walletInfo={walletInfo}
             rulesText={rulesText}
+            currency={currency}
             paymentMethods={paymentMethods}
             paymentTimeoutMinutes={paymentTimeoutMinutes}
             products={bot?.products || []}
@@ -1861,18 +1988,143 @@ export default function TelegramStoreStudio({ bot, onUpdateBot, isPro = true }) 
 
             {/* Conditional fields based on action */}
             {btnFormData.action === 'product' && (
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {/* Price & Currency */}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <div style={{ flex: 2 }}>
+                    <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '3px' }}>
+                      السعر المقترح:
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="مثال: 450"
+                      value={btnFormData.productPrice}
+                      onChange={(e) => setBtnFormData({ ...btnFormData, productPrice: e.target.value })}
+                      className="tg-input"
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '3px' }}>
+                      العملة:
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={currency || 'دج'}
+                      value={btnFormData.currency || currency || 'دج'}
+                      onChange={(e) => setBtnFormData({ ...btnFormData, currency: e.target.value })}
+                      className="tg-input"
+                      style={{ textAlign: 'center', fontWeight: 700 }}
+                    />
+                  </div>
+                </div>
+
+                {/* Stock Status & Availability (Green vs Red Button) */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: 700 }}>
+                    حالة التوفر ولون الزر في تيليغرام:
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setBtnFormData({ ...btnFormData, stockStatus: 'available', buttonStyle: 'success' })}
+                      className="btn btn-sm"
+                      style={{
+                        flex: 1,
+                        background: btnFormData.stockStatus !== 'out_of_stock' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(255,255,255,0.05)',
+                        border: btnFormData.stockStatus !== 'out_of_stock' ? '1px solid #22c55e' : '1px solid rgba(255,255,255,0.1)',
+                        color: btnFormData.stockStatus !== 'out_of_stock' ? '#4ade80' : 'var(--text-muted)',
+                        fontWeight: 700,
+                        padding: '6px 8px',
+                        borderRadius: '8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <span>🟢</span>
+                      <span>متوفر (زر أخضر)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setBtnFormData({ ...btnFormData, stockStatus: 'out_of_stock', buttonStyle: 'danger' })}
+                      className="btn btn-sm"
+                      style={{
+                        flex: 1,
+                        background: btnFormData.stockStatus === 'out_of_stock' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255,255,255,0.05)',
+                        border: btnFormData.stockStatus === 'out_of_stock' ? '1px solid #ef4444' : '1px solid rgba(255,255,255,0.1)',
+                        color: btnFormData.stockStatus === 'out_of_stock' ? '#f87171' : 'var(--text-muted)',
+                        fontWeight: 700,
+                        padding: '6px 8px',
+                        borderRadius: '8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <span>🔴</span>
+                      <span>نفدت الكمية (زر أحمر)</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Stock Count (Quantity Badge) */}
+                <div>
                   <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '3px' }}>
-                    السعر المقترح (دج):
+                    الكمية المتوفرة في المخزن (اختياري — يعرض وسم 📦):
                   </label>
                   <input
-                    type="number"
-                    placeholder="مثال: 1000"
-                    value={btnFormData.productPrice}
-                    onChange={(e) => setBtnFormData({ ...btnFormData, productPrice: e.target.value })}
+                    type="text"
+                    placeholder="مثال: 30 أو 12 (يظهر على الزر: 📦 30)"
+                    value={btnFormData.stockCount || ''}
+                    onChange={(e) => setBtnFormData({ ...btnFormData, stockCount: e.target.value })}
                     className="tg-input"
                   />
+                </div>
+
+                {/* Live Button Preview inside modal */}
+                <div style={{
+                  background: '#0d1017',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '10px',
+                  padding: '10px',
+                  marginTop: '4px',
+                }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Sparkles size={11} color="#38bdf8" />
+                    <span>معاينة الزر كما سيظهر بالضبط في تيليغرام:</span>
+                  </div>
+                  <div style={{
+                    background: btnFormData.stockStatus === 'out_of_stock' ? '#7f1d1d' : '#166534',
+                    border: btnFormData.stockStatus === 'out_of_stock' ? '1px solid rgba(248,113,113,0.4)' : '1px solid rgba(74,222,128,0.4)',
+                    color: '#ffffff',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    fontSize: '11.5px',
+                    fontWeight: 700,
+                    textAlign: 'center',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                  }}>
+                    {btnFormData.icon && <StoreIcon icon={btnFormData.icon} size={13} />}
+                    <span>{btnFormData.text || 'اسم المنتج'}</span>
+                    {btnFormData.productPrice && (
+                      <span style={{ opacity: 0.9 }}>
+                        | {btnFormData.productPrice} {btnFormData.currency || currency || 'دج'}
+                      </span>
+                    )}
+                    {btnFormData.stockStatus === 'out_of_stock' ? (
+                      <span style={{ color: '#fca5a5' }}>| ❌ نفدت الكمية</span>
+                    ) : (
+                      btnFormData.stockCount && <span>| 📦 {btnFormData.stockCount}</span>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
